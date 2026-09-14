@@ -177,6 +177,8 @@ sessions
   member_id → members null, referral_code_id → referral_codes null
   free_minutes_used int default 0
   pricing_snapshot jsonb, total_cents, gst_cents
+  closed_in_shift_id → shifts null   -- the till open when it was closed (per-shift reporting)
+  void_reason
 
   UNIQUE (resource_id) WHERE status = 'open'
 ```
@@ -191,13 +193,15 @@ shifts
   expected_cash_cents, counted_cash_cents, cash_variance_cents
   pos_card_total_cents, terminal_card_total_cents, card_variance_cents
   flagged boolean
-  UNIQUE (staff_id) WHERE closed_at IS NULL
+  closed_by → staff                       -- staff_id = opened by
+  UNIQUE ((true)) WHERE closed_at IS NULL  -- one open shift venue-wide (D46)
 
 payments
   booking_id → bookings null, session_id → sessions null, member_id → members null
   method       text check in ('cash','card_terminal','stripe','free')
   amount_cents, gst_cents
   external_ref text null         -- terminal receipt no. / Stripe PI / invoice id
+  receipt_no   bigint identity unique  -- sequential receipt / tax invoice number
   staff_id → staff null, shift_id → shifts null
 
 refunds
@@ -222,6 +226,10 @@ price_overrides
 | Function | Purpose |
 |---|---|
 | `expire_stale_holds()` | Marks `held` bookings past `hold_expires_at` as `expired`. Returns the count. |
+| `pos_open_shift`, `pos_cash_movement`, `pos_shift_totals`, `pos_close_shift` | Shared till: open with float, paid in/out with reason, expected cash/card totals, close with variances and flagging (refused while sessions are open). |
+| `pos_open_walk_in`, `pos_arrive_booking`, `pos_mark_no_show` | Opening hours and last-open check, booked-now check, one open session per resource; check-in from 15 min before start; no-show after the hold. |
+| `pos_close_session(session, staff, payload)` | One transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
+| `pos_void_session` | Open walk-in: void. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
 | `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
 
 ## Platform

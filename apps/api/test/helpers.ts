@@ -3,12 +3,30 @@ import { createClient } from "@supabase/supabase-js";
 import { createServiceClient, type Db } from "@raceground/db";
 import { inject } from "vitest";
 import { createApp } from "../src/app.js";
+import type { Clock } from "../src/context.js";
 import type { StaffRole } from "../src/context.js";
 import { loadEnv, type Env } from "../src/env.js";
 import { OPERATOR_HEADER } from "../src/middleware/auth.js";
 import { createStaff } from "../src/services/staff.js";
 
 export const PASSWORD = "correct-horse-battery";
+
+/** A clock tests can move. Defaults to real time. */
+export class TestClock implements Clock {
+  private fixed: Date | null = null;
+  now(): Date {
+    return this.fixed ? new Date(this.fixed) : new Date();
+  }
+  set(iso: string | Date): void {
+    this.fixed = new Date(iso);
+  }
+  advanceMinutes(minutes: number): void {
+    this.fixed = new Date(this.now().getTime() + minutes * 60_000);
+  }
+  real(): void {
+    this.fixed = null;
+  }
+}
 
 export function testContext(overrides: Record<string, string> = {}) {
   const supabase = inject("supabase");
@@ -19,8 +37,9 @@ export function testContext(overrides: Record<string, string> = {}) {
     ...overrides,
   });
   const db = createServiceClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-  const app = createApp({ env, db });
-  return { env, db, app, supabase };
+  const clock = new TestClock();
+  const app = createApp({ env, db, clock });
+  return { env, db, app, supabase, clock };
 }
 
 export type TestContext = ReturnType<typeof testContext>;

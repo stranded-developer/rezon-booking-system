@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
-import { ApiError, mapDbError } from "../errors.js";
+import { mapDbError } from "../errors.js";
 import { requestIp, writeAudit } from "../lib/audit.js";
 import { signOperatorToken } from "../lib/operator-token.js";
-import { PIN_PATTERN, verifyPin } from "../lib/pin.js";
+import { PIN_PATTERN } from "../lib/pin.js";
 import { OPERATOR_HEADER, requireOperator, requireStaffDevice } from "../middleware/auth.js";
+import { checkStaffPin } from "../services/pin-check.js";
 import { validate } from "../validate.js";
+import { posOpsRoutes } from "./pos-floor.js";
 
 export const posRoutes = new Hono<AppEnv>();
 
@@ -35,47 +37,7 @@ posRoutes.post("/operator", validate("json", OperatorBody), async (c) => {
   const device = c.get("device");
   const { staffId, pin } = c.req.valid("json");
 
-  const { data: staff, error } = await db
-    .from("staff")
-    .select("id, display_name, role, active, pin_hash, pin_locked_until")
-    .eq("id", staffId)
-    .maybeSingle();
-  if (error) throw mapDbError(error);
-  // Unknown and inactive staff get the same answer as a wrong PIN.
-  if (!staff || !staff.active) throw new ApiError(401, "pin_invalid", "Incorrect PIN");
-
-  if (staff.pin_locked_until && new Date(staff.pin_locked_until) > new Date()) {
-    throw new ApiError(423, "pin_locked", "Too many attempts. Try again later.", { lockedUntil: staff.pin_locked_until });
-  }
-
-  const correct = await verifyPin(pin, staff.pin_hash);
-  const { data: attempt, error: attemptError } = await db
-    .rpc("register_pin_attempt", {
-      p_staff_id: staffId,
-      p_success: correct,
-      p_max_attempts: env.PIN_MAX_ATTEMPTS,
-      p_lock_minutes: env.PIN_LOCK_MINUTES,
-    })
-    .single();
-  if (attemptError || !attempt) throw attemptError ? mapDbError(attemptError) : new ApiError(500, "internal", "PIN check failed");
-
-  if (attempt.just_locked) {
-    await writeAudit(db, {
-      actorStaffId: device.id,
-      action: "staff.pin_locked",
-      entity: "staff",
-      entityId: staffId,
-      after: { locked_until: attempt.locked_until },
-      ip: requestIp(c),
-    });
-  }
-
-  if (!attempt.accepted) {
-    if (attempt.locked_until) {
-      throw new ApiError(423, "pin_locked", "Too many attempts. Try again later.", { lockedUntil: attempt.locked_until });
-    }
-    throw new ApiError(401, "pin_invalid", "Incorrect PIN", { attemptsRemaining: env.PIN_MAX_ATTEMPTS - attempt.failed_count });
-  }
+  const staff = await checkStaffPin(db, env, staffId, pin, { actorStaffId: device.id, ip: requestIp(c) });
 
   await writeAudit(db, {
     actorStaffId: staffId,
@@ -89,7 +51,7 @@ posRoutes.post("/operator", validate("json", OperatorBody), async (c) => {
   const token = await signOperatorToken(staffId, device.authUserId, env.OPERATOR_TOKEN_SECRET, env.OPERATOR_IDLE_SECONDS);
   c.header(OPERATOR_HEADER, token);
   return c.json({
-    operator: { id: staff.id, displayName: staff.display_name, role: staff.role },
+    operator: { id: staff.id, displayName: staff.displayName, role: staff.role },
     token,
     expiresInSeconds: env.OPERATOR_IDLE_SECONDS,
   });
@@ -103,3 +65,6 @@ posRoutes.get("/me", requireOperator(), (c) => {
     device: { id: device.id, displayName: device.displayName },
   });
 });
+
+// Operations (config, floor, shifts, sessions, lookups) — operator required.
+posRoutes.route("/", posOpsRoutes);

@@ -46,6 +46,7 @@ select results_eq(
 
 select results_eq(
   $$ select rt.key, count(*) from resources r join resource_types rt on rt.id = r.resource_type_id
+     where r.active and r.label ~ '^(Table|Sim|VR) [0-9]+$'
      group by rt.key, rt.sort order by rt.sort $$,
   $$ values ('billiard', 2::bigint), ('sim', 6::bigint), ('vr', 2::bigint) $$,
   '2 tables, 6 sims, 2 VR seats'

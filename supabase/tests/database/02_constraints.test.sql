@@ -281,14 +281,14 @@ select throws_ok(
   'refunds cannot exceed the payment in total'
 );
 select throws_ok(
-  $$ update shifts set closed_at = now(), expected_cash_cents = 21000, counted_cash_cents = 20500,
+  $$ update shifts set closed_at = now(), closed_by = '00000000-0000-0000-0000-00000000b002', expected_cash_cents = 21000, counted_cash_cents = 20500,
        cash_variance_cents = 0, pos_card_total_cents = 0, terminal_card_total_cents = 0, card_variance_cents = 0
      where id = '00000000-0000-0000-0000-000000005001' $$,
   '23514', null,
   'closing a shift with an incorrect variance is rejected'
 );
 select lives_ok(
-  $$ update shifts set closed_at = now(), expected_cash_cents = 21000, counted_cash_cents = 20500,
+  $$ update shifts set closed_at = now(), closed_by = '00000000-0000-0000-0000-00000000b002', expected_cash_cents = 21000, counted_cash_cents = 20500,
        cash_variance_cents = -500, pos_card_total_cents = 0, terminal_card_total_cents = 0, card_variance_cents = 0
      where id = '00000000-0000-0000-0000-000000005001' $$,
   'close shift with correct variances'

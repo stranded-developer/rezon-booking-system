@@ -584,6 +584,7 @@ export type Database = {
           id: string
           member_id: string | null
           method: string
+          receipt_no: number
           session_id: string | null
           shift_id: string | null
           staff_id: string | null
@@ -597,6 +598,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           method: string
+          receipt_no?: never
           session_id?: string | null
           shift_id?: string | null
           staff_id?: string | null
@@ -610,6 +612,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           method?: string
+          receipt_no?: never
           session_id?: string | null
           shift_id?: string | null
           staff_id?: string | null
@@ -991,6 +994,7 @@ export type Database = {
           booking_id: string | null
           closed_at: string | null
           closed_by: string | null
+          closed_in_shift_id: string | null
           created_at: string
           free_minutes_used: number
           gst_cents: number | null
@@ -1011,6 +1015,7 @@ export type Database = {
           booking_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closed_in_shift_id?: string | null
           created_at?: string
           free_minutes_used?: number
           gst_cents?: number | null
@@ -1031,6 +1036,7 @@ export type Database = {
           booking_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closed_in_shift_id?: string | null
           created_at?: string
           free_minutes_used?: number
           gst_cents?: number | null
@@ -1060,6 +1066,13 @@ export type Database = {
             columns: ["closed_by"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_closed_in_shift_id_fkey"
+            columns: ["closed_in_shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
           {
@@ -1104,6 +1117,7 @@ export type Database = {
           card_variance_cents: number | null
           cash_variance_cents: number | null
           closed_at: string | null
+          closed_by: string | null
           counted_cash_cents: number | null
           created_at: string
           expected_cash_cents: number | null
@@ -1120,6 +1134,7 @@ export type Database = {
           card_variance_cents?: number | null
           cash_variance_cents?: number | null
           closed_at?: string | null
+          closed_by?: string | null
           counted_cash_cents?: number | null
           created_at?: string
           expected_cash_cents?: number | null
@@ -1136,6 +1151,7 @@ export type Database = {
           card_variance_cents?: number | null
           cash_variance_cents?: number | null
           closed_at?: string | null
+          closed_by?: string | null
           counted_cash_cents?: number | null
           created_at?: string
           expected_cash_cents?: number | null
@@ -1149,6 +1165,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shifts_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shifts_staff_id_fkey"
             columns: ["staff_id"]
@@ -1316,6 +1339,200 @@ export type Database = {
     }
     Functions: {
       expire_stale_holds: { Args: never; Returns: number }
+      pos_arrive_booking: {
+        Args: { p_booking: string; p_now?: string; p_staff: string }
+        Returns: {
+          booking_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_in_shift_id: string | null
+          created_at: string
+          free_minutes_used: number
+          gst_cents: number | null
+          id: string
+          kind: string
+          member_id: string | null
+          opened_at: string
+          opened_by: string
+          pricing_snapshot: Json | null
+          referral_code_id: string | null
+          resource_id: string
+          status: string
+          total_cents: number | null
+          updated_at: string
+          void_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_cash_movement: {
+        Args: {
+          p_amount_cents: number
+          p_kind: string
+          p_reason: string
+          p_staff: string
+        }
+        Returns: {
+          amount_cents: number
+          created_at: string
+          id: string
+          kind: string
+          payment_id: string | null
+          reason: string | null
+          refund_id: string | null
+          shift_id: string
+          staff_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cash_movements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_close_session: {
+        Args: { p_payload: Json; p_session: string; p_staff: string }
+        Returns: Json
+      }
+      pos_close_shift: {
+        Args: {
+          p_counted_cash_cents: number
+          p_staff: string
+          p_terminal_card_total_cents: number
+        }
+        Returns: {
+          card_variance_cents: number | null
+          cash_variance_cents: number | null
+          closed_at: string | null
+          closed_by: string | null
+          counted_cash_cents: number | null
+          created_at: string
+          expected_cash_cents: number | null
+          flagged: boolean
+          id: string
+          opened_at: string
+          opening_float_cents: number
+          pos_card_total_cents: number | null
+          staff_id: string
+          terminal_card_total_cents: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_mark_no_show: {
+        Args: { p_booking: string; p_now?: string; p_staff: string }
+        Returns: {
+          cancel_reason: string | null
+          cancel_token_hash: string | null
+          cancelled_at: string | null
+          cancelled_by_staff_id: string | null
+          created_at: string
+          customer_id: string
+          free_minutes_used: number
+          gst_cents: number | null
+          hold_expires_at: string | null
+          id: string
+          member_id: string | null
+          period: unknown
+          pricing_snapshot: Json | null
+          ref: string
+          referral_code_id: string | null
+          refund_cents: number | null
+          resource_id: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          total_cents: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_open_shift: {
+        Args: { p_opening_float_cents: number; p_staff: string }
+        Returns: {
+          card_variance_cents: number | null
+          cash_variance_cents: number | null
+          closed_at: string | null
+          closed_by: string | null
+          counted_cash_cents: number | null
+          created_at: string
+          expected_cash_cents: number | null
+          flagged: boolean
+          id: string
+          opened_at: string
+          opening_float_cents: number
+          pos_card_total_cents: number | null
+          staff_id: string
+          terminal_card_total_cents: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "shifts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_open_walk_in: {
+        Args: { p_now?: string; p_resource: string; p_staff: string }
+        Returns: {
+          booking_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closed_in_shift_id: string | null
+          created_at: string
+          free_minutes_used: number
+          gst_cents: number | null
+          id: string
+          kind: string
+          member_id: string | null
+          opened_at: string
+          opened_by: string
+          pricing_snapshot: Json | null
+          referral_code_id: string | null
+          resource_id: string
+          status: string
+          total_cents: number | null
+          updated_at: string
+          void_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_shift_totals: {
+        Args: { p_shift: string }
+        Returns: {
+          expected_cash_cents: number
+          pos_card_total_cents: number
+        }[]
+      }
+      pos_void_session: {
+        Args: {
+          p_now?: string
+          p_reason: string
+          p_session: string
+          p_staff: string
+        }
+        Returns: Json
+      }
       register_pin_attempt: {
         Args: {
           p_lock_minutes?: number

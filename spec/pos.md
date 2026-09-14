@@ -10,9 +10,11 @@ Runs in Chrome on a laptop or desktop at the counter, with a USB 2D QR scanner a
   - PINs are verified by the API. 5 wrong attempts lock that staff PIN for 5 minutes (`pin_locked_until`), and the lockout is audited.
 - **Back office screens** require an operator with role `superadmin`.
 
-## 2. Shifts
+## 2. Shifts (one shared till — D46)
 
-- **No shift, no payments.** An operator must **open a shift** (declare opening float) before taking any payment.
+- **One till:** at most **one open shift venue-wide**. Any PIN-signed-in operator can take payments on it, and each payment records its staff member. Opener and closer are both recorded.
+- **No shift, no payments.** Someone must **open the shift** (declare opening float) before any cash or card payment. A $0 close (free play or prepaid booking) doesn't need a shift.
+- The shift can't be closed while any session is open.
 - **During the shift:** cash sales and refunds create `cash_movements` automatically. Paid-in and paid-out need a reason.
 - **Close shift** shows:
   - **Expected cash** = float + cash sales − cash refunds + paid-in − paid-out. Staff enter the **counted cash**.
@@ -58,7 +60,9 @@ A grid of resource tiles grouped by type. Each tile shows:
      - If the member is not `active`, the POS shows "Inactive — payment failed" or "Membership ended" and gives no discount or balance.
    - **Or enter/scan a referral code** (`rg:r:<code>`). This field is hidden once a member is attached, and the member field is hidden once a code is applied. Either can be cleared, which is audited.
 2. **Use free play?** Shown if a member has balance: "Use up to N min" (defaults to the maximum usable).
-3. The **engine quotes** the total and the POS shows the full explanation.
+3. The **engine quotes** the total and the POS shows the full explanation. The quote **freezes the close time** (D47).
+   - Payment must be completed within **2 minutes**, otherwise the POS re-quotes.
+   - The POS sends the total it displayed, and the API refuses the close (`quote_changed`) if the total is now different.
 4. **Manual override** (optional): new amount + reason.
    - A cashier also needs a **superadmin PIN** on the same screen.
    - Writes `price_overrides` and `audit_log`.
@@ -74,7 +78,7 @@ A grid of resource tiles grouped by type. Each tile shows:
    - Receipts over $82.50 are titled **"Tax Invoice"**.
 
 ### Overstay (booked session past its end)
-- If the next slot is free, the cashier can **extend**. When the session closes, the extra minutes (`booked end → closed_at`) are priced with `applyMinimum = false`, using member, balance or referral as usual, and charged at the POS. This is `kind = overstay`.
+- If the next slot is free, the cashier can **extend**. When the session closes, the extra minutes (`booked end → closed_at`) are priced with `applyMinimum = false`, using member, balance or referral as usual, and charged at the POS **on the booking's own session** (D48). A booking closed on time records nothing to pay.
 - If the next slot is booked, the tile shows **Overdue** and staff must end the session. Overstay minutes still bill.
 
 ### Void

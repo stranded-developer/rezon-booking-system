@@ -10,9 +10,16 @@ export interface StaffIdentity {
   role: StaffRole;
 }
 
+export interface Clock {
+  now(): Date;
+}
+
+export const systemClock: Clock = { now: () => new Date() };
+
 export interface AppDeps {
   env: Env;
   db: Db;
+  clock: Clock;
 }
 
 export interface AppEnv {
