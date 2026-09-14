@@ -413,7 +413,8 @@ describe("invariants over randomised sessions", () => {
     };
   }
 
-  it("holds for 2,000 random sessions", () => {
+  // ~660k minute evaluations: ~2.5 s alone, 12–15 s when the whole monorepo is testing in parallel.
+  it("holds for 2,000 random sessions", { timeout: 60_000 }, () => {
     const rand = mulberry32(20260914);
     const types = [billiard, sim, vr];
     const yearStart = Date.parse("2026-01-01T00:00:00Z");
