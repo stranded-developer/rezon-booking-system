@@ -1,6 +1,6 @@
 -- Schema presence, RLS coverage, and launch seed values.
 begin;
-select plan(17);
+select plan(16);
 
 select tables_are(
   'public',
@@ -65,7 +65,6 @@ select results_eq(
 );
 
 select is((select count(*) from tier_prices), 3::bigint, 'initial tier price history rows');
-select is((select count(*) from staff), 0::bigint, 'no staff seeded (created by setup script)');
 
 select matches(private.random_code(6), '^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$', 'random_code uses the unambiguous alphabet');
 select is(

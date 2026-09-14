@@ -20,10 +20,15 @@ insert into members (id, customer_id, tier_id, status) values
   ('00000000-0000-0000-0000-00000000d003', '00000000-0000-0000-0000-00000000c003',
    (select id from membership_tiers where name = 'Gold'), 'active');
 
+-- Private fixture resources so tests never collide with real sessions/bookings on seeded resources.
+insert into resources (id, resource_type_id, label, sort) values
+  ('00000000-0000-0000-0000-0000000aa001', (select id from resource_types where key = 'billiard'), 'pgTAP Table A', 900),
+  ('00000000-0000-0000-0000-0000000aa002', (select id from resource_types where key = 'billiard'), 'pgTAP Table B', 901);
+
 create temp table ids as
 select
-  (select id from resources where label = 'Table 1') as table1,
-  (select id from resources where label = 'Table 2') as table2,
+  '00000000-0000-0000-0000-0000000aa001'::uuid as table1,
+  '00000000-0000-0000-0000-0000000aa002'::uuid as table2,
   '00000000-0000-0000-0000-00000000b001'::uuid as owner,
   '00000000-0000-0000-0000-00000000b002'::uuid as cashier,
   '00000000-0000-0000-0000-00000000c004'::uuid as guest,
@@ -35,46 +40,46 @@ grant select on ids to public;
 select lives_ok(
   $$ insert into bookings (id, resource_id, customer_id, period, status, hold_expires_at)
      select '00000000-0000-0000-0000-0000000e0001', table1, guest,
-            '[2026-09-16 10:00+10, 2026-09-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
+            '[2099-01-16 10:00+10, 2099-01-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
   'hold a 10:00–11:00 slot'
 );
 
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-16 10:59+10, 2026-09-16 11:30+10)', 'held', now() + interval '30 min' from ids $$,
+     select table1, guest, '[2099-01-16 10:59+10, 2099-01-16 11:30+10)', 'held', now() + interval '30 min' from ids $$,
   '23P01', null,
   'overlapping hold on the same resource is rejected (exclusion constraint)'
 );
 
 select lives_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-16 11:00+10, 2026-09-16 12:00+10)', 'held', now() + interval '30 min' from ids $$,
+     select table1, guest, '[2099-01-16 11:00+10, 2099-01-16 12:00+10)', 'held', now() + interval '30 min' from ids $$,
   'adjacent slot 11:00–12:00 is allowed (half-open ranges)'
 );
 
 select lives_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table2, guest, '[2026-09-16 10:00+10, 2026-09-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
+     select table2, guest, '[2099-01-16 10:00+10, 2099-01-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
   'same time on a different resource is allowed'
 );
 
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-16 13:00+10, 2026-09-16 13:00+10)', 'held', now() from ids $$,
+     select table1, guest, '[2099-01-16 13:00+10, 2099-01-16 13:00+10)', 'held', now() from ids $$,
   '23514', null,
   'empty booking period is rejected'
 );
 
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, period, status)
-     select table1, guest, '[2026-09-16 14:00+10, 2026-09-16 15:00+10)', 'held' from ids $$,
+     select table1, guest, '[2099-01-16 14:00+10, 2099-01-16 15:00+10)', 'held' from ids $$,
   '23514', null,
   'a hold without an expiry is rejected'
 );
 
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, period, status)
-     select table1, guest, '[2026-09-16 14:00+10, 2026-09-16 15:00+10)', 'confirmed' from ids $$,
+     select table1, guest, '[2099-01-16 14:00+10, 2099-01-16 15:00+10)', 'confirmed' from ids $$,
   '23514', null,
   'a confirmed booking without price snapshot is rejected'
 );
@@ -85,7 +90,7 @@ values ('00000000-0000-0000-0000-000000000c00', 'percent', 1000, 1);
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, member_id, referral_code_id, period, status, hold_expires_at)
      select table1, member_customer, member, '00000000-0000-0000-0000-000000000c00',
-            '[2026-09-17 14:00+10, 2026-09-17 15:00+10)', 'held', now() + interval '30 min'
+            '[2099-01-17 14:00+10, 2099-01-17 15:00+10)', 'held', now() + interval '30 min'
      from ids $$,
   '23514', null,
   'member + referral on one booking is rejected'
@@ -95,20 +100,20 @@ select throws_ok(
 select lives_ok(
   $$ insert into bookings (id, resource_id, customer_id, period, status, hold_expires_at)
      select '00000000-0000-0000-0000-0000000e0002', table1, guest,
-            '[2026-09-18 10:00+10, 2026-09-18 11:00+10)', 'held', now() - interval '1 min' from ids $$,
+            '[2099-01-18 10:00+10, 2099-01-18 11:00+10)', 'held', now() - interval '1 min' from ids $$,
   'insert a hold that has already expired'
 );
 select throws_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-18 10:30+10, 2026-09-18 11:30+10)', 'held', now() + interval '30 min' from ids $$,
+     select table1, guest, '[2099-01-18 10:30+10, 2099-01-18 11:30+10)', 'held', now() + interval '30 min' from ids $$,
   '23P01', null,
   'a stale hold still blocks until expired'
 );
-select is(public.expire_stale_holds(), 1, 'expire_stale_holds expires exactly the stale hold');
+select ok(public.expire_stale_holds() >= 1, 'expire_stale_holds expires the stale hold (others may exist in a used database)');
 select is((select status from bookings where id = '00000000-0000-0000-0000-0000000e0002'), 'expired', 'stale hold is now expired');
 select lives_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-18 10:30+10, 2026-09-18 11:30+10)', 'held', now() + interval '30 min' from ids $$,
+     select table1, guest, '[2099-01-18 10:30+10, 2099-01-18 11:30+10)', 'held', now() + interval '30 min' from ids $$,
   'the slot is bookable after expiring the stale hold'
 );
 
@@ -135,7 +140,7 @@ select lives_ok(
 );
 select lives_ok(
   $$ insert into bookings (resource_id, customer_id, period, status, hold_expires_at)
-     select table1, guest, '[2026-09-16 10:00+10, 2026-09-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
+     select table1, guest, '[2099-01-16 10:00+10, 2099-01-16 11:00+10)', 'held', now() + interval '30 min' from ids $$,
   'a cancelled booking frees its slot'
 );
 
@@ -143,7 +148,7 @@ select lives_ok(
 select lives_ok(
   $$ insert into sessions (id, resource_id, kind, opened_at, opened_by)
      select '00000000-0000-0000-0000-0000000f0001', table2, 'walk_in', now() - interval '20 min', cashier from ids $$,
-  'open a walk-in on Table 2'
+  'open a walk-in on fixture table B'
 );
 select throws_ok(
   $$ insert into sessions (resource_id, kind, opened_at, opened_by)
@@ -295,6 +300,9 @@ select throws_ok(
 );
 
 -- ── Staff and audit ─────────────────────────────────────────────────────────
+-- Other superadmins may exist in a used local database; deactivate them inside this rolled-back transaction.
+update staff set active = false
+where role = 'superadmin' and active and id <> '00000000-0000-0000-0000-00000000b001';
 select throws_ok(
   $$ update staff set active = false where id = '00000000-0000-0000-0000-00000000b001' $$,
   '23514', null,

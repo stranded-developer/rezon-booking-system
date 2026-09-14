@@ -40,6 +40,13 @@ logs/          planning, decision and build logs
 1. **Only `apps/api` writes** bookings, sessions, payments, refunds, ledger, referral counters, config and audit rows. Only the API holds the Supabase service-role key and the Stripe secret key.
 2. **Frontends never compute a charge.** Frontends may call the engine for instant UI previews, but the **API recomputes** and its result is what gets charged.
 3. **Staff endpoints** require a valid Supabase JWT for an active `staff` row **and** an operator PIN token (short-lived, issued by `POST /pos/operator`). The role is checked on the server per endpoint.
+   - **Device session:** `Authorization: Bearer <Supabase access token>`, verified with `auth.getClaims()` (JWKS signature check for asymmetric keys, auth-server check otherwise), mapped to an **active** staff row.
+   - **Operator token:** `X-Operator-Token`, HS256 signed with `OPERATOR_TOKEN_SECRET`.
+     - It is **bound to the device session's user** (a token issued on another device is rejected).
+     - Its lifetime is `OPERATOR_IDLE_SECONDS` (300). Every successful request returns a renewed token in the same header, so the idle lock is enforced by the server as well as the UI.
+     - The operator's staff row is re-read on every request, so deactivating someone or changing their role takes effect immediately.
+   - **PIN checks:** the API compares the scrypt hash, then records the outcome with `register_pin_attempt()`. That function holds a row lock, so parallel guesses can't exceed `PIN_MAX_ATTEMPTS` (5). A correct PIN is refused if the account became locked while it was being checked. Lockouts are audited.
+   - **Errors:** unknown or inactive staff get the same "incorrect PIN" answer as a wrong PIN.
 4. **Member endpoints** require a Supabase JWT mapped to a `customers.auth_user_id`.
 5. **Webhooks** verify the Stripe signature. **Cron endpoints** require `CRON_SECRET`.
 6. **Secrets** live only in Vercel/Supabase environment variables, never in the repo. `.env.example` lists names only.
@@ -107,8 +114,15 @@ System
 - Render every time in venue time.
 - The DST cases are part of the pricing engine test suite.
 
-## 8. Quality gates (every phase)
+## 8. API conventions
+
+- **Error body:** `{ "error": { "code", "message", "details"? } }`. Codes: `unauthenticated` 401, `operator_required` 401, `pin_invalid` 401, `forbidden` 403, `not_found` 404, `conflict` 409, `validation_failed` 422, `pin_locked` 423, `internal` 500.
+- **Database errors** are mapped by `mapDbError`: unique violation → 409, exclusion (overlap) → 409, check violation → 422, except the last-superadmin guard → 409; append-only → 409. Anything else → 500 with a generic message.
+- **Environment:** see `apps/api/.env.example`. The service key and operator secret exist only in server env.
+- **CORS:** only `CORS_ORIGINS`. `X-Operator-Token` is allowed and exposed.
+
+## 9. Quality gates (every phase)
 
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` all green before a phase is marked done in the build log.
-- Money paths require unit tests. Phase 3+ adds API integration tests against local Supabase.
+- Money paths require unit tests. API integration tests run against local Supabase (`pnpm db:start` first) and must pass in any order with the pgTAP suite, on a fresh or a used database.
 - Each build step is logged in `logs/2026-09-14-build-log.md` with what was done, how it was verified, and results.

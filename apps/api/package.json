@@ -1,0 +1,30 @@
+{
+  "name": "@raceground/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env.local src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "staff:create": "tsx --env-file=.env.local scripts/create-staff.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@hono/zod-validator": "0.9.1",
+    "@raceground/db": "workspace:*",
+    "@raceground/pricing": "workspace:*",
+    "@supabase/supabase-js": "2.116.0",
+    "hono": "4.13.7",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@raceground/config": "workspace:*",
+    "@types/node": "22.20.2",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

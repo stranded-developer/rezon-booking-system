@@ -69,7 +69,7 @@ staff
   auth_user_id   uuid unique → auth.users
   display_name   text
   role           text check in ('superadmin','cashier')
-  pin_hash       text            -- argon2/bcrypt of 4-digit PIN
+  pin_hash       text            -- scrypt (N=16384, r=8, p=1, 16-byte salt) of the 4-digit PIN
   pin_failed_count int, pin_locked_until timestamptz
   active
 
@@ -216,6 +216,13 @@ price_overrides
   original_cents, new_cents, reason
   requested_by → staff, approved_by → staff
 ```
+
+## Functions (service role only)
+
+| Function | Purpose |
+|---|---|
+| `expire_stale_holds()` | Marks `held` bookings past `hold_expires_at` as `expired`. Returns the count. |
+| `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
 
 ## Platform
 
