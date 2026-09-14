@@ -45,12 +45,13 @@ The customer picks a resource type, then a specific resource or "any available" 
 4. Review: full explanation (segments, discount, free minutes, total, GST) + policy summary + accept terms
 5. "Pay" → API POST /bookings/hold
      - in one transaction: expire stale holds, insert booking `held` (exclusion constraint guards
-       the slot), reserve referral use (count includes live holds), hold_expires_at = now + 30 min
+       the slot), reserve referral use (count includes live holds), take free minutes (ledger `use`),
+       hold_expires_at = now + 30 min + 10 min grace
      - if total > 0 → create Stripe Checkout (mode=payment, AUD, expires_at = hold_expires_at,
        customer_email prefilled if given) → redirect
      - if total = 0 → confirm immediately (step 6) without Stripe
 6. Confirm (webhook checkout.session.completed, or immediate for $0), in one transaction:
-     booking → confirmed; payment row; pricing_snapshot; ledger `use`; referral uses_count++ + redemption
+     booking → confirmed; payment row; referral uses_count++ + redemption
 7. Confirmation page + email with .ics invite, booking QR (rg:b:<ref>), cancel link
 ```
 
@@ -58,7 +59,7 @@ The customer picks a resource type, then a specific resource or "any available" 
 
 **Contact without email.** Stripe Checkout collects an email for the receipt, and that email is saved to the customer for the confirmation. A $0 booking with phone only shows the confirmation on screen only, and the page says so.
 
-**Hold expiry.** On `checkout.session.expired`, or when a later hold finds it stale, the booking becomes `expired`, the slot frees up and any reserved referral use is released.
+**Hold expiry.** On `checkout.session.expired`, or when a later hold finds it stale, the booking becomes `expired`, the slot frees up, free minutes are returned and any reserved referral use is released. A payment that arrives for an already expired hold is refunded in full.
 
 ### Referral code checks (server)
 - The code exists, is active, and is not past `valid_until`.

@@ -23,12 +23,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | POS app, `apps/pos` at `localhost:3001` | ✅ Built and verified |
 | Back office, inside the POS at `/admin` | ✅ Built and verified |
 | Membership billing (Stripe test mode), sold at the counter | ✅ Built and verified |
-| **Booking website** for customers, member login/account | ❌ **Next: Phase 6** |
+| Booking rules in the database (hold, confirm, expiry, cancel/refund) | ✅ Built and verified (6a) |
+| **Booking API + website** for customers, member login/account | ❌ **Next: Phase 6b (API), then 6c (website)** |
 | Real emails (Resend) | ❌ Console only for now |
 | Reports | ❌ Phase 7 |
 | Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
 
-**Test totals at the last step:** pricing 78 · API 96 · pgTAP 245 · e2e 4.
+**Test totals at the last step:** pricing 78 · API 96 · pgTAP 327 · e2e 4.
 
 ## Build steps (in the order they were done)
 
@@ -46,6 +47,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 10 | No overstay charge, time-up pop-up | [build/10-no-overstay-time-up-popup.md](build/10-no-overstay-time-up-popup.md) |
 | 11 | Membership billing core (Stripe) | [build/11-membership-billing-core.md](build/11-membership-billing-core.md) |
 | 12 | Counter membership sales, back office billing, real Stripe check | [build/12-counter-membership-sales.md](build/12-counter-membership-sales.md) |
+| 13 | Online booking rules in the database (6a) | [build/13-booking-database.md](build/13-booking-database.md) |
 
 ## Decisions
 
@@ -61,12 +63,8 @@ Everything that was planned, decided and built, one file per step so each can be
 
 Planned sub-steps, each gets its own `build/` file:
 
-1. **Database:**
-   - booking hold (slot protected by the exclusion constraint, referral use reserved)
-   - confirm on payment, $0 confirm
-   - expiry
-   - cancellation with the refund policy (100% ≥ 24 h, 50% 2–24 h, none < 2 h; free minutes returned only ≥ 24 h)
-2. **API:**
+1. ✅ **Database** → [build/13](build/13-booking-database.md)
+2. **API (next):**
    - public config, availability and quote
    - hold → Stripe Checkout (payment mode, AUD, Adaptive Pricing off)
    - webhook branch for booking payments and expiry

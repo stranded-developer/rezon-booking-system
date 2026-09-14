@@ -164,7 +164,11 @@ bookings
   EXCLUDE USING gist (resource_id WITH =, period WITH &&)
     WHERE (status IN ('held','confirmed','arrived'))
 ```
-Before creating a hold, the same transaction marks any `held` rows with `hold_expires_at < now()` as `expired`. A cron job isn't needed for correctness.
+Before creating a hold, the same transaction marks any `held` rows with `hold_expires_at < now` as `expired` and returns their free minutes. A cron job isn't needed for correctness.
+
+- `hold_expires_at` = now + `hold_ttl_minutes` + **10 min grace**. Stripe Checkout expires at about now + `hold_ttl_minutes`, so a last-second payment still finds its hold.
+- Free minutes are taken (ledger `use` with `booking_id`) **when the hold is made**, so two open holds can't spend the same minutes. They are returned when the hold expires or is released.
+- Trigger `referral_codes_guard_reservations`: when a use is added (POS close or booking confirmation), uses + unexpired holds with that code may not exceed `max_uses`, so a walk-in can't take a use an online customer is paying for.
 
 ```
 sessions
@@ -225,7 +229,11 @@ price_overrides
 
 | Function | Purpose |
 |---|---|
-| `expire_stale_holds()` | Marks `held` bookings past `hold_expires_at` as `expired`. Returns the count. |
+| `expire_stale_holds(now)` | Marks `held` bookings past `hold_expires_at` as `expired`, returns their free minutes. Returns the count. |
+| `booking_hold(p)` | One transaction: sweep stale holds; resource active; 15-min grid and type minimum; ≥ online cutoff; within the booking window (venue dates); inside opening hours; member active/cancelling or guest with email/phone (customer reused by email, any case, or phone); member XOR referral; referral valid with live holds counted; insert `held` (overlap → `slot_taken`); free minutes `use`; audit. |
+| `booking_attach_checkout`, `booking_release_hold` | Store the Checkout session on a hold; release a hold now (Checkout expired) returning minutes. |
+| `booking_confirm(booking, p)` | Held → confirmed; amount paid must equal the total (`free` only for $0); payment row (not on the till); referral use + redemption; saves Stripe's email to a customer without one; a repeat is `duplicate`; an expired hold raises `hold_expired` (the API refunds). |
+| `booking_cancel_quote(booking, now, venue_fault)`, `booking_cancel(booking, p)` | Refund policy from the amount paid: ≥ 24 h full + minutes; 2–24 h half (rounded down), minutes kept; < 2 h refused; venue fault (staff) full + minutes. The customer's refund must match the quote they saw. Staff override: any amount up to paid, with reason, optional minutes. Refund row with the Stripe refund id; referral use not restored; audited. |
 | `pos_open_shift`, `pos_cash_movement`, `pos_shift_totals`, `pos_close_shift` | Shared till: open with float, paid in/out with reason, expected cash/card totals, close with variances and flagging (refused while sessions are open). |
 | `pos_open_walk_in`, `pos_arrive_booking`, `pos_mark_no_show` | Opening hours and last-open check, booked-now check, one open session per resource; check-in from 15 min before start; no-show after the hold. |
 | `pos_close_session(session, staff, payload)` | One transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |

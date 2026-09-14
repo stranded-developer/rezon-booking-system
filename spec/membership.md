@@ -48,7 +48,7 @@ ended ──new checkout within 30 days──▶ active   (balance restored — 
   - It's idempotent: `stripe_invoice_id` is unique.
   - If the grant works out to 0 (already at the cap), no ledger row is written. The invoice counts as processed through its `stripe_events` row.
   - If `pending_tier_id` is set, the new tier is applied **before** the grant is calculated.
-- **Use:** at booking payment (online) or at session close (POS).
+- **Use:** when an online booking is held (returned if the hold expires or is released), or at session close (POS).
   - The member chooses minutes, up to `min(balance, billed minutes)`.
   - Free minutes cover the **first** minutes of the session.
   - Written under a row lock on the member.

@@ -1407,7 +1407,51 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      expire_stale_holds: { Args: never; Returns: number }
+      booking_attach_checkout: {
+        Args: { p_booking: string; p_checkout_session_id: string }
+        Returns: undefined
+      }
+      booking_cancel: { Args: { p: Json; p_booking: string }; Returns: Json }
+      booking_cancel_quote: {
+        Args: { p_booking: string; p_now: string; p_venue_fault?: boolean }
+        Returns: Json
+      }
+      booking_confirm: { Args: { p: Json; p_booking: string }; Returns: Json }
+      booking_hold: {
+        Args: { p: Json }
+        Returns: {
+          cancel_reason: string | null
+          cancel_token_hash: string | null
+          cancelled_at: string | null
+          cancelled_by_staff_id: string | null
+          created_at: string
+          customer_id: string
+          free_minutes_used: number
+          gst_cents: number | null
+          hold_expires_at: string | null
+          id: string
+          member_id: string | null
+          period: unknown
+          pricing_snapshot: Json | null
+          ref: string
+          referral_code_id: string | null
+          refund_cents: number | null
+          resource_id: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          total_cents: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      booking_release_hold: { Args: { p_booking: string }; Returns: string }
+      expire_stale_holds: { Args: { p_now?: string }; Returns: number }
       membership_apply_invoice: {
         Args: { p: Json; p_member: string }
         Returns: Json

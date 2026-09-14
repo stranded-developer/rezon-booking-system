@@ -75,7 +75,7 @@ select is(
 );
 
 select has_function('public', 'expire_stale_holds', 'expire_stale_holds exists');
-select function_privs_are('public', 'expire_stale_holds', array[]::text[], 'anon', array[]::text[],
+select function_privs_are('public', 'expire_stale_holds', array['timestamp with time zone'], 'anon', array[]::text[],
   'anon cannot execute expire_stale_holds');
 
 select * from finish();
