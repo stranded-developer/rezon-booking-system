@@ -1,7 +1,7 @@
 # Raceground — Product & Technical Spec
 
 **Status:** v1.0, 2026-09-14. This is the **source of truth** for what we build.
-- Decisions that led here are in [`logs/`](../logs/): the plan, then Decisions Logs #1–#4.
+- Decisions that led here are in [`logs/decisions/`](../logs/README.md#decisions); the build history is in [`logs/build/`](../logs/README.md#build-steps-in-the-order-they-were-done).
 - If the spec and a log disagree, **the spec wins**. Any change to a rule is made here and noted in a new log.
 
 ## What Raceground is
@@ -51,7 +51,7 @@ All values below are **editable in the back office**. None are hardcoded.
 1. **Stacking:** happy hour + membership stacks, and happy hour + referral stacks. **Membership and referral never combine.** A member never sees the referral field.
 2. **Math is multiplicative:** happy hour changes the rate, then the membership % or referral (% or fixed $) applies to the subtotal. No discount cap.
 3. **Free-play minutes** cover the **first** minutes of a session, before any pricing.
-4. **One engine** (`packages/pricing`) prices every quote, booking, POS close and overstay.
+4. **One engine** (`packages/pricing`) prices every quote, booking and POS close. Booked sessions are prepaid and never charged for running over (D48).
 5. **Every change to money or rules** is written to the audit log with actor, before and after.
 
 ## Build phases
@@ -69,7 +69,7 @@ All values below are **editable in the back office**. None are hardcoded.
 | 6 | Booking site, Stripe Checkout, cancellations | Stripe, Resend |
 | 7 | Reports, hardening, deploy, launch | Vercel, GitHub, ABN + Stripe live activation |
 
-Progress is tracked in [`logs/2026-09-14-build-log.md`](../logs/2026-09-14-build-log.md).
+Progress is tracked in [`logs/README.md`](../logs/README.md), one file per build step.
 
 ## Go-live prerequisites (not blocking development)
 

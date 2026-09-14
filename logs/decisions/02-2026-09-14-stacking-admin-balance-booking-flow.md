@@ -1,9 +1,9 @@
 # Racegrounds — Decisions Log #2 — Stacking, Admin Control, Membership Balance, Booking Flow
 
 **Date:** 2026-09-14
-**Supersedes:** D3 (1-hour minimum), D4 (tier names, annual validity) in [Decisions Log #1](./2026-08-10-decisions-01.md); resolves Q3, Q4, Q6, Q10, Q14, Q18 and part of Q19 in [2026-08-10-project-plan.md](./2026-08-10-project-plan.md) §9
+**Supersedes:** D3 (1-hour minimum), D4 (tier names, annual validity) in [Decisions Log #1](./01-2026-08-10-pricing-discounts-membership-venue.md); resolves Q3, Q4, Q6, Q10, Q14, Q18 and part of Q19 in [2026-08-10-project-plan.md](../planning/2026-08-10-project-plan.md) §9
 **Status:** Locked unless re-opened. Items marked ⚠️ are assumptions that need a one-line confirmation.
-**Follow-up:** the "Still open" items below were answered in [Decisions Log #3](./2026-09-14-decisions-03.md).
+**Follow-up:** the "Still open" items below were answered in [Decisions Log #3](./03-2026-09-14-launch-values-policies-staff-hosting.md).
 
 ---
 

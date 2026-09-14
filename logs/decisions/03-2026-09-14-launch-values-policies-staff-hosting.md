@@ -1,7 +1,7 @@
 # Racegrounds — Decisions Log #3 — Launch Values, Balance Rollover, Policies, Staff, Hosting
 
 **Date:** 2026-09-14
-**Supersedes:** parts of D12, D15, D17, D19 in [Decisions Log #2](./2026-09-14-decisions-02.md). Resolves the "Still open" table in #2, plus Q8, Q9, Q12, Q16, Q17, Q19, Q21, Q22, Q23 in [2026-08-10-project-plan.md](./2026-08-10-project-plan.md) §9.
+**Supersedes:** parts of D12, D15, D17, D19 in [Decisions Log #2](./02-2026-09-14-stacking-admin-balance-booking-flow.md). Resolves the "Still open" table in #2, plus Q8, Q9, Q12, Q16, Q17, Q19, Q21, Q22, Q23 in [2026-08-10-project-plan.md](../planning/2026-08-10-project-plan.md) §9.
 **Status:** Locked unless re-opened. Items marked ⚠️ are assumptions or proposals that need a one-line confirmation. D31 (refund policy) was drafted by the developer at the owner's request and needs approval.
 
 ---

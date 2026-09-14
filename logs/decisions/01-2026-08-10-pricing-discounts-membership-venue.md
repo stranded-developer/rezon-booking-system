@@ -1,7 +1,7 @@
 # Decisions Log #1 — Pricing, Discounts, Membership, Venue
 
 **Date:** 2026-08-10
-**Supersedes:** open questions Q1, Q2, Q5, Q7, Q13, Q15, Q20 in [2026-08-10-project-plan.md](./2026-08-10-project-plan.md) §9
+**Supersedes:** open questions Q1, Q2, Q5, Q7, Q13, Q15, Q20 in [2026-08-10-project-plan.md](../planning/2026-08-10-project-plan.md) §9
 **Status:** Locked unless re-opened. Items marked ⚠️ need a one-line confirmation.
 
 ---

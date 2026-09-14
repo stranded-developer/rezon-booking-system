@@ -1,8 +1,8 @@
 # Raceground — Decisions Log #4 — Final Answers Before Build
 
 **Date:** 2026-09-14
-**Supersedes:** D20 and D34 (name spelling). Resolves the "Still open" table in [Decisions Log #3](./2026-09-14-decisions-03.md).
-**Status:** Locked. The consolidated, current rules live in [`spec/`](../spec/README.md). From here on, the spec is the source of truth and the logs are history.
+**Supersedes:** D20 and D34 (name spelling). Resolves the "Still open" table in [Decisions Log #3](./03-2026-09-14-launch-values-policies-staff-hosting.md).
+**Status:** Locked. The consolidated, current rules live in [`spec/`](../../spec/README.md). From here on, the spec is the source of truth and the logs are history.
 
 ---
 

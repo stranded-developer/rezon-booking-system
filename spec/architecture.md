@@ -32,7 +32,7 @@ packages/
   config/      tsconfig / eslint presets
 supabase/      config, migrations, seed
 spec/          this spec
-logs/          planning, decision and build logs
+logs/          README (index + status), planning/, decisions/, build/ (one file per step)
 ```
 
 ## 3. Security rules (non-negotiable)
@@ -127,4 +127,4 @@ System
 
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` all green before a phase is marked done in the build log.
 - Money paths require unit tests. API integration tests run against local Supabase (`pnpm db:start` first) and must pass in any order with the pgTAP suite, on a fresh or a used database.
-- Each build step is logged in `logs/2026-09-14-build-log.md` with what was done, how it was verified, and results.
+- Each build step is logged in its own `logs/build/NN-name.md` with what was done, how it was verified, and results, and indexed in `logs/README.md`.

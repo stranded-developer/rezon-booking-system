@@ -284,14 +284,14 @@ Members get the QR by email as a PNG/PDF and via an "Add to Apple Wallet / Googl
 ## 9. Open questions — please answer by number
 
 > **Update 2026-08-10:** Q1, Q2, Q5, Q7, Q13, Q15, Q20 answered and locked in
-> [Decisions Log #1](./2026-08-10-decisions-01.md). Resolved items marked ✅ below.
+> [Decisions Log #1](../decisions/01-2026-08-10-pricing-discounts-membership-venue.md). Resolved items marked ✅ below.
 >
 > **Update 2026-09-14:** Q3, Q4, Q6, Q10, Q14, Q18 answered and Q19 partly answered in
-> [Decisions Log #2](./2026-09-14-decisions-02.md). It also supersedes D3 (now 15-min minimum) and D4 (now monthly Silver/Gold/Diamond),
+> [Decisions Log #2](../decisions/02-2026-09-14-stacking-admin-balance-booking-flow.md). It also supersedes D3 (now 15-min minimum) and D4 (now monthly Silver/Gold/Diamond),
 > and adds member free-play balance, member login, and VR seats. **Project renamed to Racegrounds (D20).**
 >
 > **Update 2026-09-14 (2):** Q8, Q9, Q11, Q12, Q16, Q17, Q19, Q21, Q22, Q23 answered in
-> [Decisions Log #3](./2026-09-14-decisions-03.md), along with launch values for tiers, VR rate, happy hour, and a proposed refund policy (D31).
+> [Decisions Log #3](../decisions/03-2026-09-14-launch-values-policies-staff-hosting.md), along with launch values for tiers, VR rate, happy hour, and a proposed refund policy (D31).
 
 ### Business rules
 1. ✅ **RESOLVED (D1)** — Mutually exclusive, first-entered wins. UI disables the other input once one is filled.
