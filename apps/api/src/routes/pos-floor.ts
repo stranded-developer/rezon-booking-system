@@ -30,7 +30,7 @@ posOpsRoutes.get("/config", async (c) => {
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("opening_hours").select("*").order("day_of_week"),
     db.from("happy_hours").select("*").eq("active", true),
-    db.from("membership_tiers").select("id, name, discount_bp, monthly_free_minutes").eq("active", true).order("sort"),
+    db.from("membership_tiers").select("id, name, discount_bp, monthly_free_minutes, monthly_price_cents, stripe_price_id").eq("active", true).order("sort"),
     db.from("rate_bands").select("*").eq("active", true),
   ]);
   for (const r of [types, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
@@ -41,7 +41,8 @@ posOpsRoutes.get("/config", async (c) => {
     resourceTypes: types.data,
     openingHours: hours.data!.map((h) => ({ ...h, open_time: wallTime(h.open_time), close_time: wallTime(h.close_time) })),
     happyHours: hhs.data!.map((h) => ({ ...h, start_time: wallTime(h.start_time), end_time: wallTime(h.end_time) })),
-    tiers: tiers.data,
+    // sellable: has a Stripe price, so it can be sold at the counter.
+    tiers: tiers.data!.map(({ stripe_price_id, ...t }) => ({ ...t, sellable: stripe_price_id !== null })),
     rateBands: bands.data!.map((b) => ({ ...b, start_time: wallTime(b.start_time), end_time: wallTime(b.end_time) })),
   });
 });

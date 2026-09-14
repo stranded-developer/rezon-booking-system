@@ -30,7 +30,7 @@ export interface PosConfig {
     discount_bp: number;
   }[];
   rateBands: { id: string; resource_type_id: string; days_of_week: number[]; start_time: string; end_time: string; rate_cents: number }[];
-  tiers: { id: string; name: string; discount_bp: number; monthly_free_minutes: number }[];
+  tiers: { id: string; name: string; discount_bp: number; monthly_free_minutes: number; monthly_price_cents: number; sellable: boolean }[];
 }
 
 export type TileState = "free" | "in_use" | "booking" | "overdue" | "awaiting_arrival";

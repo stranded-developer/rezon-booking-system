@@ -13,7 +13,7 @@ All values are editable. Benefits are the discount and free play. There are **no
 ## 2. Stripe Billing setup
 
 - **Per tier:** one Stripe Product, plus one monthly recurring AUD Price with tax behaviour **inclusive**.
-- **Checkout Session** in `subscription` mode, used for both online and POS sign-ups.
+- **Checkout Session** in `subscription` mode, used for both online and POS sign-ups. **Adaptive Pricing is disabled** so every customer pays the AUD price (a visitor abroad was otherwise shown and charged their local currency). The webhook refuses non-AUD membership invoices.
 - **Customer Portal:** members can update their card, view invoices and cancel. Cancellation is set to **at period end**. Plan switching is **disabled** in the portal; tier changes go through our app (§5).
 - **Smart Retries** on, with Stripe's failed-payment emails on. After retries fail, Stripe **cancels the subscription**.
 - **Invoices:** show business name and ABN, so each charge is a valid Tax Invoice (every tier is over $82.50).
@@ -92,7 +92,19 @@ ended ──new checkout within 30 days──▶ active   (balance restored — 
 | `customer.subscription.deleted` | `ended`, `ended_at = now()` |
 | `charge.refunded` | reconcile refund rows for Stripe-initiated refunds |
 
-## 8. Emails
+## 8. Implementation notes (Phase 5)
+
+- **Catalog sync:** one Stripe Product per tier with a fixed id `rg_tier_<uuid>`, and a monthly AUD price with `tax_behavior: inclusive`, found by lookup key `rg_tier_<uuid>_<cents>`. Re-running creates nothing. Superadmins run it with **Sync with Stripe** on the tiers page. A tier price change syncs automatically and moves billed members to the new price with no proration.
+- **Webhook events handled:**
+  - `checkout.session.completed`
+  - `invoice.paid`
+  - `invoice.payment_failed`
+  - `customer.subscription.created|updated|deleted`
+- **Webhook processing:** every subscription is re-read from Stripe before being applied, so events can arrive in any order.
+- **Counter card:** after activation the cashier can print the member's **first** card. Replacements are a back office reissue.
+- **Emails** go through the console transport with `email_log` until Resend is set up.
+
+## 9. Emails
 
 - Welcome (set password + QR)
 - Payment failed (in addition to Stripe's email: explains that benefits are paused)

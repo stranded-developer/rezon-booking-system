@@ -107,7 +107,7 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     expect((await member(r.json.memberId)).status).toBe("pending");
 
     const session = await stripe.checkout.sessions.retrieve(r.json.checkoutSessionId, { expand: ["line_items", "customer"] });
-    expect(session).toMatchObject({ mode: "subscription", client_reference_id: r.json.memberId, status: "open", currency: "aud" });
+    expect(session).toMatchObject({ mode: "subscription", client_reference_id: r.json.memberId, status: "open", currency: "aud", adaptive_pricing: { enabled: false } });
     expect(session.line_items!.data[0]!.price!.id).toBe(gold!.stripe_price_id);
     expect((session.customer as Stripe.Customer).email).toBe(email);
 
@@ -116,6 +116,24 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     expect(again.json.memberId).toBe(r.json.memberId);
     await stripe.checkout.sessions.expire(r.json.checkoutSessionId);
     await stripe.checkout.sessions.expire(again.json.checkoutSessionId);
+  });
+
+  it("refuses to record a membership invoice that isn't in AUD", async () => {
+    const event = {
+      id: `evt_currency_${run}`,
+      object: "event",
+      type: "invoice.paid",
+      created: Math.floor(Date.now() / 1000),
+      data: { object: { id: `in_currency_${run}`, object: "invoice", currency: "idr", amount_paid: 130824192, billing_reason: "subscription_create", parent: { subscription_details: { subscription: `sub_currency_${run}` } } } },
+    } as unknown as Stripe.Event;
+    const payload = JSON.stringify(event);
+    const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: WEBHOOK_SECRET });
+    const res = await ctx.app.request("/webhooks/stripe", { method: "POST", headers: { "stripe-signature": signature }, body: payload });
+    expect(res.status).toBe(500);
+    const { data } = await ctx.db.from("stripe_events").select("processed_at").eq("id", event.id).single();
+    expect(data!.processed_at).toBeNull(); // left for Stripe to retry / a person to investigate
+    const { count } = await ctx.db.from("payments").select("id", { count: "exact", head: true }).eq("external_ref", `in_currency_${run}`);
+    expect(count).toBe(0);
   });
 
   it("rejects webhooks with a bad signature", async () => {

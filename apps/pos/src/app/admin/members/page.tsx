@@ -176,7 +176,10 @@ function CreateMemberDialog({ onClose, onCreated }: { onClose: () => void; onCre
 function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onClose: () => void; onChanged: () => void }) {
   const { api, config } = usePos();
   const tz = config?.timeZone ?? "Australia/Sydney";
-  const { data, error, reload } = useApiData<{ member: MemberSummary & { billing: string; currentPeriodEnd: string | null }; ledger: LedgerEntry[] }>(`/admin/members/${memberId}`);
+  const { data, error, reload } = useApiData<{
+    member: MemberSummary & { billing: string; currentPeriodEnd: string | null; pendingTierId: string | null };
+    ledger: LedgerEntry[];
+  }>(`/admin/members/${memberId}`);
   const balance = useAction();
   const card = useAction();
   const [minutes, setMinutes] = useState("");
@@ -243,6 +246,21 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
             </Button>
           </div>
 
+          {m.status !== "ended" ? (
+            <BillingSection
+              memberId={memberId}
+              billing={m.billing}
+              status={m.status}
+              tierName={m.tierName}
+              pendingTierId={m.pendingTierId}
+              periodEnd={m.currentPeriodEnd ? when(m.currentPeriodEnd) : null}
+              onChanged={() => {
+                reload();
+                onChanged();
+              }}
+            />
+          ) : null}
+
           <div className="space-y-3 rounded-xl bg-ink-850 p-4">
             <h3 className="font-semibold">Member card</h3>
             {newCard ? (
@@ -289,5 +307,96 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
         </div>
       </div>
     </Modal>
+  );
+}
+
+function BillingSection({
+  memberId,
+  billing,
+  status,
+  tierName,
+  pendingTierId,
+  periodEnd,
+  onChanged,
+}: {
+  memberId: string;
+  billing: string;
+  status: string;
+  tierName: string;
+  pendingTierId: string | null;
+  periodEnd: string | null;
+  onChanged: () => void;
+}) {
+  const { api, config } = usePos();
+  const action = useAction();
+  const [tierId, setTierId] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const tiers = config?.tiers ?? [];
+  const pendingName = tiers.find((t) => t.id === pendingTierId)?.name;
+  const paid = billing === "stripe";
+
+  return (
+    <div className="space-y-3 rounded-xl bg-ink-850 p-4">
+      <h3 className="font-semibold">Membership</h3>
+      <p className="text-sm text-ink-400">
+        {paid ? `Billed monthly through Stripe${periodEnd ? ` · next renewal ${periodEnd}` : ""}.` : "Complimentary — no billing."}
+        {pendingName ? ` Moves to ${pendingName} at renewal.` : ""}
+      </p>
+      <div className="flex gap-2">
+        <select aria-label="New tier" value={tierId} onChange={(e) => setTierId(e.target.value)} className="h-11 flex-1 rounded-lg bg-ink-900 px-3 ring-1 ring-ink-700">
+          <option value="">Change tier from {tierName}…</option>
+          {tiers
+            .filter((t) => (paid ? t.sellable : true))
+            .map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+        </select>
+        <Button
+          disabled={action.busy || !tierId}
+          onClick={async () => {
+            const r = await action.run(() => api<{ mode: string }>(`/admin/members/${memberId}/tier`, { body: { tierId } }));
+            if (r) {
+              setNotice(r.mode === "next_renewal" ? "Tier changes at the next renewal; the new price is charged then." : r.mode === "immediate" ? "Tier changed." : "Pending tier change removed.");
+              setTierId("");
+              onChanged();
+            }
+          }}
+        >
+          Change
+        </Button>
+      </div>
+      {paid ? (
+        status === "cancelling" ? (
+          <Button
+            disabled={action.busy}
+            onClick={async () => {
+              if (await action.run(() => api(`/admin/members/${memberId}/resume`, { body: {} }))) {
+                setNotice("Cancellation withdrawn. The membership will keep renewing.");
+                onChanged();
+              }
+            }}
+          >
+            Keep membership (undo cancel)
+          </Button>
+        ) : (
+          <Button
+            variant="danger"
+            disabled={action.busy}
+            onClick={async () => {
+              if (await action.run(() => api(`/admin/members/${memberId}/cancel`, { body: {} }))) {
+                setNotice("Cancelled at the end of the paid month. Benefits continue until then.");
+                onChanged();
+              }
+            }}
+          >
+            Cancel at end of paid month
+          </Button>
+        )
+      ) : null}
+      {notice ? <p className="text-sm text-emerald-300">{notice}</p> : null}
+      <ErrorNote error={action.error} />
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { centsToInput, money, parseDollars } from "@/lib/format";
 
 interface Tier {
+  stripe_price_id: string | null;
   id: string;
   name: string;
   discount_bp: number;
@@ -18,14 +19,34 @@ interface Tier {
 }
 
 export default function TiersPage() {
+  const { api } = usePos();
   const { data, error, reload } = useApiData<{ tiers: Tier[] }>("/admin/tiers");
+  const sync = useAction();
+  const [synced, setSynced] = useState<string | null>(null);
+  const unsynced = (data?.tiers ?? []).filter((t) => t.active && !t.stripe_price_id).length;
   return (
     <>
       <PageHeader
         title="Membership tiers"
-        description="Discount, monthly price, free play and balance cap for each tier. Prices include GST. Price changes will sync to online billing once Stripe is connected."
+        description="Discount, monthly price, free play and balance cap for each tier. Prices include GST. A price change moves billed members to the new price from their next renewal and emails them."
+        actions={
+          <Button
+            disabled={sync.busy}
+            onClick={async () => {
+              const r = await sync.run(() => api<{ tiers: unknown[] }>("/admin/billing/sync-catalog", { body: {} }));
+              if (r) {
+                setSynced(`Synced ${r.tiers.length} tiers with Stripe.`);
+                reload();
+              }
+            }}
+          >
+            {sync.busy ? "Syncing…" : "Sync with Stripe"}
+          </Button>
+        }
       />
-      <ErrorNote error={error} />
+      <ErrorNote error={error ?? sync.error} />
+      {unsynced > 0 ? <p className="mb-4 text-sm text-amber-200">{unsynced} tier(s) aren&apos;t set up in Stripe yet, so they can&apos;t be sold at the counter. Press “Sync with Stripe”.</p> : null}
+      {synced ? <p className="mb-4 text-sm text-emerald-300">{synced}</p> : null}
       <div className="grid gap-4 lg:grid-cols-3">
         {(data?.tiers ?? []).map((t) => (
           <TierCard key={t.id} tier={t} onSaved={reload} />
@@ -92,7 +113,7 @@ function TierCard({ tier, onSaved }: { tier: Tier; onSaved: () => void }) {
             onClick={() =>
               void price.run(async () => {
                 await api(`/admin/tiers/${tier.id}/price`, { body: { amountCents: priceCents, reason: reason.trim() } });
-                setSaved("Price changed. Existing members move to it at their next renewal once billing is connected.");
+                setSaved("Price changed. Billed members move to it at their next renewal and have been emailed.");
                 setReason("");
                 onSaved();
               })

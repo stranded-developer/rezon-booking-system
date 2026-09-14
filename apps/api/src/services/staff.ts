@@ -126,7 +126,22 @@ export async function updateStaff(db: Db, staffId: string, input: UpdateStaffInp
 export async function listStaff(db: Db): Promise<PublicStaff[]> {
   const { data, error } = await db.from("staff").select(PUBLIC_COLUMNS).order("display_name");
   if (error) throw mapDbError(error);
-  return Promise.all(data.map(async (row) => publicStaff(row, await authEmail(db, row.auth_user_id))));
+  const emails = await authEmails(db);
+  return data.map((row) => publicStaff(row, emails.get(row.auth_user_id) ?? null));
+}
+
+/**
+ * All sign-in emails in a few paged calls. Looking each staff member up separately made the Staff
+ * page take ~4.4 s for 117 accounts (vs ~0.26 s), long enough to time out on a cold start.
+ */
+async function authEmails(db: Db): Promise<Map<string, string>> {
+  const emails = new Map<string, string>();
+  for (let page = 1; ; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new ApiError(500, "internal", "Could not load staff emails");
+    for (const u of data.users) if (u.email) emails.set(u.id, u.email);
+    if (data.users.length < 1000) return emails;
+  }
 }
 
 async function authEmail(db: Db, authUserId: string): Promise<string | null> {

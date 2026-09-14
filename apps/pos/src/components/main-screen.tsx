@@ -7,6 +7,7 @@ import { runningPrice } from "@/lib/pricing-preview";
 import type { FloorTile, TileState } from "@/lib/types";
 import { BookingsDialog } from "./bookings-dialog";
 import { usePos } from "./pos-provider";
+import { SellMembershipDialog } from "./sell-membership-dialog";
 import { ShiftDialog } from "./shift-dialog";
 import { TileDialog } from "./tile-dialog";
 import { TimeUpAlert } from "./time-up-alert";
@@ -28,7 +29,7 @@ export function MainScreen() {
   const now = useNow(clockOffsetMs);
   const [selected, setSelected] = useState<string | null>(null);
   const [closeFromAlert, setCloseFromAlert] = useState(false);
-  const [dialog, setDialog] = useState<"shift" | "bookings" | null>(null);
+  const [dialog, setDialog] = useState<"shift" | "bookings" | "membership" | null>(null);
 
   const tz = config?.timeZone ?? floor?.timeZone ?? "Australia/Sydney";
   const groups = new Map<string, FloorTile[]>();
@@ -50,6 +51,9 @@ export function MainScreen() {
           </button>
           <Button size="sm" onClick={() => setDialog("bookings")}>
             Today&apos;s bookings
+          </Button>
+          <Button size="sm" onClick={() => setDialog("membership")}>
+            Sell membership
           </Button>
           {operator?.role === "superadmin" ? (
             <Link href="/admin" className="inline-flex h-9 items-center rounded-lg bg-ink-800 px-3 text-sm font-semibold ring-1 ring-ink-700 hover:bg-ink-700">
@@ -110,6 +114,7 @@ export function MainScreen() {
         />
       ) : null}
       {dialog === "shift" ? <ShiftDialog onClose={() => setDialog(null)} onChanged={() => void refresh()} /> : null}
+      {dialog === "membership" ? <SellMembershipDialog onClose={() => setDialog(null)} /> : null}
       {dialog === "bookings" ? <BookingsDialog now={now} onClose={() => setDialog(null)} onChanged={() => void refresh()} /> : null}
     </div>
   );

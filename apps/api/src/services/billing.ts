@@ -145,6 +145,9 @@ export async function startMembershipCheckout(deps: AppDeps, operator: StaffIden
       success_url: deps.env.CHECKOUT_SUCCESS_URL,
       cancel_url: deps.env.CHECKOUT_CANCEL_URL,
       expires_at: expiresAt,
+      // Always charge the AUD price. Adaptive Pricing would show and charge visitors from abroad in their
+      // own currency (a Jakarta visitor saw IDR), and the payment would be recorded with the wrong amount.
+      adaptive_pricing: { enabled: false },
     }),
   );
 
@@ -210,6 +213,11 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
       if (!subscriptionId) {
         handled = false;
         break;
+      }
+      if (invoice.currency !== "aud") {
+        // Amounts are stored as AUD cents; recording another currency would corrupt revenue and GST.
+        // Fail loudly (Stripe retries and the event stays unprocessed) so it gets looked at.
+        throw new ApiError(500, "unexpected_currency", `Invoice ${invoice.id} is in ${invoice.currency}, expected aud`);
       }
       const sub = await stripeCall(() => requireStripe(deps).subscriptions.retrieve(subscriptionId));
       const memberId = await memberForSubscription(deps, sub);
