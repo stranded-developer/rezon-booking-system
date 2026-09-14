@@ -17,6 +17,7 @@ export interface Fixture {
   memberToken: string;
   memberName: string;
   bookingCustomer: string;
+  originalBusinessName: string | null;
 }
 
 export function localSupabase() {

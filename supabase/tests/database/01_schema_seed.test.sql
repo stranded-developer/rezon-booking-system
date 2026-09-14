@@ -39,7 +39,7 @@ select is(
 );
 
 select results_eq(
-  $$ select key, base_rate_cents, min_minutes from resource_types order by sort $$,
+  $$ select key, base_rate_cents, min_minutes from resource_types where key in ('billiard', 'sim', 'vr') order by sort $$,
   $$ values ('billiard', 3000, 15), ('sim', 6000, 15), ('vr', 5000, 15) $$,
   'resource types and rates: $30 / $60 / $50 per hour, 15 min minimum'
 );
@@ -53,7 +53,7 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select resource_type_ids is null, days_of_week, start_time, end_time, discount_bp from happy_hours $$,
+  $$ select resource_type_ids is null, days_of_week, start_time, end_time, discount_bp from happy_hours where name = 'Happy Hour' $$,
   $$ values (true, '{1,2,3,4,5}'::smallint[], '10:00'::time, '15:00'::time, 1000) $$,
   'happy hour Mon–Fri 10:00–15:00, 10%, all types'
 );
@@ -65,7 +65,7 @@ select results_eq(
   'tiers: Silver/Gold/Diamond, 5/10/15%, $100/$200/$300, 60 min, cap 600'
 );
 
-select is((select count(*) from tier_prices), 3::bigint, 'initial tier price history rows');
+select is((select count(distinct tier_id) from tier_prices), 3::bigint, 'every tier has price history');
 
 select matches(private.random_code(6), '^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$', 'random_code uses the unambiguous alphabet');
 select is(

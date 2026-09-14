@@ -49,6 +49,8 @@ export function mapDbError(error: PostgrestLikeError): ApiError {
   switch (error.code) {
     case "23505":
       return new ApiError(409, "conflict", "That record already exists");
+    case "23503":
+      return new ApiError(422, "invalid_reference", "A referenced record does not exist");
     case "23P01":
       return new ApiError(409, "conflict", "That time overlaps an existing booking");
     case "23514":

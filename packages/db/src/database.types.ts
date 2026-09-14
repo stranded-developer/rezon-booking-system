@@ -1338,6 +1338,75 @@ export type Database = {
       }
     }
     Functions: {
+      admin_adjust_balance: {
+        Args: {
+          p_delta_minutes: number
+          p_member: string
+          p_reason: string
+          p_staff: string
+        }
+        Returns: number
+      }
+      admin_create_member: {
+        Args: { p_member: Json; p_reason: string; p_staff: string }
+        Returns: {
+          created_at: string
+          current_period_end: string | null
+          customer_id: string
+          ended_at: string | null
+          id: string
+          member_no: string
+          pending_tier_id: string | null
+          qr_token_hash: string | null
+          status: string
+          stripe_subscription_id: string | null
+          tier_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_reissue_qr: {
+        Args: {
+          p_member: string
+          p_reason: string
+          p_staff: string
+          p_token_hash: string
+        }
+        Returns: undefined
+      }
+      admin_set_tier_price: {
+        Args: {
+          p_amount_cents: number
+          p_reason: string
+          p_staff: string
+          p_tier: string
+        }
+        Returns: {
+          active: boolean
+          created_at: string
+          discount_bp: number
+          id: string
+          max_balance_minutes: number
+          monthly_free_minutes: number
+          monthly_price_cents: number
+          name: string
+          sort: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "membership_tiers"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       expire_stale_holds: { Args: never; Returns: number }
       pos_arrive_booking: {
         Args: { p_booking: string; p_now?: string; p_staff: string }
@@ -1513,6 +1582,30 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      pos_refund_payment: {
+        Args: {
+          p_amount_cents: number
+          p_payment: string
+          p_reason: string
+          p_staff: string
+        }
+        Returns: {
+          amount_cents: number
+          created_at: string
+          id: string
+          payment_id: string
+          reason: string
+          shift_id: string | null
+          staff_id: string | null
+          stripe_refund_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "refunds"
           isOneToOne: true
           isSetofReturn: false
         }

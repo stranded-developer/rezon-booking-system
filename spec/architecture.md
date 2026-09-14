@@ -83,6 +83,7 @@ Back office (superadmin)
   CRUD: resource-types, resources, rate-bands, happy-hours, opening-hours, settings,
         tiers (+ price change), members (adjust, reissue, tier, cancel), referral-codes,
         staff, bookings (cancel/refund)
+  sales (by venue day), sales/:id/void, payments/:id/refund, shifts, members (+ complimentary), members/:id/balance|card
   GET reports/*, audit
 
 System

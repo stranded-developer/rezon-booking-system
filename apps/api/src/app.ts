@@ -18,7 +18,7 @@ export function createApp(deps: AppDeps) {
       origin: deps.env.CORS_ORIGINS,
       allowHeaders: ["Authorization", "Content-Type", OPERATOR_HEADER, PASSIVE_HEADER],
       exposeHeaders: [OPERATOR_HEADER],
-      allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       maxAge: 600,
     }),
   );

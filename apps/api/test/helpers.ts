@@ -142,3 +142,28 @@ export async function staffRow(db: Db, id: string) {
   if (error) throw error;
   return data;
 }
+
+/** Isolation from a used local database: finish anything left open by earlier runs or manual testing. */
+export async function finishOpenWork(ctx: TestContext, staffId: string) {
+  const { data: open } = await ctx.db.from("sessions").select("id, kind, opened_at").eq("status", "open");
+  for (const s of open ?? []) {
+    if (s.kind === "walk_in") {
+      await ctx.db.rpc("pos_void_session", { p_session: s.id, p_staff: staffId, p_reason: "test isolation", p_now: s.opened_at });
+    } else {
+      await ctx.db.rpc("pos_close_session", {
+        p_session: s.id,
+        p_staff: staffId,
+        p_payload: { closedAt: s.opened_at, pricing: { isolation: true }, computedTotalCents: 0, totalCents: 0, gstCents: 0, method: null },
+      });
+    }
+  }
+  const { data: shift } = await ctx.db.from("shifts").select("id").is("closed_at", null).maybeSingle();
+  if (shift) {
+    const { data: totals } = await ctx.db.rpc("pos_shift_totals", { p_shift: shift.id }).single();
+    await ctx.db.rpc("pos_close_shift", {
+      p_staff: staffId,
+      p_counted_cash_cents: Math.max(0, totals!.expected_cash_cents),
+      p_terminal_card_total_cents: Math.max(0, totals!.pos_card_total_cents),
+    });
+  }
+}

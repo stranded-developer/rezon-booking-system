@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { clockIn, elapsed, money, timeIn } from "@/lib/format";
 import { runningPrice } from "@/lib/pricing-preview";
@@ -48,6 +49,11 @@ export function MainScreen() {
           <Button size="sm" onClick={() => setDialog("bookings")}>
             Today&apos;s bookings
           </Button>
+          {operator?.role === "superadmin" ? (
+            <Link href="/admin" className="inline-flex h-9 items-center rounded-lg bg-ink-800 px-3 text-sm font-semibold ring-1 ring-ink-700 hover:bg-ink-700">
+              Back office
+            </Link>
+          ) : null}
           <span className="px-2 text-sm">
             <span className="font-semibold">{operator?.displayName}</span>
             <span className="ml-1.5 text-xs uppercase text-ink-400">{operator?.role}</span>

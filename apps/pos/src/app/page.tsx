@@ -1,5 +1,5 @@
-import { PosApp } from "@/components/pos-app";
+import { MainScreen } from "@/components/main-screen";
 
 export default function Home() {
-  return <PosApp />;
+  return <MainScreen />;
 }

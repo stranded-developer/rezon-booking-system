@@ -155,7 +155,7 @@ export function ShiftDialog({ onClose, onChanged }: { onClose: () => void; onCha
   );
 }
 
-function ReportView({ report, time }: { report: ShiftReport; time: (iso: string) => string }) {
+export function ReportView({ report, time }: { report: ShiftReport; time: (iso: string) => string }) {
   const minus = (cents: number) => (cents > 0 ? `−${money(cents)}` : money(0));
   const variance = (cents: number | null) =>
     cents === null ? "—" : <span className={cents === 0 ? "text-emerald-300" : "text-red-300"}>{cents > 0 ? `+${money(cents)}` : money(cents)}</span>;

@@ -230,6 +230,9 @@ price_overrides
 | `pos_open_walk_in`, `pos_arrive_booking`, `pos_mark_no_show` | Opening hours and last-open check, booked-now check, one open session per resource; check-in from 15 min before start; no-show after the hold. |
 | `pos_close_session(session, staff, payload)` | One transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
 | `pos_void_session` | Open walk-in: void. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
+| `admin_create_member`, `admin_adjust_balance`, `admin_reissue_qr`, `admin_set_tier_price` | Complimentary member (customer + member + audit); ± balance with reason (can't go negative); card reissue by token hash; tier price + `tier_prices` history. |
+| `pos_refund_payment(payment, staff, amount, reason)` | Partial refund of a cash/card payment: never more than what's left, needs an open till, cash-out movement for cash, audited. Stripe payments are refunded through Stripe. |
+| trigger `audit_config_change` | On config tables: writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
 | `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
 
 ## Platform

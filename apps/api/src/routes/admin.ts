@@ -7,6 +7,8 @@ import { PIN_PATTERN } from "../lib/pin.js";
 import { requireOperator, requireStaffDevice } from "../middleware/auth.js";
 import { createStaff, listStaff, updateStaff } from "../services/staff.js";
 import { validate } from "../validate.js";
+import { adminConfigRoutes } from "./admin-config.js";
+import { adminMemberRoutes } from "./admin-members.js";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -72,7 +74,7 @@ adminRoutes.get("/audit", validate("query", AuditQuery), async (c) => {
   let query = c
     .get("deps")
     .db.from("audit_log")
-    .select("*")
+    .select("*, actor:staff!audit_log_actor_staff_id_fkey(display_name), approver:staff!audit_log_approver_staff_id_fkey(display_name)")
     .order("id", { ascending: false })
     .limit(q.limit);
   if (q.entity) query = query.eq("entity", q.entity);
@@ -83,5 +85,15 @@ adminRoutes.get("/audit", validate("query", AuditQuery), async (c) => {
   const { data, error } = await query;
   if (error) throw mapDbError(error);
   const last = data.at(-1);
-  return c.json({ entries: data, nextBefore: data.length === q.limit && last ? last.id : null });
+  return c.json({
+    entries: data.map((e) => ({
+      ...e,
+      actor: (e.actor as { display_name: string } | null)?.display_name ?? null,
+      approver: (e.approver as { display_name: string } | null)?.display_name ?? null,
+    })),
+    nextBefore: data.length === q.limit && last ? last.id : null,
+  });
 });
+
+adminRoutes.route("/", adminConfigRoutes);
+adminRoutes.route("/", adminMemberRoutes);

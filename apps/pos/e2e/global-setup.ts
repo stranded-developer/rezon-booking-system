@@ -84,6 +84,18 @@ export default async function globalSetup() {
   });
   if (bookingError) throw bookingError;
 
-  const fixture: Fixture = { run, password, cashier, owner, resourceId: resource!.id, resourceLabel, memberToken, memberName, bookingCustomer };
+  const { data: settings } = await db.from("venue_settings").select("business_name").eq("id", 1).single();
+  const fixture: Fixture = {
+    run,
+    password,
+    cashier,
+    owner,
+    resourceId: resource!.id,
+    resourceLabel,
+    memberToken,
+    memberName,
+    bookingCustomer,
+    originalBusinessName: settings?.business_name ?? null,
+  };
   saveFixture(fixture);
 }

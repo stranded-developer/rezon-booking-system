@@ -11,6 +11,7 @@ import { hashQrToken } from "../src/services/lookup.js";
 import {
   call,
   cleanupTestData,
+  finishOpenWork,
   makeStaff,
   operatorToken,
   testContext,
@@ -71,36 +72,11 @@ async function quote(sessionId: string, time: string, body: Record<string, unkno
   return pos(`/sessions/${sessionId}/quote`, { body });
 }
 
-/** Isolation from a used local database: finish anything left open by earlier runs or manual testing. */
-async function finishOpenWork(staffId: string) {
-  const { data: open } = await ctx.db.from("sessions").select("id, kind, opened_at").eq("status", "open");
-  for (const s of open ?? []) {
-    if (s.kind === "walk_in") {
-      await ctx.db.rpc("pos_void_session", { p_session: s.id, p_staff: staffId, p_reason: "test isolation", p_now: s.opened_at });
-    } else {
-      await ctx.db.rpc("pos_close_session", {
-        p_session: s.id,
-        p_staff: staffId,
-        p_payload: { closedAt: s.opened_at, pricing: { isolation: true }, computedTotalCents: 0, totalCents: 0, gstCents: 0, method: null },
-      });
-    }
-  }
-  const { data: shift } = await ctx.db.from("shifts").select("id").is("closed_at", null).maybeSingle();
-  if (shift) {
-    const { data: totals } = await ctx.db.rpc("pos_shift_totals", { p_shift: shift.id }).single();
-    await ctx.db.rpc("pos_close_shift", {
-      p_staff: staffId,
-      p_counted_cash_cents: Math.max(0, totals!.expected_cash_cents),
-      p_terminal_card_total_cents: Math.max(0, totals!.pos_card_total_cents),
-    });
-  }
-}
-
 beforeAll(async () => {
   ctx = testContext();
   owner = await makeStaff(ctx, "superadmin", "2468", "pos-owner");
   cashier = await makeStaff(ctx, "cashier", "1357", "pos-cashier");
-  await finishOpenWork(owner.id);
+  await finishOpenWork(ctx, owner.id);
   cashierOp = await operatorToken(ctx, cashier);
   ownerOp = await operatorToken(ctx, cashier, owner);
 
@@ -160,7 +136,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   ctx.clock.real();
-  await finishOpenWork(owner.id);
+  await finishOpenWork(ctx, owner.id);
   await ctx.db.from("resources").update({ active: false }).in("id", created.resources);
   await cleanupTestData(ctx);
 });

@@ -22,7 +22,7 @@ export interface ApiClientOptions {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Background refreshes must not keep an idle operator signed in. */
   passive?: boolean;
