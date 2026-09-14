@@ -9,6 +9,7 @@ import { BookingsDialog } from "./bookings-dialog";
 import { usePos } from "./pos-provider";
 import { ShiftDialog } from "./shift-dialog";
 import { TileDialog } from "./tile-dialog";
+import { TimeUpAlert } from "./time-up-alert";
 import { Button, ErrorNote } from "./ui";
 import { useFloor, useNow } from "./use-floor";
 import { Wordmark } from "./wordmark";
@@ -26,6 +27,7 @@ export function MainScreen() {
   const { floor, error, clockOffsetMs, refresh } = useFloor();
   const now = useNow(clockOffsetMs);
   const [selected, setSelected] = useState<string | null>(null);
+  const [closeFromAlert, setCloseFromAlert] = useState(false);
   const [dialog, setDialog] = useState<"shift" | "bookings" | null>(null);
 
   const tz = config?.timeZone ?? floor?.timeZone ?? "Australia/Sydney";
@@ -88,8 +90,23 @@ export function MainScreen() {
           tile={selectedTile}
           now={now}
           hasShift={Boolean(floor?.shift)}
-          onClose={() => setSelected(null)}
+          startClosing={closeFromAlert}
+          onClose={() => {
+            setSelected(null);
+            setCloseFromAlert(false);
+          }}
           onChanged={() => void refresh()}
+        />
+      ) : null}
+      {!selectedTile && !dialog ? (
+        <TimeUpAlert
+          floor={floor}
+          now={now}
+          tz={tz}
+          onCloseTable={(resourceId) => {
+            setCloseFromAlert(true);
+            setSelected(resourceId);
+          }}
         />
       ) : null}
       {dialog === "shift" ? <ShiftDialog onClose={() => setDialog(null)} onChanged={() => void refresh()} /> : null}

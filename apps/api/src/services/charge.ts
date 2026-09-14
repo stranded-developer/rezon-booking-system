@@ -17,7 +17,8 @@ export interface ChargeOptions {
   closedAt?: string | undefined;
 }
 
-export type ChargeMode = "walk_in" | "prepaid" | "overstay";
+/** Booked sessions are prepaid: playing past the booking end is never charged (owner decision D48). */
+export type ChargeMode = "walk_in" | "prepaid";
 
 export interface ChargeQuote {
   sessionId: string;
@@ -62,8 +63,12 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
   }
 
   const booking = session.bookings as { period: unknown; member_id: string | null } | null;
-  const memberId = opts.memberId ?? (booking?.member_id && !opts.referralCode ? booking.member_id : undefined);
-  if (memberId && opts.referralCode) {
+  const bookingEnd = booking ? parseRange(booking.period).end : null;
+  const mode: ChargeMode = bookingEnd ? "prepaid" : "walk_in";
+  // Discounts and free play only apply to what is charged at the counter, i.e. walk-ins.
+  const memberId = mode === "walk_in" ? opts.memberId : undefined;
+  const referralCode = mode === "walk_in" ? opts.referralCode : undefined;
+  if (memberId && referralCode) {
     throw new ApiError(422, "member_and_referral", "A membership and a referral code cannot be used together");
   }
 
@@ -71,22 +76,13 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
   if (member && !member.eligible) {
     throw new ApiError(409, "member_inactive", `This membership is ${member.status.replace("_", " ")}`, { status: member.status });
   }
-  const referral = opts.referralCode ? await getReferral(db, opts.referralCode, now) : null;
+  const referral = referralCode ? await getReferral(db, referralCode, now) : null;
   if (referral && !referral.usable) {
     throw new ApiError(409, "referral_invalid", "This referral code can no longer be used", { reason: referral.reason });
   }
 
   const settings = await loadSettings(db);
   const resource = session.resources as { label: string; resource_type_id: string };
-  const bookingEnd = booking ? parseRange(booking.period).end : null;
-
-  let mode: ChargeMode = "walk_in";
-  let start = openedAt;
-  if (bookingEnd) {
-    mode = closedAt <= bookingEnd ? "prepaid" : "overstay";
-    start = bookingEnd;
-  }
-
   const requestedFree = mode === "prepaid" ? 0 : (opts.freeMinutes ?? 0);
   if (requestedFree > 0 && !member) throw new ApiError(422, "validation_failed", "Free minutes need a member");
   if (member && requestedFree > member.balanceMinutes) {
@@ -98,13 +94,13 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
     const ctx = await loadPricingContext(db, resource.resource_type_id, settings.timezone);
     try {
       pricing = priceSession({
-        startAt: start.getTime(),
+        startAt: openedAt.getTime(),
         endAt: closedAt.getTime(),
         timeZone: ctx.timeZone,
         resourceType: ctx.resourceType,
         rateBands: ctx.rateBands,
         happyHours: ctx.happyHours,
-        applyMinimum: mode === "walk_in",
+        applyMinimum: true,
         ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes: requestedFree } : {}),
         ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
       });

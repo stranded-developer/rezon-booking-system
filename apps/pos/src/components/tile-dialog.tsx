@@ -11,12 +11,15 @@ export function TileDialog({
   tile,
   now,
   hasShift,
+  startClosing = false,
   onClose,
   onChanged,
 }: {
   tile: FloorTile;
   now: number;
   hasShift: boolean;
+  /** Open straight into the close screen (from the time-up alert). */
+  startClosing?: boolean;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -25,7 +28,7 @@ export function TileDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
+  const [closing, setClosing] = useState(startClosing);
   const [voiding, setVoiding] = useState(false);
   const [voidReason, setVoidReason] = useState("");
 

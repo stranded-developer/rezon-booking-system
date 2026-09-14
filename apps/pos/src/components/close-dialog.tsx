@@ -347,7 +347,6 @@ export function CloseDialog({
           <div className="rounded-xl bg-ink-850 p-5 text-center">
             <div className="text-xs font-semibold uppercase tracking-widest text-ink-400">{overrideOpen && overrideCents !== null ? "Adjusted total" : "Total"}</div>
             <div className="tnum text-5xl font-black">{money(totalCents)}</div>
-            {quote?.mode === "overstay" ? <div className="mt-1 text-sm text-amber-300">Overstay past the booking</div> : null}
             {quote?.mode === "prepaid" ? <div className="mt-1 text-sm text-emerald-300">Prepaid booking — nothing to pay</div> : null}
           </div>
 

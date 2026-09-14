@@ -2,16 +2,16 @@ import { priceSession, type IsoDayOfWeek } from "@raceground/pricing";
 import type { FloorTile, PosConfig } from "./types";
 
 /**
- * Running price shown on a tile: base rates and happy hour only (no member or referral).
+ * Running price shown on a walk-in tile: base rates and happy hour only (no member or referral).
  * An estimate for staff; the API computes the real charge at close.
  */
 export function runningPrice(tile: FloorTile, config: PosConfig, nowMs: number): number | null {
   if (!tile.session) return null;
   const type = config.resourceTypes.find((t) => t.key === tile.typeKey);
   if (!type) return null;
-  const bookingEnd = tile.session.bookingEndsAt ? Date.parse(tile.session.bookingEndsAt) : null;
-  const start = bookingEnd ?? Date.parse(tile.session.openedAt);
-  if (bookingEnd !== null && nowMs <= bookingEnd) return 0;
+  // Booked sessions are prepaid and never charged for running over (D48).
+  if (tile.session.bookingEndsAt) return 0;
+  const start = Date.parse(tile.session.openedAt);
   try {
     return priceSession({
       startAt: start,
@@ -35,7 +35,7 @@ export function runningPrice(tile: FloorTile, config: PosConfig, nowMs: number):
         endTime: h.end_time,
         discountBp: h.discount_bp,
       })),
-      applyMinimum: bookingEnd === null,
+      applyMinimum: true,
     }).totalCents;
   } catch {
     return null;

@@ -479,7 +479,7 @@ describe("bookings", () => {
     expect(list.json.bookings.map((b: { id: string }) => b.id)).toEqual(expect.arrayContaining([overstayBooking, prepaidBooking, noShowBooking]));
   });
 
-  it("checks in, goes overdue, and charges only the overstay minutes", async () => {
+  it("checks in and goes overdue, but playing past the booking is never charged (D48)", async () => {
     ctx.clock.set(at("16:05"));
     const arrive = await pos(`/bookings/${overstayBooking}/arrive`, { body: {} });
     expect(arrive.status).toBe(201);
@@ -488,12 +488,16 @@ describe("bookings", () => {
     ctx.clock.set(at("17:10"));
     expect((await tile(res.t3)).state).toBe("overdue");
 
-    const q = await quote(sessionId, "17:10");
-    expect(q.json.quote).toMatchObject({ mode: "overstay", totalCents: 500, bookingEndsAt: new Date(at("17:00")).toISOString() });
-    expect(q.json.quote.pricing.billedMinutes).toBe(10);
-    const r = await pos(`/sessions/${sessionId}/close`, { body: { closedAt: q.json.quote.closedAt, tender: { method: "card_terminal" } } });
+    // Even with a member and a referral code offered, a booked session has nothing to charge.
+    const q = await quote(sessionId, "17:10", { memberId: gold.id, referralCode: percentCode });
+    expect(q.status, JSON.stringify(q.json)).toBe(200);
+    expect(q.json.quote).toMatchObject({ mode: "prepaid", totalCents: 0, pricing: null, member: null, referral: null, bookingEndsAt: new Date(at("17:00")).toISOString() });
+    const r = await pos(`/sessions/${sessionId}/close`, { body: { closedAt: q.json.quote.closedAt, tender: { method: "free" } } });
     expect(r.status, JSON.stringify(r.json)).toBe(200);
-    cardTotal += 500; // 10 overstay minutes @ $30/hr
+    const { count } = await ctx.db.from("payments").select("id", { count: "exact", head: true }).eq("session_id", sessionId);
+    expect(count).toBe(0);
+    const { data: code } = await ctx.db.from("referral_codes").select("uses_count").eq("code", percentCode).single();
+    expect(code!.uses_count).toBe(0);
     const { data: b } = await ctx.db.from("bookings").select("status").eq("id", overstayBooking).single();
     expect(b!.status).toBe("completed");
   });

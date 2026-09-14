@@ -77,9 +77,9 @@ A grid of resource tiles grouped by type. Each tile shows:
    - Shows the explanation, GST, business name and ABN.
    - Receipts over $82.50 are titled **"Tax Invoice"**.
 
-### Overstay (booked session past its end)
-- If the next slot is free, the cashier can **extend**. When the session closes, the extra minutes (`booked end → closed_at`) are priced with `applyMinimum = false`, using member, balance or referral as usual, and charged at the POS **on the booking's own session** (D48). A booking closed on time records nothing to pay.
-- If the next slot is booked, the tile shows **Overdue** and staff must end the session. Overstay minutes still bill.
+### Booking time is up (no overstay charge — D48 revised)
+- Booked sessions are prepaid. Closing one records **nothing to pay**, however late. Member discounts, referral codes and free play only apply to walk-ins.
+- When a booking's end time passes, the floor shows a **time-up pop-up** for that table ("Booking ended at 17:00 (5 min ago). Ask the customer to finish and close the table.") with **Close table** and **Remind me in 2 min**. The same pop-up appears for any table still open after closing time. The tile shows **Overdue** until it's closed.
 
 ### Void
 Superadmin only, with a reason. It is audited. If a payment was taken, a refund is required.

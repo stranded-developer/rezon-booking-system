@@ -31,8 +31,9 @@ export default function VenuePage() {
       <PageHeader title="Venue & hours" description="Business details for receipts and tax invoices, opening hours and booking rules." />
       <ErrorNote error={settings.error ?? hours.error} />
       <div className="grid gap-6 lg:grid-cols-2">
-        {settings.data ? <SettingsForm key={JSON.stringify(settings.data.settings)} settings={settings.data.settings} onSaved={settings.reload} /> : null}
-        {hours.data ? <HoursForm key={JSON.stringify(hours.data.days)} days={hours.data.days} onSaved={hours.reload} /> : null}
+        {/* Forms keep their own state after the first load; re-keying on data would remount them and hide "Saved." */}
+        {settings.data ? <SettingsForm settings={settings.data.settings} onSaved={settings.reload} /> : null}
+        {hours.data ? <HoursForm days={hours.data.days} onSaved={hours.reload} /> : null}
       </div>
     </>
   );

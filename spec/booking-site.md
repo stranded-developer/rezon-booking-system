@@ -80,7 +80,7 @@ Customers cancel through the signed link in their email.
 - Refunds go to the original card through the Stripe Refunds API. The amount is based on the **amount paid** (`total_cents`).
 - Stripe keeps its processing fee on refunds.
 - **Late arrival:** the session ends at the booked end time.
-- **Overstay:** the extra time is charged at the POS if the resource is free. If the next slot is booked, the session must end.
+- **Overstay:** not charged. Staff are prompted to end the session when the booking time is up.
 - A superadmin can issue any refund, full or partial, with a reason. It is audited.
 
 ## 5. Emails

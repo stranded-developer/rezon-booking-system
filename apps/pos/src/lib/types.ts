@@ -98,7 +98,7 @@ export interface ReferralSummary {
 export interface Quote {
   sessionId: string;
   resourceLabel: string;
-  mode: "walk_in" | "prepaid" | "overstay";
+  mode: "walk_in" | "prepaid";
   openedAt: string;
   closedAt: string;
   bookingEndsAt: string | null;
