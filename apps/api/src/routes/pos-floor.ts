@@ -24,14 +24,15 @@ const Cents = z.number().int().min(0).max(10_000_000);
 // ── Config & floor ───────────────────────────────────────────────────────────
 posOpsRoutes.get("/config", async (c) => {
   const { db } = c.get("deps");
-  const [settings, types, hours, hhs, tiers] = await Promise.all([
+  const [settings, types, hours, hhs, tiers, bands] = await Promise.all([
     loadSettings(db),
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("opening_hours").select("*").order("day_of_week"),
     db.from("happy_hours").select("*").eq("active", true),
     db.from("membership_tiers").select("id, name, discount_bp, monthly_free_minutes").eq("active", true).order("sort"),
+    db.from("rate_bands").select("*").eq("active", true),
   ]);
-  for (const r of [types, hours, hhs, tiers]) if (r.error) throw mapDbError(r.error);
+  for (const r of [types, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
   return c.json({
     timeZone: settings.timezone,
     businessName: settings.business_name ?? "Raceground",
@@ -40,6 +41,7 @@ posOpsRoutes.get("/config", async (c) => {
     openingHours: hours.data!.map((h) => ({ ...h, open_time: wallTime(h.open_time), close_time: wallTime(h.close_time) })),
     happyHours: hhs.data!.map((h) => ({ ...h, start_time: wallTime(h.start_time), end_time: wallTime(h.end_time) })),
     tiers: tiers.data,
+    rateBands: bands.data!.map((b) => ({ ...b, start_time: wallTime(b.start_time), end_time: wallTime(b.end_time) })),
   });
 });
 

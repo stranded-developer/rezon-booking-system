@@ -197,6 +197,13 @@ describe("operator token enforcement", () => {
     expect(again.status).toBe(200);
   });
 
+  it("passive background requests are authorised but do not extend an idle operator", async () => {
+    const token = await operatorToken(ctx, cashier);
+    const res = await call(ctx, "/pos/me", { jwt: cashier.jwt, operatorToken: token, headers: { "X-Operator-Passive": "1" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Operator-Token")).toBeNull();
+  });
+
   it("rejects an expired token (idle lock)", async () => {
     const past = Math.floor(Date.now() / 1000) - 600;
     const token = await signOperatorToken(cashier.id, (await deviceUserId(cashier)), ctx.env.OPERATOR_TOKEN_SECRET, 300, past);

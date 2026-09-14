@@ -4,6 +4,8 @@ import { ApiError, mapDbError } from "../errors.js";
 import { signOperatorToken, verifyOperatorToken } from "../lib/operator-token.js";
 
 export const OPERATOR_HEADER = "X-Operator-Token";
+/** Background requests (e.g. floor polling) send this so they don't keep an idle operator signed in. */
+export const PASSIVE_HEADER = "X-Operator-Passive";
 
 type StaffRow = { id: string; auth_user_id: string; display_name: string; role: string; active: boolean };
 
@@ -44,7 +46,8 @@ export const requireStaffDevice = createMiddleware<AppEnv>(async (c, next) => {
 
 /**
  * Requires a PIN-verified operator token bound to the current device session.
- * Re-checks the operator's staff row on every request and slides the token expiry (idle lock).
+ * Re-checks the operator's staff row on every request and slides the token expiry (idle lock),
+ * except for passive background requests.
  * Must run after requireStaffDevice.
  */
 export function requireOperator(...roles: StaffRole[]) {
@@ -74,6 +77,7 @@ export function requireOperator(...roles: StaffRole[]) {
 
     c.set("operator", operator);
     await next();
+    if (c.req.header(PASSIVE_HEADER) === "1") return;
     c.header(
       OPERATOR_HEADER,
       await signOperatorToken(operator.id, device.authUserId, env.OPERATOR_TOKEN_SECRET, env.OPERATOR_IDLE_SECONDS),

@@ -30,8 +30,8 @@ Runs in Chrome on a laptop or desktop at the counter, with a USB 2D QR scanner a
 
 A grid of resource tiles grouped by type. Each tile shows:
 - **State:** Free · In use (walk-in) · In use (booking) · Booked soon · Overdue
-- **Running timer** from `opened_at`, computed on the client and synced across terminals via Supabase Realtime
-- **Live running price** (engine quote to "now")
+- **Running timer** from `opened_at`, computed on the client using a server-corrected clock. The floor refreshes every **10 s** by polling (passive requests). Supabase Realtime can replace polling later if more than one terminal is used.
+- **Live running price:** the pricing engine runs in the browser with base rates and happy hour only. It's an estimate; the API computes the real charge at close.
 - **Next booking:** "Next booking 16:00 · Jane S."
 - **Alerts:**
   - 10 min before a booking starts on a tile with a walk-in running

@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppDeps, AppEnv } from "./context.js";
 import { ApiError } from "./errors.js";
-import { OPERATOR_HEADER } from "./middleware/auth.js";
+import { OPERATOR_HEADER, PASSIVE_HEADER } from "./middleware/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { posRoutes } from "./routes/pos.js";
 
@@ -16,7 +16,7 @@ export function createApp(deps: AppDeps) {
     "*",
     cors({
       origin: deps.env.CORS_ORIGINS,
-      allowHeaders: ["Authorization", "Content-Type", OPERATOR_HEADER],
+      allowHeaders: ["Authorization", "Content-Type", OPERATOR_HEADER, PASSIVE_HEADER],
       exposeHeaders: [OPERATOR_HEADER],
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
       maxAge: 600,

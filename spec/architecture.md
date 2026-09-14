@@ -14,7 +14,7 @@
 | Payments | Stripe (Checkout, Billing, Customer Portal, Refunds), AUD |
 | Email | Resend + React Email |
 | UI | Tailwind + shadcn/ui in `packages/ui` |
-| Tests | Vitest (unit), Playwright (E2E, later phases) |
+| Tests | Vitest (unit + API integration), pgTAP (database), Playwright (browser end-to-end, `apps/pos/e2e`) |
 | Hosting | Vercel: three projects from one repo |
 
 ## 2. Repository layout
@@ -44,6 +44,7 @@ logs/          planning, decision and build logs
    - **Operator token:** `X-Operator-Token`, HS256 signed with `OPERATOR_TOKEN_SECRET`.
      - It is **bound to the device session's user** (a token issued on another device is rejected).
      - Its lifetime is `OPERATOR_IDLE_SECONDS` (300). Every successful request returns a renewed token in the same header, so the idle lock is enforced by the server as well as the UI.
+     - **Passive requests:** background requests (floor polling) send `X-Operator-Passive: 1`. They're authorised but don't renew the token, so an unattended POS still locks.
      - The operator's staff row is re-read on every request, so deactivating someone or changing their role takes effect immediately.
    - **PIN checks:** the API compares the scrypt hash, then records the outcome with `register_pin_attempt()`. That function holds a row lock, so parallel guesses can't exceed `PIN_MAX_ATTEMPTS` (5). A correct PIN is refused if the account became locked while it was being checked. Lockouts are audited.
    - **Errors:** unknown or inactive staff get the same "incorrect PIN" answer as a wrong PIN.

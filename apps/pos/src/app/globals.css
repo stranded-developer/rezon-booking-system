@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --color-ink-950: #0b0d10;
+  --color-ink-900: #12151a;
+  --color-ink-850: #171b21;
+  --color-ink-800: #1d222a;
+  --color-ink-700: #2a313c;
+  --color-ink-600: #3a4350;
+  --color-ink-400: #8a94a3;
+  --color-ink-200: #c9d0da;
+  --color-ink-50: #f3f5f8;
+  --color-flag: #e8ff47;
+}
+
+html,
+body {
+  background: var(--color-ink-950);
+  color: var(--color-ink-50);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numbers for timers and money. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Printing: only the receipt, sized for an 80 mm roll. */
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+  .print-only {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 72mm;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}

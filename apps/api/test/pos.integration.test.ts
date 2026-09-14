@@ -178,6 +178,7 @@ describe("access", () => {
     expect(r.json.timeZone).toBe("Australia/Sydney");
     expect(r.json.resourceTypes.map((t: { key: string }) => t.key)).toEqual(["billiard", "sim", "vr"]);
     expect(r.json.happyHours[0]).toMatchObject({ start_time: "10:00", end_time: "15:00", discount_bp: 1000 });
+    expect(Array.isArray(r.json.rateBands)).toBe(true);
   });
 });
 
