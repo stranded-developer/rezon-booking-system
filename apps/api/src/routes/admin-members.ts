@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
+import { changeMemberTier, setCancelAtPeriodEnd, syncCatalog } from "../services/billing.js";
 import { getMember, hashQrToken } from "../services/lookup.js";
 import { loadSettings, parseRange } from "../services/venue.js";
 import { validate } from "../validate.js";
@@ -73,7 +74,12 @@ adminMemberRoutes.get("/members/:id", validate("param", Id), async (c) => {
   const { data: row, error: rowError } = await db.from("members").select("current_period_end, pending_tier_id, stripe_subscription_id").eq("id", id).single();
   if (rowError) throw mapDbError(rowError);
   return c.json({
-    member: { ...member, currentPeriodEnd: row.current_period_end, billing: row.stripe_subscription_id ? "stripe" : "complimentary" },
+    member: {
+      ...member,
+      currentPeriodEnd: row.current_period_end,
+      pendingTierId: row.pending_tier_id,
+      billing: row.stripe_subscription_id ? "stripe" : "complimentary",
+    },
     ledger: ledger.map((l) => ({ ...l, actor: (l.actor as { display_name: string } | null)?.display_name ?? null })),
   });
 });
@@ -336,3 +342,26 @@ adminMemberRoutes.get(
     });
   },
 );
+
+// ── Billing ──────────────────────────────────────────────────────────────────
+adminMemberRoutes.post("/billing/sync-catalog", async (c) => {
+  return c.json({ tiers: await syncCatalog(c.get("deps"), c.get("operator").id) });
+});
+
+adminMemberRoutes.post(
+  "/members/:id/tier",
+  validate("param", Id),
+  validate("json", z.object({ tierId: z.uuid(), reason: z.string().trim().max(300).optional() })),
+  async (c) => {
+    const { tierId, reason } = c.req.valid("json");
+    return c.json(await changeMemberTier(c.get("deps"), c.get("operator"), c.req.valid("param").id, tierId, reason ?? null));
+  },
+);
+
+adminMemberRoutes.post("/members/:id/cancel", validate("param", Id), validate("json", z.object({ reason: z.string().trim().max(300).optional() })), async (c) => {
+  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator"), c.req.valid("param").id, true, c.req.valid("json").reason ?? null));
+});
+
+adminMemberRoutes.post("/members/:id/resume", validate("param", Id), validate("json", z.object({ reason: z.string().trim().max(300).optional() })), async (c) => {
+  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator"), c.req.valid("param").id, false, c.req.valid("json").reason ?? null));
+});

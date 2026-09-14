@@ -1,4 +1,6 @@
 import type { Db } from "@raceground/db";
+import type Stripe from "stripe";
+import type { EmailSender } from "./services/email.js";
 import type { Env } from "./env.js";
 
 export type StaffRole = "superadmin" | "cashier";
@@ -20,6 +22,9 @@ export interface AppDeps {
   env: Env;
   db: Db;
   clock: Clock;
+  /** null when STRIPE_SECRET_KEY isn't configured. */
+  stripe: Stripe | null;
+  email: EmailSender;
 }
 
 export interface AppEnv {

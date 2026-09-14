@@ -10,6 +10,18 @@ const EnvSchema = z.object({
   OPERATOR_IDLE_SECONDS: z.coerce.number().int().positive().default(300),
   PIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   PIN_LOCK_MINUTES: z.coerce.number().int().positive().default(5),
+  /** Stripe secret key (sk_test_… / sk_live_…). Billing routes return 503 without it. */
+  STRIPE_SECRET_KEY: z.string().startsWith("sk_").optional(),
+  /** Signing secret of the webhook endpoint (whsec_…); `stripe listen` prints one for local development. */
+  STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_").optional(),
+  /** Where Stripe Checkout sends the customer afterwards. */
+  CHECKOUT_SUCCESS_URL: z.url().default("http://localhost:8787/checkout/complete"),
+  CHECKOUT_CANCEL_URL: z.url().default("http://localhost:8787/checkout/cancelled"),
+  /** Bearer secret for scheduled job endpoints (/cron/*). */
+  CRON_SECRET: z.string().min(32).optional(),
+  /** "console" logs emails (development); a real provider is added with Resend. */
+  EMAIL_TRANSPORT: z.enum(["console"]).default("console"),
+  EMAIL_FROM: z.string().default("Raceground <hello@raceground.local>"),
   /** Comma-separated browser origins allowed to call the API. */
   CORS_ORIGINS: z
     .string()

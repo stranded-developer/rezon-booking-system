@@ -1408,6 +1408,46 @@ export type Database = {
         }
       }
       expire_stale_holds: { Args: never; Returns: number }
+      membership_apply_invoice: {
+        Args: { p: Json; p_member: string }
+        Returns: Json
+      }
+      membership_change_tier: {
+        Args: {
+          p_member: string
+          p_reason: string
+          p_staff: string
+          p_tier: string
+        }
+        Returns: Json
+      }
+      membership_checkout_prepare: {
+        Args: {
+          p_email: string
+          p_name: string
+          p_phone: string
+          p_staff: string
+          p_tier: string
+        }
+        Returns: Json
+      }
+      membership_forfeit_balances: { Args: { p_now?: string }; Returns: number }
+      membership_issue_first_card: {
+        Args: { p_member: string; p_staff: string; p_token_hash: string }
+        Returns: undefined
+      }
+      membership_payment_failed: {
+        Args: { p_member: string; p_subscription_id: string }
+        Returns: string
+      }
+      membership_set_stripe_customer: {
+        Args: { p_customer: string; p_stripe_customer_id: string }
+        Returns: undefined
+      }
+      membership_sync_subscription: {
+        Args: { p: Json; p_member: string }
+        Returns: string
+      }
       pos_arrive_booking: {
         Args: { p_booking: string; p_now?: string; p_staff: string }
         Returns: {

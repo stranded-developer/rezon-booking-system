@@ -2,7 +2,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { createServiceClient, type Db } from "@raceground/db";
 import { inject } from "vitest";
+import Stripe from "stripe";
 import { createApp } from "../src/app.js";
+import { createConsoleEmail } from "../src/services/email.js";
 import type { Clock } from "../src/context.js";
 import type { StaffRole } from "../src/context.js";
 import { loadEnv, type Env } from "../src/env.js";
@@ -38,8 +40,10 @@ export function testContext(overrides: Record<string, string> = {}) {
   });
   const db = createServiceClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   const clock = new TestClock();
-  const app = createApp({ env, db, clock });
-  return { env, db, app, supabase, clock };
+  const email = createConsoleEmail(db, env.EMAIL_FROM, () => undefined);
+  const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null;
+  const app = createApp({ env, db, clock, stripe, email });
+  return { env, db, app, supabase, clock, email, stripe };
 }
 
 export type TestContext = ReturnType<typeof testContext>;

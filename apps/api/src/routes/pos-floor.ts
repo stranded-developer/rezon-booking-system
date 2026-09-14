@@ -4,9 +4,10 @@ import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { requestIp } from "../lib/audit.js";
 import { requireOperator } from "../middleware/auth.js";
+import { issueFirstCard, startMembershipCheckout } from "../services/billing.js";
 import { buildReceipt, closeSession, quoteClose } from "../services/charge.js";
 import { getFloor, todaysBookings } from "../services/floor.js";
-import { findMemberByQr, getReferral, searchMembers } from "../services/lookup.js";
+import { findMemberByQr, getMember, getReferral, searchMembers } from "../services/lookup.js";
 import { shiftReport } from "../services/shift-report.js";
 import { loadSettings, wallTime } from "../services/venue.js";
 import { validate } from "../validate.js";
@@ -220,4 +221,26 @@ posOpsRoutes.post("/bookings/:id/no-show", validate("param", Id), async (c) => {
   if (error) throw mapDbError(error);
   if (!data) throw new ApiError(500, "internal", "No-show failed");
   return c.json({ booking: { id: data.id, status: data.status } });
+});
+
+// ── Memberships at the counter ───────────────────────────────────────────────
+posOpsRoutes.post(
+  "/memberships/checkout",
+  validate("json", z.object({ name: z.string().trim().min(1).max(80), email: z.email(), phone: z.string().trim().max(20).optional(), tierId: z.uuid() })),
+  async (c) => {
+    const result = await startMembershipCheckout(c.get("deps"), c.get("operator"), c.req.valid("json"));
+    return c.json(result, 201);
+  },
+);
+
+posOpsRoutes.get("/memberships/:id", validate("param", Id), async (c) => {
+  const { db } = c.get("deps");
+  const member = await getMember(db, c.req.valid("param").id);
+  const { data, error } = await db.from("members").select("qr_token_hash, current_period_end").eq("id", member.id).single();
+  if (error) throw mapDbError(error);
+  return c.json({ member, hasCard: data.qr_token_hash !== null, currentPeriodEnd: data.current_period_end });
+});
+
+posOpsRoutes.post("/memberships/:id/card", validate("param", Id), async (c) => {
+  return c.json(await issueFirstCard(c.get("deps"), c.get("operator"), c.req.valid("param").id), 201);
 });

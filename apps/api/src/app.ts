@@ -7,6 +7,7 @@ import { ApiError } from "./errors.js";
 import { OPERATOR_HEADER, PASSIVE_HEADER } from "./middleware/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { posRoutes } from "./routes/pos.js";
+import { systemRoutes } from "./routes/system.js";
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>();
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps) {
   app.get("/health", (c) => c.json({ ok: true }));
   app.route("/pos", posRoutes);
   app.route("/admin", adminRoutes);
+  app.route("/", systemRoutes);
 
   app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));
 

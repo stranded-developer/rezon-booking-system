@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { TestProject } from "vitest/node";
 
@@ -7,6 +8,8 @@ export interface LocalSupabase {
   secretKey: string;
   publishableKey: string;
   dbUrl: string;
+  /** STRIPE_SECRET_KEY from apps/api/.env.local (test mode), if present. */
+  stripeKey: string | null;
 }
 
 declare module "vitest" {
@@ -43,5 +46,7 @@ export default function setup(project: TestProject) {
   if (!url || !secretKey || !publishableKey || !dbUrl) {
     throw new Error("Could not read API_URL / SECRET_KEY / PUBLISHABLE_KEY / DB_URL from `supabase status`.");
   }
-  project.provide("supabase", { url, secretKey, publishableKey, dbUrl });
+  const envFile = fileURLToPath(new URL("../.env.local", import.meta.url));
+  const stripeKey = existsSync(envFile) ? (/^STRIPE_SECRET_KEY=(sk_test_\S+)$/m.exec(readFileSync(envFile, "utf8"))?.[1] ?? null) : null;
+  project.provide("supabase", { url, secretKey, publishableKey, dbUrl, stripeKey });
 }

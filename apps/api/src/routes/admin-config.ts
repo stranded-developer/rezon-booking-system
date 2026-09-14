@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
+import { migrateTierSubscriptions } from "../services/billing.js";
 import { wallTime } from "../services/venue.js";
 import { validate } from "../validate.js";
 
@@ -536,7 +537,9 @@ adminConfigRoutes.post(
       reason,
     );
     if (error) throw mapDbError(error);
-    // Stripe price sync and member price-change emails are added with Stripe Billing (Phase 5).
-    return c.json({ tier: data, stripeSyncPending: true });
+    const deps = c.get("deps");
+    if (!deps.stripe) return c.json({ tier: data, stripeSyncPending: true });
+    const billing = await migrateTierSubscriptions(deps, c.req.valid("param").id, c.get("operator").id);
+    return c.json({ tier: data, stripeSyncPending: false, billing });
   },
 );
