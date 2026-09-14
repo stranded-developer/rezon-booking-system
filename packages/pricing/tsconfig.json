@@ -1,0 +1,8 @@
+{
+  "extends": "@raceground/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "ES2023.Intl"],
+    "types": []
+  },
+  "include": ["src", "test"]
+}
