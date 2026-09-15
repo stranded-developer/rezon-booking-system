@@ -69,7 +69,8 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready");
     await page.screenshot({ path: "test-results/screens/membership-03-active.png" });
     await page.getByRole("button", { name: "Print member card" }).click();
-    await expect(page.getByTestId("member-qr").locator("svg")).toBeVisible();
+    // Printing the first card asks the API for a new token, so allow for a round trip.
+    await expect(page.getByTestId("member-qr").locator("svg")).toBeVisible({ timeout: 15_000 });
 
     // Database: active, $100 Stripe payment, 60-minute grant.
     const { data: member } = await db

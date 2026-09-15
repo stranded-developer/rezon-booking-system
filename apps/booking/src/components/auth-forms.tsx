@@ -170,15 +170,15 @@ export function SignUpForm() {
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
 
-  async function send() {
-    setBusy(true);
-    // Always the same answer, so nobody can use this to find out who has an account.
-    await supabase().auth.resetPasswordForEmail(email.trim(), { redirectTo: `${siteUrl()}/reset-password` });
-    setBusy(false);
+  function send() {
     setSent(true);
+    // The answer is the same whether or not the address has an account, and the page never waits for
+    // the email to go out, so its timing can't be used to find out who is a member either.
+    void supabase()
+      .auth.resetPasswordForEmail(email.trim(), { redirectTo: `${siteUrl()}/reset-password` })
+      .catch((err: unknown) => console.error("Password reset request failed", err));
   }
 
   return (
@@ -192,14 +192,14 @@ export function ForgotPasswordForm() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              void send();
+              send();
             }}
           >
             <Field label="Email">
               <Input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </Field>
-            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy}>
-              {busy ? "Sending…" : "Send me a link"}
+            <Button type="submit" variant="primary" size="lg" className="w-full">
+              Send me a link
             </Button>
           </form>
         </Card>

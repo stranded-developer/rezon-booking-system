@@ -44,6 +44,9 @@ The build commands were **run locally from the same directories Vercel uses** (`
 3. **`.env.example` was missing 7 of 16 settings**, including secrets. Now complete and guarded by a test.
 4. The local server and a Vercel entry point would have been two copies of the same wiring; extracted to `bootstrap.ts` before that could rot.
 
+**Also noted**
+- The POS membership test failed once during a full gate run, waiting for the member card QR after a real Stripe payment. The webhooks had been delivered (200s in the Stripe CLI log) and the dialog was gone from the page. It then passed on four consecutive runs, alone and in the full suite, and nothing in this step touches that path. Recorded as an unexplained one-off; that assertion now allows 15 s for its API round trip, which does not hide the failure seen (the dialog was missing entirely, not slow). If it recurs, the Playwright trace is kept on failure.
+
 **Not built yet**
 - Nothing is deployed. The owner creates the accounts and we follow `spec/deploy.md` together.
 - **To verify on the first real deploy** (can't be checked from here): that Vercel's bundler resolves the API's TypeScript imports, that the workspace packages are traced into the function, and that a cron job fires.
