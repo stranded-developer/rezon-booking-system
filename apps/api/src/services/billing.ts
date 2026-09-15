@@ -5,26 +5,13 @@ import type { AppDeps, StaffIdentity } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { writeAudit } from "../lib/audit.js";
 import { auditHeaders } from "../lib/audit-headers.js";
+import { handleBookingCheckoutCompleted, handleBookingCheckoutExpired } from "./bookings.js";
 import { getMember, hashQrToken } from "./lookup.js";
+import { requireStripe, stripeCall } from "../lib/stripe.js";
+
+export { requireStripe };
 
 type Tier = Tables<"membership_tiers">;
-
-export function requireStripe(deps: AppDeps): Stripe {
-  if (!deps.stripe) throw new ApiError(503, "stripe_not_configured", "Online billing isn't set up (STRIPE_SECRET_KEY)");
-  return deps.stripe;
-}
-
-/** Stripe API errors become 502s with Stripe's message; our own errors pass through. */
-async function stripeCall<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (err instanceof Stripe.errors.StripeError) {
-      throw new ApiError(502, "stripe_error", err.message, { type: err.type, code: err.code ?? null });
-    }
-    throw err;
-  }
-}
 
 const compactId = (uuid: string) => uuid.replace(/-/g, "");
 export const tierProductId = (tierId: string) => `rg_tier_${compactId(tierId)}`;
@@ -204,7 +191,13 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
     case "checkout.session.completed": {
       const session = event.data.object;
       if (session.mode === "subscription" && session.subscription) await syncSubscription(deps, subscriptionIdOf(session.subscription)!);
+      else if (session.mode === "payment") handled = await handleBookingCheckoutCompleted(deps, session);
       else handled = false;
+      break;
+    }
+    case "checkout.session.expired": {
+      const session = event.data.object;
+      handled = session.mode === "payment" ? await handleBookingCheckoutExpired(deps, session) : false;
       break;
     }
     case "invoice.paid": {

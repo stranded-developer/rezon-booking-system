@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   /** Where Stripe Checkout sends the customer afterwards. */
   CHECKOUT_SUCCESS_URL: z.url().default("http://localhost:8787/checkout/complete"),
   CHECKOUT_CANCEL_URL: z.url().default("http://localhost:8787/checkout/cancelled"),
+  /** Public booking website, for links in emails and where Stripe Checkout returns customers. */
+  BOOKING_SITE_URL: z.url().default("http://localhost:3000").transform((v) => v.replace(/\/+$/, "")),
   /** Bearer secret for scheduled job endpoints (/cron/*). */
   CRON_SECRET: z.string().min(32).optional(),
   /** "console" logs emails (development); a real provider is added with Resend. */

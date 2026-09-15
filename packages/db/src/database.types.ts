@@ -761,6 +761,24 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          hits: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          hits: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          hits?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       referral_codes: {
         Row: {
           active: boolean
@@ -1709,6 +1727,19 @@ export type Database = {
           p_staff: string
         }
         Returns: Json
+      }
+      rate_limit_hit: {
+        Args: {
+          p_key: string
+          p_limit: number
+          p_now?: string
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          hits: number
+          reset_at: string
+        }[]
       }
       register_pin_attempt: {
         Args: {

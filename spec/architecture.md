@@ -65,7 +65,8 @@ Public
   POST /public/referral/check
   POST /bookings/hold                 → Stripe Checkout URL or confirmed ($0)
   GET  /bookings/:ref?token
-  POST /bookings/:ref/cancel?token
+  POST /bookings/:ref/cancel          { token, expectedRefundCents }
+  POST /bookings/:ref/abandon         { token }  customer backed out of Checkout: expire it, free the slot
 
 Member (JWT)
   GET  /me  ·  GET /me/ledger  ·  POST /me/qr/reissue
@@ -91,6 +92,9 @@ System
   POST /cron/reminders     hourly: 24h booking reminders
   POST /cron/forfeit       daily: forfeit balances ended > 30 days
   POST /cron/holds         cleanup of expired holds (correctness doesn't depend on it)
+
+Rate limits (per client IP, counted in Postgres `rate_limit_hit` so all instances share them):
+  public reads 300/min · quotes 120/min · referral checks 10/min · holds 10 per 10 min · booking links 30/min
 ```
 
 ## 5. Scheduled jobs

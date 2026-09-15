@@ -4,7 +4,16 @@ export type EmailTemplate =
   | "membership_welcome"
   | "membership_payment_failed"
   | "membership_ended"
-  | "membership_price_change";
+  | "membership_price_change"
+  | "booking_confirmed"
+  | "booking_cancelled"
+  | "booking_payment_refunded";
+
+export interface EmailAttachment {
+  filename: string;
+  contentType: string;
+  content: string;
+}
 
 export interface EmailMessage {
   template: EmailTemplate;
@@ -14,6 +23,7 @@ export interface EmailMessage {
   /** For the email log and de-duplication, e.g. ("members", memberId + ":" + invoiceId). */
   entity: string;
   entityId: string;
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailSender {
@@ -44,7 +54,7 @@ export function createConsoleEmail(db: Db, from: string, log: (line: string) => 
         throw new Error(`email_log insert failed: ${error.message}`);
       }
       outbox.push(message);
-      log(`\n── email (${message.template}) ──\nFrom: ${from}\nTo: ${message.to}\nSubject: ${message.subject}\n\n${message.text}\n──────────────`);
+      log(`\n── email (${message.template}) ──\nFrom: ${from}\nTo: ${message.to}\nSubject: ${message.subject}\n\n${message.text}${(message.attachments ?? []).map((a) => `\n[attachment: ${a.filename}, ${a.contentType}]`).join("")}\n──────────────`);
       return { sent: true, duplicate: false };
     },
   };

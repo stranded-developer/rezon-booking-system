@@ -92,7 +92,18 @@ Customers cancel through the signed link in their email.
 | Reminder | 24 h before start |
 | Cancellation + refund amount | On cancel |
 
-## 6. Legal pages content (drafted in Phase 7)
+## 6. API implementation notes (Phase 6b)
+
+- **Times are sent as venue date + wall time** (`date`, `startTime`, `durationMinutes`), never device-local instants. A time that doesn't exist on a DST change day is refused.
+- **Availability** returns, per 15-minute start from the cutoff to close: how many resources are free and the longest length on each (up to the next booking or close). Unexpired holds block; expired ones don't, even before cleanup.
+- **"Any available"** tries resources in sort order and takes the first free one.
+- **Checkout:** payment mode, AUD, **cards only** (so a completed checkout is always paid), Adaptive Pricing off, expires about 1 minute after the 30-minute hold time (Stripe's minimum). The database hold lasts 10 minutes longer.
+- **Booking link token:** 32 random bytes; only its sha256 is stored. It is carried in the Checkout session metadata so the webhook can email the link.
+- **Late payment:** if the hold is gone (or the amount differs) when `checkout.session.completed` arrives, the full payment is refunded through Stripe, audited, and the customer is emailed. Retries never refund twice (idempotency key per booking).
+- **Customer cancel:** refund quote → Stripe refund (idempotency key per booking + amount; an earlier refund made for this cancel is reused) → `booking_cancel` with the refund id → email.
+- **Emails** (console transport until Resend): confirmation with `.ics` invite, check-in code `rg:b:<ref>` and link; cancellation with refund amount; late-payment refund.
+
+## 7. Legal pages content (drafted in Phase 7)
 
 - **Terms:** booking rules and the refund policy above, conduct, and the fact that time played is billed per minute.
 - **Privacy policy:** name, email and phone collected. Payments are handled by Stripe, and no card data is stored.

@@ -24,12 +24,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | Back office, inside the POS at `/admin` | ✅ Built and verified |
 | Membership billing (Stripe test mode), sold at the counter | ✅ Built and verified |
 | Booking rules in the database (hold, confirm, expiry, cancel/refund) | ✅ Built and verified (6a) |
-| **Booking API + website** for customers, member login/account | ❌ **Next: Phase 6b (API), then 6c (website)** |
+| Public booking API: availability, quote, hold, Stripe payment, cancel links, emails (6b-1) | ✅ Built and verified |
+| **Member login/account API (6b-2), then booking website (6c)** | ❌ **Next** |
 | Real emails (Resend) | ❌ Console only for now |
 | Reports | ❌ Phase 7 |
 | Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
 
-**Test totals at the last step:** pricing 78 · API 96 · pgTAP 327 · e2e 4.
+**Test totals at the last step:** pricing 78 · API 125 · pgTAP 336 · e2e 4 (3 run without `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -48,6 +49,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 11 | Membership billing core (Stripe) | [build/11-membership-billing-core.md](build/11-membership-billing-core.md) |
 | 12 | Counter membership sales, back office billing, real Stripe check | [build/12-counter-membership-sales.md](build/12-counter-membership-sales.md) |
 | 13 | Online booking rules in the database (6a) | [build/13-booking-database.md](build/13-booking-database.md) |
+| 14 | Public booking API + Stripe payments and refunds (6b-1) | [build/14-booking-api-public.md](build/14-booking-api-public.md) |
 
 ## Decisions
 
@@ -64,15 +66,9 @@ Everything that was planned, decided and built, one file per step so each can be
 Planned sub-steps, each gets its own `build/` file:
 
 1. ✅ **Database** → [build/13](build/13-booking-database.md)
-2. **API (next):**
-   - public config, availability and quote
-   - hold → Stripe Checkout (payment mode, AUD, Adaptive Pricing off)
-   - webhook branch for booking payments and expiry
-   - signed booking view/cancel links with Stripe refunds
-   - member login (Supabase email/password) and account endpoints: balance, card, bookings, billing portal, online membership sign-up
-   - confirmation and cancellation emails (with .ics)
-   - 24-hour reminder job
-   - rate limiting on public endpoints
+2. **API**
+   - ✅ 6b-1 public booking API, Stripe payments/refunds, emails, rate limits → [build/14](build/14-booking-api-public.md)
+   - **6b-2 (next):** member login on bookings (discount, free minutes), `/me` account (balance, card, bookings), online membership sign-up, Stripe billing portal, tier change, 24-hour reminder job, back office booking list/cancel with venue-fault refunds
 3. **`apps/booking` website:**
    - home, timetable, booking flow, member login/account, cancel page
    - browser tests including a real Stripe payment

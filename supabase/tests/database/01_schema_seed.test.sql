@@ -9,7 +9,7 @@ select tables_are(
     'staff', 'customers', 'membership_tiers', 'tier_prices', 'members',
     'referral_codes', 'bookings', 'sessions', 'member_balance_ledger', 'referral_redemptions',
     'shifts', 'payments', 'refunds', 'cash_movements', 'price_overrides',
-    'stripe_events', 'audit_log', 'email_log'
+    'stripe_events', 'audit_log', 'email_log', 'rate_limits'
   ],
   'public schema has exactly the spec tables'
 );

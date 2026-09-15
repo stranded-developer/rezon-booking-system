@@ -251,7 +251,10 @@ audit_log             actor_staff_id, approver_staff_id null, action, entity, en
                       before jsonb, after jsonb, reason, ip, created_at
                       -- insert-only: no UPDATE/DELETE grants
 email_log             to, template, entity, entity_id, provider_id, status, created_at
+rate_limits           key PK, window_start, hits   -- fixed-window counters shared by all API instances
 ```
+
+`rate_limit_hit(key, limit, window_seconds, now)` counts one request atomically and returns `(allowed, hits, reset_at)`.
 
 ## Security (RLS)
 

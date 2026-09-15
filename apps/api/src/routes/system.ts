@@ -40,6 +40,14 @@ systemRoutes.post("/cron/forfeit", async (c) => {
   return c.json({ forfeited: data });
 });
 
+systemRoutes.post("/cron/holds", async (c) => {
+  const deps = c.get("deps");
+  requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
+  const { data, error } = await deps.db.rpc("expire_stale_holds", { p_now: deps.clock.now().toISOString() });
+  if (error) throw mapDbError(error);
+  return c.json({ expired: data });
+});
+
 const page = (title: string, body: string) => `<!doctype html>
 <html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#f3f5f8;font:16px system-ui,sans-serif;text-align:center;padding:24px}
