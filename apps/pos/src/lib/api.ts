@@ -10,6 +10,13 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** A form error says what's wrong ("ABN must be 11 digits") instead of the generic "Some fields are invalid". */
+function fieldMessage(error: { code?: string; details?: unknown }): string | null {
+  if (error.code !== "validation_failed" || !Array.isArray(error.details)) return null;
+  const first = error.details[0] as { message?: unknown } | undefined;
+  return typeof first?.message === "string" ? first.message : null;
+}
+
 export interface ApiClientOptions {
   baseUrl: string;
   getJwt: () => Promise<string | null>;
@@ -36,14 +43,15 @@ export function createApiClient(opts: ApiClientOptions) {
     const operatorToken = opts.getOperatorToken();
     if (operatorToken) headers["X-Operator-Token"] = operatorToken;
     if (passive) headers["X-Operator-Passive"] = "1";
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const isForm = body instanceof FormData;
+    if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
 
     let res: Response;
     try {
       res = await fetch(`${opts.baseUrl}${path}`, {
         method: method ?? (body !== undefined ? "POST" : "GET"),
         headers,
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        ...(body !== undefined ? { body: isForm ? body : JSON.stringify(body) } : {}),
       });
     } catch {
       throw new ApiRequestError(0, "network", "Can't reach the server. Check the internet connection.");
@@ -56,7 +64,7 @@ export function createApiClient(opts: ApiClientOptions) {
     const json = text ? (JSON.parse(text) as Record<string, unknown>) : {};
     if (!res.ok) {
       const error = (json.error ?? {}) as { code?: string; message?: string; details?: unknown };
-      const err = new ApiRequestError(res.status, error.code ?? "unknown", error.message ?? `Request failed (${res.status})`, error.details);
+      const err = new ApiRequestError(res.status, error.code ?? "unknown", fieldMessage(error) ?? error.message ?? `Request failed (${res.status})`, error.details);
       if (res.status === 401 && err.code === "unauthenticated") opts.onDeviceExpired();
       if (res.status === 401 && err.code === "operator_required") opts.onOperatorExpired();
       if (res.status === 403 && path !== "/pos/staff" && err.message.includes("not active")) opts.onOperatorExpired();

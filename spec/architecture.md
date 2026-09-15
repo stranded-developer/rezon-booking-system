@@ -10,7 +10,7 @@
 | Language | TypeScript (strict) everywhere |
 | Frontends | Next.js App Router (booking, POS) |
 | API | Hono on Vercel Functions |
-| Database / auth / realtime | Supabase (Postgres, Auth, Realtime) |
+| Database / auth / realtime / files | Supabase (Postgres, Auth, Realtime, Storage for website photos) |
 | Payments | Stripe (Checkout, Billing, Customer Portal, Refunds), AUD |
 | Email | Resend + React Email |
 | UI | Tailwind + shadcn/ui in `packages/ui` |
@@ -59,7 +59,7 @@ logs/          README (index + status), planning/, decisions/, build/ (one file 
 
 ```
 Public
-  GET  /public/config                 opening hours, types, resources, happy hours, tiers
+  GET  /public/config                 opening hours, types, resources, happy hours, tiers, venue contact details, photos
   GET  /public/availability?type&date
   POST /public/quote                  engine quote (member discount only with member JWT)
   POST /public/referral/check
@@ -82,7 +82,8 @@ POS (staff JWT + operator)
   referral:  check
 
 Back office (superadmin)
-  CRUD: resource-types, resources, rate-bands, happy-hours, opening-hours, settings,
+  CRUD: resource-types, resources, rate-bands, happy-hours, opening-hours, settings (incl. website contact details),
+        venue-photos: GET · POST (multipart file + caption) · PATCH /:id { caption } · PUT /order { ids } · DELETE /:id
         tiers (+ price change), members (adjust, reissue, tier, cancel), referral-codes,
         staff, bookings: GET /admin/bookings?date&q · GET /admin/bookings/:id(/cancel-quote?venueFault)
         · POST /admin/bookings/:id/cancel { reason, venueFault, overrideRefundCents?, returnMinutes?, expectedRefundCents? }

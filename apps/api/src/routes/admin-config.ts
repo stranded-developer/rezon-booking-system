@@ -8,12 +8,14 @@ import {
   type ValidationIssue,
 } from "@raceground/pricing";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
 import { migrateTierSubscriptions } from "../services/billing.js";
 import { wallTime } from "../services/venue.js";
+import { addPhoto, listPhotos, MAX_PHOTO_BYTES, MAX_PHOTOS, removePhoto, reorderPhotos, updatePhotoCaption } from "../services/venue-photos.js";
 import { validate } from "../validate.js";
 
 /** Venue configuration. Mounted inside adminRoutes (superadmin operator already required). */
@@ -28,6 +30,15 @@ const Cents = z.number().int().min(0).max(10_000_000);
 function rejectIssues(issues: ValidationIssue[]) {
   if (issues.length > 0) throw new ApiError(422, "validation_failed", issues[0]!.message, issues);
 }
+
+const OptionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => v || null)
+    .nullable()
+    .optional();
 
 // ── Settings ─────────────────────────────────────────────────────────────────
 adminConfigRoutes.get("/settings", async (c) => {
@@ -51,6 +62,30 @@ const SettingsBody = z
     walkinLastOpenMinutes: z.number().int().min(0).max(240).optional(),
     cashVarianceThresholdCents: Cents.optional(),
     balanceForfeitDays: z.number().int().min(0).max(365).optional(),
+    // Booking site home page (D58). Empty text clears a field.
+    address: OptionalText(300),
+    phone: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(z.string().regex(/^\+?[0-9 ()-]{8,20}$/, "Enter a valid phone number").nullable())
+      .nullable()
+      .optional(),
+    contactEmail: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(z.email("Enter a valid email address").max(254).nullable())
+      .nullable()
+      .optional(),
+    intro: OptionalText(1000),
+    instagramUrl: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(z.string().regex(/^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9_.]{1,30}\/?$/, "Use a link like https://www.instagram.com/yourname").nullable())
+      .nullable()
+      .optional(),
     reason: Reason,
   })
   .refine((b) => Object.keys(b).some((k) => k !== "reason"), "Nothing to update");
@@ -66,12 +101,60 @@ adminConfigRoutes.patch("/settings", validate("json", SettingsBody), async (c) =
     ...(b.walkinLastOpenMinutes !== undefined ? { walkin_last_open_minutes: b.walkinLastOpenMinutes } : {}),
     ...(b.cashVarianceThresholdCents !== undefined ? { cash_variance_threshold_cents: b.cashVarianceThresholdCents } : {}),
     ...(b.balanceForfeitDays !== undefined ? { balance_forfeit_days: b.balanceForfeitDays } : {}),
+    ...(b.address !== undefined ? { address: b.address } : {}),
+    ...(b.phone !== undefined ? { phone: b.phone } : {}),
+    ...(b.contactEmail !== undefined ? { contact_email: b.contactEmail } : {}),
+    ...(b.intro !== undefined ? { intro: b.intro } : {}),
+    ...(b.instagramUrl !== undefined ? { instagram_url: b.instagramUrl } : {}),
   };
   const { data, error } = await auditHeaders(c.get("deps").db.from("venue_settings").update(patch).eq("id", 1), c.get("operator").id, reason)
     .select("*")
     .single();
   if (error) throw mapDbError(error);
   return c.json({ settings: data });
+});
+
+// ── Website photos (D58) ─────────────────────────────────────────────────────
+const Caption = z
+  .string()
+  .trim()
+  .max(200)
+  .transform((v) => v || null)
+  .nullable();
+
+adminConfigRoutes.get("/venue-photos", async (c) => c.json({ photos: await listPhotos(c.get("deps").db) }));
+
+adminConfigRoutes.post(
+  "/venue-photos",
+  bodyLimit({
+    maxSize: MAX_PHOTO_BYTES + 64 * 1024,
+    onError: () => {
+      throw new ApiError(413, "validation_failed", "Photos can be at most 5 MB");
+    },
+  }),
+  async (c) => {
+    const form = await c.req.parseBody().catch(() => {
+      throw new ApiError(422, "validation_failed", "Send the photo as a form upload");
+    });
+    const file = form.file;
+    if (!(file instanceof File)) throw new ApiError(422, "validation_failed", "Choose a photo to upload");
+    const caption = Caption.safeParse(typeof form.caption === "string" ? form.caption : "");
+    if (!caption.success) throw new ApiError(422, "validation_failed", "Captions can be at most 200 characters");
+    return c.json({ photo: await addPhoto(c.get("deps").db, c.get("operator").id, file, caption.data) }, 201);
+  },
+);
+
+adminConfigRoutes.patch("/venue-photos/:id", validate("param", Id), validate("json", z.object({ caption: Caption })), async (c) => {
+  const photo = await updatePhotoCaption(c.get("deps").db, c.get("operator").id, c.req.valid("param").id, c.req.valid("json").caption);
+  return c.json({ photo });
+});
+
+adminConfigRoutes.put("/venue-photos/order", validate("json", z.object({ ids: z.array(z.uuid()).max(MAX_PHOTOS) })), async (c) => {
+  return c.json({ photos: await reorderPhotos(c.get("deps").db, c.get("operator").id, c.req.valid("json").ids) });
+});
+
+adminConfigRoutes.delete("/venue-photos/:id", validate("param", Id), async (c) => {
+  return c.json(await removePhoto(c.get("deps").db, c.get("operator").id, c.req.valid("param").id));
 });
 
 // ── Opening hours ────────────────────────────────────────────────────────────

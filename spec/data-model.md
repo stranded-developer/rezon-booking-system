@@ -22,6 +22,16 @@ venue_settings            -- single row (id = 1)
   walkin_last_open_minutes int       15     -- no walk-in opens within 15 min of close
   cash_variance_threshold_cents int  2000
   balance_forfeit_days     int       30
+  address                  text      null   -- booking site home page (D58), ≤ 300 chars
+  phone                    text      null   -- '+61 2 9000 0000' style
+  contact_email            citext    null
+  intro                    text      null   -- ≤ 1000 chars
+  instagram_url            text      null   -- https://(www.)instagram.com/<name> only
+
+venue_photos                         -- booking site photos (D58), at most 12 (API)
+  storage_path  text unique        '<uuid>.jpg|png|webp' in the public Storage bucket `venue-photos`
+  caption       text null          ≤ 200 chars
+  sort          int
 
 opening_hours
   day_of_week   smallint  1..7 (ISO), unique
@@ -240,7 +250,7 @@ price_overrides
 | `pos_void_session` | Open walk-in: void. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
 | `admin_create_member`, `admin_adjust_balance`, `admin_reissue_qr`, `admin_set_tier_price` | Complimentary member (customer + member + audit); ± balance with reason (can't go negative); card reissue by token hash; tier price + `tier_prices` history. |
 | `pos_refund_payment(payment, staff, amount, reason)` | Partial refund of a cash/card payment: never more than what's left, needs an open till, cash-out movement for cash, audited. Stripe payments are refunded through Stripe. |
-| trigger `audit_config_change` | On config tables: writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
+| trigger `audit_config_change` | On config tables (including `venue_photos`): writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
 | `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
 
 ## Platform
@@ -262,6 +272,7 @@ rate_limits           key PK, window_start, hits   -- fixed-window counters shar
 - The **booking site** reads public config directly (`opening_hours`, `resource_types`, `resources`, `happy_hours`, active tier names/prices) through an anon-readable view. It does not read `rate_bands` internals beyond what quotes need, and quotes come from the API anyway.
 - **Members** can read their own `customers`, `members`, `member_balance_ledger` and `bookings` rows (`auth.uid()` match).
 - **Staff** read via the API only.
+- **Storage:** the `venue-photos` bucket is public for reading (JPEG/PNG/WebP, 5 MB). There are no Storage policies for browser roles, so only the API uploads or deletes photos.
 
 ## Launch seed
 

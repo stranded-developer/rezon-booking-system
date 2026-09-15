@@ -1,16 +1,16 @@
 # Booking Site — `raceground.vercel.app`
 
-Public, mobile-first. Every time is shown in **venue time (Sydney)** regardless of the visitor's device timezone. Every price is shown incl. GST.
+Public, mobile-first, with a **light look** (D59): light background, RACEGROUND wordmark and the lime flag accent. Every time is shown in **venue time (Sydney)** regardless of the visitor's device timezone. Every price is shown incl. GST.
 
 ## 1. Pages
 
 | Route | Purpose |
 |---|---|
-| `/` | Venue intro, rates, happy hour, membership teaser, "Book now" |
+| `/` | Venue intro, photos, address, phone, email and Instagram (all edited in the back office, D58), opening hours, rates, happy hour, membership teaser, "Book now" |
 | `/book` | Timetable + booking flow |
 | `/booking/[ref]` | Booking status / confirmation (access via signed link) |
 | `/booking/[ref]/cancel` | Cancellation with refund preview (signed link) |
-| `/membership` | Tiers, sign up |
+| `/membership` | Tiers, join. Joining online is account first: sign up → confirm email → log in → pay (D60). Guests booking a session never need an account. |
 | `/login`, `/forgot-password`, `/reset-password` | Member auth |
 | `/account` | Member: tier, status, renewal date, balance + ledger, QR, bookings, change tier, manage billing (Stripe Portal) |
 | `/terms`, `/privacy`, `/refund-policy` | Legal |

@@ -18,7 +18,7 @@ interface Entry {
   created_at: string;
 }
 
-const ENTITIES = ["", "sessions", "payments", "shifts", "members", "referral_codes", "resource_types", "rate_bands", "happy_hours", "membership_tiers", "opening_hours", "venue_settings", "staff"];
+const ENTITIES = ["", "sessions", "payments", "shifts", "members", "referral_codes", "resource_types", "rate_bands", "happy_hours", "membership_tiers", "opening_hours", "venue_settings", "venue_photos", "staff"];
 
 /** Fields that changed between before and after (ignoring timestamps). */
 function changes(e: Entry): string {

@@ -1300,48 +1300,90 @@ export type Database = {
           },
         ]
       }
+      venue_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          sort: number
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          sort?: number
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          sort?: number
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       venue_settings: {
         Row: {
           abn: string | null
+          address: string | null
           balance_forfeit_days: number
           booking_window_days: number
           business_name: string | null
           cash_variance_threshold_cents: number
+          contact_email: string | null
           created_at: string
           hold_ttl_minutes: number
           id: number
+          instagram_url: string | null
+          intro: string | null
           no_show_hold_minutes: number
           online_cutoff_minutes: number
+          phone: string | null
           timezone: string
           updated_at: string
           walkin_last_open_minutes: number
         }
         Insert: {
           abn?: string | null
+          address?: string | null
           balance_forfeit_days?: number
           booking_window_days?: number
           business_name?: string | null
           cash_variance_threshold_cents?: number
+          contact_email?: string | null
           created_at?: string
           hold_ttl_minutes?: number
           id?: number
+          instagram_url?: string | null
+          intro?: string | null
           no_show_hold_minutes?: number
           online_cutoff_minutes?: number
+          phone?: string | null
           timezone?: string
           updated_at?: string
           walkin_last_open_minutes?: number
         }
         Update: {
           abn?: string | null
+          address?: string | null
           balance_forfeit_days?: number
           booking_window_days?: number
           business_name?: string | null
           cash_variance_threshold_cents?: number
+          contact_email?: string | null
           created_at?: string
           hold_ttl_minutes?: number
           id?: number
+          instagram_url?: string | null
+          intro?: string | null
           no_show_hold_minutes?: number
           online_cutoff_minutes?: number
+          phone?: string | null
           timezone?: string
           updated_at?: string
           walkin_last_open_minutes?: number

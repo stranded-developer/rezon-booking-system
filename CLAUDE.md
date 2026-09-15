@@ -22,7 +22,7 @@ Booking system + POS for Raceground, a Sydney gaming venue (billiard tables, dri
 ```
 nvm use 22
 corepack pnpm install
-corepack pnpm db:start            # local Supabase in Docker (Docker Desktop must be running)
+corepack pnpm db:start            # local Supabase in Docker, incl. Storage for website photos (Docker Desktop must be running)
 corepack pnpm db:reset            # rebuild DB from migrations + launch seed (wipes local data)
 corepack pnpm --filter @raceground/api dev    # API on :8787 (reads apps/api/.env.local)
 corepack pnpm --filter @raceground/pos dev    # POS + back office on :3001 (reads apps/pos/.env.local)

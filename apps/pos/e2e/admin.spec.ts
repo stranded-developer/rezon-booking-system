@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { loadFixture } from "./fixture";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
 
 test("a superadmin uses the back office: referral codes, complimentary member, balance, rules validation, venue, audit", async ({ page }) => {
@@ -83,12 +86,41 @@ test("a superadmin uses the back office: referral codes, complimentary member, b
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 
+  // Booking website details and a photo (D58): saved, shown to the public, then removed.
+  await page.getByLabel("Address").fill(`E2E ${f.run} Test St, Sydney NSW 2000`);
+  await page.getByLabel("Phone").fill("02 9000 0000");
+  await page.getByLabel("Contact email").fill("hello@raceground.test");
+  await page.getByLabel("Instagram link").fill("https://www.instagram.com/raceground");
+  await page.getByLabel("Intro").fill("Pool tables, driving sims and VR in Sydney.");
+  await page.getByRole("button", { name: "Save website details" }).click();
+  await expect(page.getByText("Website details saved.")).toBeVisible();
+  await page.getByLabel("Instagram link").fill("instagram.com/raceground");
+  await page.getByRole("button", { name: "Save website details" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "instagram.com/yourname" })).toBeVisible();
+  await page.getByLabel("Instagram link").fill("https://www.instagram.com/raceground");
+
+  const photoCaption = `Sim room E2E ${f.run}`;
+  await page.locator('input[type="file"]').setInputFiles({ name: "sims.png", mimeType: "image/png", buffer: PNG });
+  await page.getByLabel("Caption (optional)").fill(photoCaption);
+  await page.getByRole("button", { name: "Upload photo" }).click();
+  const photo = page.getByTestId("venue-photo").filter({ has: page.locator(`img[alt="${photoCaption}"]`) });
+  await expect(photo).toBeVisible();
+  await expect.poll(() => photo.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1);
+  const config = await (await page.request.get(`${API_URL}/public/config`)).json();
+  expect(config.venue).toMatchObject({ address: `E2E ${f.run} Test St, Sydney NSW 2000`, phone: "02 9000 0000", email: "hello@raceground.test" });
+  expect(config.photos).toContainEqual(expect.objectContaining({ caption: photoCaption }));
+  await shot(page, "admin-05b-website-details");
+  page.once("dialog", (d) => void d.accept());
+  await photo.getByRole("button", { name: "Remove" }).click();
+  await expect(photo).toHaveCount(0);
+
   // Audit log shows who did it.
   await page.getByRole("link", { name: "Audit log", exact: true }).click();
   await page.getByLabel("Filter").selectOption("venue_settings");
-  const audit = page.getByRole("row", { name: /venue_settings\.update/ }).first();
+  const audit = page.getByRole("row", { name: /venue_settings\.update/ }).filter({ hasText: businessName }).first();
   await expect(audit).toContainText(f.owner.name);
-  await expect(audit).toContainText(businessName);
+  await page.getByLabel("Filter").selectOption("venue_photos");
+  await expect(page.getByRole("row", { name: /venue_photos\.delete/ }).first()).toContainText(f.owner.name);
   await page.getByLabel("Filter").selectOption("referral_codes");
   await expect(page.getByRole("row", { name: /referral_codes\.insert/ }).first()).toContainText(f.owner.name);
   await shot(page, "admin-06-audit");

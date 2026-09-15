@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-09-14)
+## Current status (2026-09-15)
 
 | Area | State |
 |---|---|
@@ -26,12 +26,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | Booking rules in the database (hold, confirm, expiry, cancel/refund) | ✅ Built and verified (6a) |
 | Public booking API: availability, quote, hold, Stripe payment, cancel links, emails (6b-1) | ✅ Built and verified |
 | Member accounts API: login, member pricing, QR, online membership, portal, reminders, back office booking cancel (6b-2) | ✅ Built and verified |
-| **Booking website (6c)** + back office bookings page | ❌ **Next** |
+| Venue contact details + website photos in the back office (6c-1) | ✅ Built and verified |
+| **Booking website (6c-2 … 6c-4)** + back office bookings page | ❌ **Next** |
 | Real emails (Resend) | ❌ Console only for now |
 | Reports | ❌ Phase 7 |
 | Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
 
-**Test totals at the last step:** pricing 78 · API 150 · pgTAP 353 · e2e 4 (3 run without `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 4 (3 run without `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -52,6 +53,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 13 | Online booking rules in the database (6a) | [build/13-booking-database.md](build/13-booking-database.md) |
 | 14 | Public booking API + Stripe payments and refunds (6b-1) | [build/14-booking-api-public.md](build/14-booking-api-public.md) |
 | 15 | Member accounts API, online membership, reminders, back office booking cancel (6b-2) | [build/15-member-accounts-api.md](build/15-member-accounts-api.md) |
+| 16 | Venue contact details and website photos in the back office (6c-1) | [build/16-venue-details-photos.md](build/16-venue-details-photos.md) |
 
 ## Decisions
 
@@ -63,6 +65,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [04 — 2026-09-14](decisions/04-2026-09-14-final-answers-before-build.md) | D35–D45: name "Raceground", allowances, balance freeze/forfeit, 10-hour cap, cancellation/tier changes, GST display, overrides, USB scanner |
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
+| [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D60: venue details + photos editable in the back office ✅, lighter public look ✅, join online account-first ✅ |
 
 ## Next step — Phase 6: Booking website
 
@@ -72,10 +75,11 @@ Planned sub-steps, each gets its own `build/` file:
 2. **API**
    - ✅ 6b-1 public booking API, Stripe payments/refunds, emails, rate limits → [build/14](build/14-booking-api-public.md)
    - ✅ 6b-2 member accounts, online membership, portal, daily reminders, back office booking cancel API → [build/15](build/15-member-accounts-api.md)
-3. **`apps/booking` website (next):**
-   - home, timetable, booking flow, member login/account, cancel page
-   - back office Bookings page in the POS app (list, venue-fault cancel)
-   - browser tests including a real Stripe payment
+3. **Website:**
+   - ✅ 6c-1 venue contact details + photos, editable in the back office → [build/16](build/16-venue-details-photos.md)
+   - **6c-2 (next)** `apps/booking` for guests: light look, home, timetable, booking flow with referral codes, Stripe payment, booking page, cancel page, placeholder legal pages; browser tests including a real Stripe payment
+   - 6c-3 members on the website: sign up, login, forgot/reset password, member pricing + free minutes in the flow, account page, join online (account first)
+   - 6c-4 back office Bookings page in the POS app (list, search, cancel with refund)
 
 ## How to add to the logs
 

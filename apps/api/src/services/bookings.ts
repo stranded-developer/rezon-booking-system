@@ -9,6 +9,7 @@ import { buildIcs } from "../lib/ics.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
 import { loadPricingContext, loadSettings, parseRange, wallTime } from "./venue.js";
+import { listPhotos } from "./venue-photos.js";
 
 const MINUTE_MS = 60_000;
 const SLOT_MINUTES = 15;
@@ -43,7 +44,7 @@ async function activeResources(deps: AppDeps, typeId: string) {
 // ── Public config ────────────────────────────────────────────────────────────
 export async function publicConfig(deps: AppDeps) {
   const { db, clock } = deps;
-  const [settings, types, resources, hours, hhs, tiers, bands] = await Promise.all([
+  const [settings, types, resources, hours, hhs, tiers, bands, photos] = await Promise.all([
     loadSettings(db),
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("resources").select("id, label, resource_type_id, sort").eq("active", true).order("sort").order("label"),
@@ -51,10 +52,19 @@ export async function publicConfig(deps: AppDeps) {
     db.from("happy_hours").select("*").eq("active", true),
     db.from("membership_tiers").select("id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, stripe_price_id, sort").eq("active", true).order("sort"),
     db.from("rate_bands").select("*").eq("active", true),
+    listPhotos(db),
   ]);
   for (const r of [types, resources, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
   return {
     businessName: settings.business_name ?? "Raceground",
+    venue: {
+      address: settings.address,
+      phone: settings.phone,
+      email: settings.contact_email,
+      intro: settings.intro,
+      instagramUrl: settings.instagram_url,
+    },
+    photos: photos.map((p) => ({ url: p.url, caption: p.caption })),
     timeZone: settings.timezone,
     today: toLocal(clock.now().getTime(), settings.timezone).date,
     bookingWindowDays: settings.booking_window_days,

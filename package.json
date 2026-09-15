@@ -10,7 +10,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "db:start": "supabase start -x imgproxy,logflare,vector,supavisor,edge-runtime,storage-api",
+    "db:start": "supabase start -x imgproxy,logflare,vector,supavisor,edge-runtime",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db"

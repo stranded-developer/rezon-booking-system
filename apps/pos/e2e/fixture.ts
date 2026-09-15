@@ -18,6 +18,7 @@ export interface Fixture {
   memberName: string;
   bookingCustomer: string;
   originalBusinessName: string | null;
+  originalWebsite: { address: string | null; phone: string | null; contact_email: string | null; intro: string | null; instagram_url: string | null };
 }
 
 export function localSupabase() {

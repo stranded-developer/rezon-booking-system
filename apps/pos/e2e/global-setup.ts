@@ -84,7 +84,7 @@ export default async function globalSetup() {
   });
   if (bookingError) throw bookingError;
 
-  const { data: settings } = await db.from("venue_settings").select("business_name").eq("id", 1).single();
+  const { data: settings } = await db.from("venue_settings").select("business_name, address, phone, contact_email, intro, instagram_url").eq("id", 1).single();
   const fixture: Fixture = {
     run,
     password,
@@ -96,6 +96,13 @@ export default async function globalSetup() {
     memberName,
     bookingCustomer,
     originalBusinessName: settings?.business_name ?? null,
+    originalWebsite: {
+      address: settings?.address ?? null,
+      phone: settings?.phone ?? null,
+      contact_email: settings?.contact_email ?? null,
+      intro: settings?.intro ?? null,
+      instagram_url: settings?.instagram_url ?? null,
+    },
   };
   saveFixture(fixture);
 }

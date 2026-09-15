@@ -21,7 +21,8 @@ The back office lives in the POS app under `/admin` and needs a superadmin opera
 | **Members** | Search; view tier, status, period end and balance ledger. Actions: manual balance adjustment (±minutes, reason), reissue QR (revokes old; the new code is shown once for printing), **add a complimentary member** (no billing, reason required, optional end date). Tier change and cancel-at-period-end arrive with Stripe (Phase 5). |
 | **Referral codes** | Generate (auto 6-char) or bulk generate N. Fields: type (% or $), value, max uses, optional expiry. Live usage `uses_count / max_uses`. Deactivate. Redemption list. |
 | **Staff** | Add cashier/superadmin, set/reset PIN, deactivate. A superadmin can't deactivate themselves if they are the last active superadmin. |
-| **Business details** | Business name, ABN (shown on receipts / tax invoices), variance threshold. |
+| **Business details** (Venue & hours) | Business name, ABN (shown on receipts / tax invoices), variance threshold. |
+| **Booking website** (Venue & hours, D58) | Address, phone, contact email, Instagram link and a short intro for the home page; an empty field is hidden. **Photos:** upload (JPEG/PNG/WebP up to 5 MB, file type checked from its contents), caption, reorder, remove; at most 12. All changes audited. |
 | **Sales** | A day's closed and voided sessions: receipt reprint, **partial refund** (cash/card, reason, needs an open till), void (full refund of what's left, free minutes returned). |
 | **Bookings** | Search, view, cancel with refund (policy amount pre-filled, override allowed with reason). Arrives with the booking site (Phase 6). |
 | **Shifts** | List, flagged shifts, shift report. |
