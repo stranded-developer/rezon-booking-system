@@ -5,7 +5,7 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import { createAppFromEnv } from "../src/bootstrap.js";
-import handler from "../api/index.js";
+import handler, { createHandler } from "../api/index.js";
 
 const CRON_SECRET = `vercel-entry-${randomBytes(16).toString("hex")}`;
 
@@ -34,6 +34,19 @@ describe("the function Vercel runs", () => {
 
   it("refuses to start with settings missing, naming them", () => {
     expect(() => createAppFromEnv({ SUPABASE_URL: "http://127.0.0.1:54321" })).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+  });
+
+  it("answers with what is wrong instead of crashing when a setting is missing", async () => {
+    const secret = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const misconfigured = createHandler(() => createAppFromEnv({ ...process.env, SUPABASE_SERVICE_ROLE_KEY: undefined }));
+
+    const res = await misconfigured(new Request("https://api.example/health"));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("config_error");
+    expect(body.error.message).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    // The answer names the setting; it never repeats the value of another one.
+    expect(body.error.message).not.toContain(secret);
   });
 });
 
