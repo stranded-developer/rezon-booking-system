@@ -39,7 +39,10 @@ export type Env = z.infer<typeof EnvSchema>;
 export const ENV_KEYS = Object.keys(EnvSchema.shape) as (keyof Env)[];
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
-  const parsed = EnvSchema.safeParse(source);
+  // Hosting dashboards happily store an empty value for a setting that was never filled in.
+  // Empty means "not set", so defaults apply and optional settings stay optional.
+  const given = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== undefined && value.trim() !== ""));
+  const parsed = EnvSchema.safeParse(given);
   if (!parsed.success) {
     const problems = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid API environment:\n${problems}`);

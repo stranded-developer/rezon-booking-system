@@ -50,9 +50,13 @@ All three Vercel projects watch the same repository, so any push rebuilds all of
 
 Testing it found a trap: `@raceground/api` had **no `build` task**, so `turbo-ignore` reported "not affected" even for commits that changed the API's own source — the API would have quietly stopped deploying while the two websites kept updating. The API now has a `build` task (a typecheck; Vercel does the bundling), its `vercel.json` builds through turbo like the others, and change detection was re-checked against a commit that touches the API: "This commit affects @raceground/api".
 
-**Correction to step 18**
+**Correction to step 18, and to a first attempt at fixing it**
 
-Build log 18 blamed the password-reset test failure on Supabase's local limit of 2 auth emails an hour. That was **wrong**, and the same test failed again after the limit was raised. The real cause: the test clicked through to the page and typed before React had hydrated it, so the controlled input was reset to empty and the form never submitted (the page snapshot showed an empty email field). Tests now type with a small retry that checks the value stuck. The email limit was genuinely too low for a test run as well, and is still raised for local development.
+Build log 18 blamed the password-reset test failure on Supabase's local limit of 2 auth emails an hour. That was **wrong**; it failed again after the limit was raised.
+
+The real cause is the browser not having taken over the page yet. The first fix — type, then check the value stuck — **also failed**, and for an instructive reason: filling a field before hydration succeeds, because nothing is there to reset it. Checking the value proves only that the DOM holds it, not that React is listening. The click then hit a form with no handler, the browser submitted it natively, the page reloaded and the field was empty again.
+
+The fix is to wait for something only the browser can render: the header's account link appears after the client checks the session. Tests wait for that after any full page load before typing. Five consecutive runs pass, and the test went from 5.4 s of retrying to 1.7 s. The email limit was genuinely too low for a test run as well, and is still raised for local development.
 
 Two things came out of chasing it, both kept:
 - **The "forgot password" page no longer waits for the email to be sent.** It shows the same answer immediately, so its timing can't be used to work out whether an address has an account either.

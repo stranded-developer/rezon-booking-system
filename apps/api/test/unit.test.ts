@@ -137,6 +137,32 @@ describe("loadEnv", () => {
   });
 });
 
+describe("settings", () => {
+  const required = {
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "s".repeat(40),
+    OPERATOR_TOKEN_SECRET: "o".repeat(40),
+    QR_TOKEN_SECRET: "q".repeat(40),
+  };
+
+  it("treats an empty value as not set, so defaults still apply", () => {
+    // A hosting dashboard with every key added but left blank.
+    const env = loadEnv({ ...required, OPERATOR_IDLE_SECONDS: "", EMAIL_TRANSPORT: "", STRIPE_SECRET_KEY: "", BOOKING_SITE_URL: "  " });
+    expect(env.OPERATOR_IDLE_SECONDS).toBe(300);
+    expect(env.EMAIL_TRANSPORT).toBe("console");
+    expect(env.STRIPE_SECRET_KEY).toBeUndefined();
+    expect(env.BOOKING_SITE_URL).toBe("http://localhost:3000");
+  });
+
+  it("still refuses a setting that is required, naming it", () => {
+    expect(() => loadEnv({ ...required, SUPABASE_URL: "" })).toThrow(/SUPABASE_URL/);
+  });
+
+  it("still refuses a value that is wrong rather than empty", () => {
+    expect(() => loadEnv({ ...required, STRIPE_SECRET_KEY: "pk_live_nope" })).toThrow(/sk_/);
+  });
+});
+
 describe(".env.example", () => {
   it("lists every setting the API reads, so nothing is missed when deploying", () => {
     const example = readFileSync(fileURLToPath(new URL("../.env.example", import.meta.url)), "utf8");
