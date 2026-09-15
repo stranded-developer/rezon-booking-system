@@ -17,6 +17,10 @@ export interface Fixture {
   memberToken: string;
   memberName: string;
   bookingCustomer: string;
+  /** A free confirmed booking tomorrow midday, for the back office Bookings page. */
+  adminBooking: { ref: string; customer: string; date: string; startTime: string; resourceId: string; resourceLabel: string };
+  /** Starting within the hour: too late for the policy, so only a venue-fault cancel works. */
+  adminBookingSoon: { ref: string; date: string; resourceId: string };
   originalBusinessName: string | null;
   originalWebsite: { address: string | null; phone: string | null; contact_email: string | null; intro: string | null; instagram_url: string | null };
 }

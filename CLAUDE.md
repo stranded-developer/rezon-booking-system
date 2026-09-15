@@ -35,7 +35,7 @@ stripe listen --forward-to localhost:8787/webhooks/stripe   # only for membershi
 ```
 corepack pnpm exec turbo run typecheck lint test --force   # expect "11 successful, 11 total"
 corepack pnpm db:test                                      # expect "Result: PASS"
-cd apps/pos && corepack pnpm build && corepack pnpm e2e        # 4 browser tests (the walk-in one only runs 10:00–20:45 Sydney)
+cd apps/pos && corepack pnpm build && corepack pnpm e2e        # 5 browser tests (the walk-in one only runs 10:00–20:45 Sydney)
 cd apps/booking && corepack pnpm build && corepack pnpm e2e    # 7 browser tests
 ```
 

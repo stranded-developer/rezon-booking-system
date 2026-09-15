@@ -29,12 +29,12 @@ Everything that was planned, decided and built, one file per step so each can be
 | Venue contact details + website photos in the back office (6c-1) | ✅ Built and verified |
 | Booking website for guests: home, timetable, booking, payment, cancel (6c-2) | ✅ Built and verified |
 | Members on the website: login, account, member pricing, join online (6c-3) | ✅ Built and verified |
-| **Back office Bookings page (6c-4)** | ❌ **Next** |
-| Real emails (Resend) | ❌ Console only for now |
+| Back office Bookings page (6c-4) | ✅ Built and verified |
 | Reports | ❌ Phase 7 |
-| Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
+| Real emails (Resend) | ❌ Console only for now |
+| Deploy (Vercel + hosted Supabase), go-live | ❌ **Next: Phase 7** |
 
-**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 11 (4 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 12 (5 POS + 7 booking site; 3 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -58,6 +58,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 16 | Venue contact details and website photos in the back office (6c-1) | [build/16-venue-details-photos.md](build/16-venue-details-photos.md) |
 | 17 | Booking website for guests, with a real Stripe payment (6c-2) | [build/17-booking-website-guests.md](build/17-booking-website-guests.md) |
 | 18 | Members on the website: accounts, member pricing, joining online (6c-3) | [build/18-booking-website-members.md](build/18-booking-website-members.md) |
+| 19 | Back office Bookings page (6c-4) — **Phase 6 complete** | [build/19-back-office-bookings.md](build/19-back-office-bookings.md) |
 
 ## Decisions
 
@@ -71,7 +72,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D60: venue details + photos editable in the back office ✅, lighter public look ✅, join online account-first ✅ |
 
-## Next step — Phase 6: Booking website
+## Phase 6 — Booking website ✅ complete
 
 Planned sub-steps, each gets its own `build/` file:
 
@@ -83,7 +84,15 @@ Planned sub-steps, each gets its own `build/` file:
    - ✅ 6c-1 venue contact details + photos, editable in the back office → [build/16](build/16-venue-details-photos.md)
    - ✅ 6c-2 `apps/booking` for guests: home, timetable, booking flow with referral codes, Stripe payment, booking and cancel pages, legal pages → [build/17](build/17-booking-website-guests.md)
    - ✅ 6c-3 members on the website: accounts, member pricing and free play, account page, joining online → [build/18](build/18-booking-website-members.md)
-   - **6c-4 (next)** back office Bookings page in the POS app (list, search, cancel with refund)
+   - ✅ 6c-4 back office Bookings page in the POS app (list, search, cancel with refund) → [build/19](build/19-back-office-bookings.md)
+
+## Next step — Phase 7
+
+- Reports (revenue, discounts, usage, membership, free play, staff) with CSV export
+- Real emails through Resend (a custom domain is needed; `.vercel.app` can't be verified)
+- Auth emails through Resend SMTP on hosted Supabase (its built-in sender is rate limited)
+- Final wording for the terms and privacy pages
+- Deploy: three Vercel projects, hosted Supabase, scheduled jobs (reminders, forfeit, hold cleanup), then go-live with live Stripe
 
 ## How to add to the logs
 

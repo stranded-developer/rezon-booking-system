@@ -84,6 +84,61 @@ export default async function globalSetup() {
   });
   if (bookingError) throw bookingError;
 
+  // Three hours from now on a table of its own: always inside the half-refund window (2–24 h),
+  // whatever time the suite runs, so the back office test sees a predictable policy.
+  const adminLabel = `E2E Table B ${run}`;
+  const { data: adminResource, error: adminResourceError } = await db
+    .from("resources")
+    .insert({ resource_type_id: type!.id, label: adminLabel, sort: 1 })
+    .select("id")
+    .single();
+  if (adminResourceError) throw adminResourceError;
+  const slot = toLocal(Date.now() + 3 * 60 * 60 * 1000, "Australia/Sydney");
+  const adminTime = `${slot.label.slice(11, 14)}00`;
+  const adminStart = localToInstant(slot.date, adminTime, "Australia/Sydney");
+  const adminEnd = adminStart + 60 * 60 * 1000;
+  const adminCustomerName = `E2E Admin Guest ${run}`;
+  const { data: adminCustomer } = await db.from("customers").insert({ name: adminCustomerName, email: `e2e-admin-guest-${run}@raceground.test` }).select("id").single();
+  const { data: adminBooking, error: adminBookingError } = await db
+    .from("bookings")
+    .insert({
+      resource_id: adminResource.id,
+      customer_id: adminCustomer!.id,
+      period: `[${new Date(adminStart).toISOString()},${new Date(adminEnd).toISOString()})`,
+      status: "confirmed",
+      total_cents: 0,
+      gst_cents: 0,
+      pricing_snapshot: {},
+    })
+    .select("ref")
+    .single();
+  if (adminBookingError) throw adminBookingError;
+
+  // A booking starting within the hour: the policy refuses a cancellation this close.
+  const soonLabel = `E2E Table C ${run}`;
+  const { data: soonResource, error: soonResourceError } = await db
+    .from("resources")
+    .insert({ resource_type_id: type!.id, label: soonLabel, sort: 2 })
+    .select("id")
+    .single();
+  if (soonResourceError) throw soonResourceError;
+  const soonSlot = toLocal(Date.now() + 60 * 60 * 1000, "Australia/Sydney");
+  const soonStart = localToInstant(soonSlot.date, `${soonSlot.label.slice(11, 14)}00`, "Australia/Sydney");
+  const { data: soonBooking, error: soonBookingError } = await db
+    .from("bookings")
+    .insert({
+      resource_id: soonResource.id,
+      customer_id: adminCustomer!.id,
+      period: `[${new Date(soonStart).toISOString()},${new Date(soonStart + 60 * 60 * 1000).toISOString()})`,
+      status: "confirmed",
+      total_cents: 0,
+      gst_cents: 0,
+      pricing_snapshot: {},
+    })
+    .select("ref")
+    .single();
+  if (soonBookingError) throw soonBookingError;
+
   const { data: settings } = await db.from("venue_settings").select("business_name, address, phone, contact_email, intro, instagram_url").eq("id", 1).single();
   const fixture: Fixture = {
     run,
@@ -95,6 +150,15 @@ export default async function globalSetup() {
     memberToken,
     memberName,
     bookingCustomer,
+    adminBooking: {
+      ref: adminBooking!.ref as string,
+      customer: adminCustomerName,
+      date: slot.date,
+      startTime: adminTime,
+      resourceId: adminResource.id,
+      resourceLabel: adminLabel,
+    },
+    adminBookingSoon: { ref: soonBooking!.ref as string, date: soonSlot.date, resourceId: soonResource.id },
     originalBusinessName: settings?.business_name ?? null,
     originalWebsite: {
       address: settings?.address ?? null,
