@@ -7,7 +7,8 @@ export type EmailTemplate =
   | "membership_price_change"
   | "booking_confirmed"
   | "booking_cancelled"
-  | "booking_payment_refunded";
+  | "booking_payment_refunded"
+  | "booking_reminder";
 
 export interface EmailAttachment {
   filename: string;

@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { addDaysToDate, localToInstant, toLocal } from "@raceground/pricing";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -6,7 +5,8 @@ import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
 import { changeMemberTier, setCancelAtPeriodEnd, syncCatalog } from "../services/billing.js";
-import { getMember, hashQrToken } from "../services/lookup.js";
+import { getMember } from "../services/lookup.js";
+import { nextMemberCard } from "../lib/qr.js";
 import { loadSettings, parseRange } from "../services/venue.js";
 import { validate } from "../validate.js";
 
@@ -15,12 +15,6 @@ export const adminMemberRoutes = new Hono<AppEnv>();
 
 const Id = z.object({ id: z.uuid() });
 const Cents = z.number().int().min(0).max(10_000_000);
-
-/** A new member card: the raw token is returned exactly once for the QR code; only its hash is stored. */
-function newCardToken() {
-  const token = randomBytes(32).toString("base64url");
-  return { token, qr: `rg:m:${token}`, hash: hashQrToken(token) };
-}
 
 // ── Members ──────────────────────────────────────────────────────────────────
 adminMemberRoutes.get(
@@ -101,14 +95,17 @@ adminMemberRoutes.post(
   ),
   async (c) => {
     const b = c.req.valid("json");
-    const card = newCardToken();
-    const { data, error } = await c.get("deps").db.rpc("admin_create_member", {
+    const deps = c.get("deps");
+    const { data, error } = await deps.db.rpc("admin_create_member", {
       p_staff: c.get("operator").id,
-      p_member: { name: b.name, email: b.email ?? null, phone: b.phone ?? null, tierId: b.tierId, validUntil: b.validUntil ?? null, qrTokenHash: card.hash },
+      p_member: { name: b.name, email: b.email ?? null, phone: b.phone ?? null, tierId: b.tierId, validUntil: b.validUntil ?? null, qrTokenHash: null },
       p_reason: b.reason,
     });
     if (error) throw mapDbError(error);
-    return c.json({ member: await getMember(c.get("deps").db, data.id), card: { qr: card.qr } }, 201);
+    const card = await nextMemberCard(deps.db, deps.env.QR_TOKEN_SECRET, data.id);
+    const { error: cardError } = await deps.db.rpc("membership_issue_first_card", { p_member: data.id, p_staff: c.get("operator").id, p_token_hash: card.hash });
+    if (cardError) throw mapDbError(cardError);
+    return c.json({ member: await getMember(deps.db, data.id), card: { qr: card.qr } }, 201);
   },
 );
 
@@ -134,8 +131,9 @@ adminMemberRoutes.post(
   validate("param", Id),
   validate("json", z.object({ reason: z.string().trim().max(300).optional() })),
   async (c) => {
-    const card = newCardToken();
-    const { error } = await c.get("deps").db.rpc("admin_reissue_qr", {
+    const deps = c.get("deps");
+    const card = await nextMemberCard(deps.db, deps.env.QR_TOKEN_SECRET, c.req.valid("param").id);
+    const { error } = await deps.db.rpc("admin_reissue_qr", {
       p_member: c.req.valid("param").id,
       p_staff: c.get("operator").id,
       p_token_hash: card.hash,
@@ -354,14 +352,14 @@ adminMemberRoutes.post(
   validate("json", z.object({ tierId: z.uuid(), reason: z.string().trim().max(300).optional() })),
   async (c) => {
     const { tierId, reason } = c.req.valid("json");
-    return c.json(await changeMemberTier(c.get("deps"), c.get("operator"), c.req.valid("param").id, tierId, reason ?? null));
+    return c.json(await changeMemberTier(c.get("deps"), c.get("operator").id, c.req.valid("param").id, tierId, reason ?? null));
   },
 );
 
 adminMemberRoutes.post("/members/:id/cancel", validate("param", Id), validate("json", z.object({ reason: z.string().trim().max(300).optional() })), async (c) => {
-  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator"), c.req.valid("param").id, true, c.req.valid("json").reason ?? null));
+  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator").id, c.req.valid("param").id, true, c.req.valid("json").reason ?? null));
 });
 
 adminMemberRoutes.post("/members/:id/resume", validate("param", Id), validate("json", z.object({ reason: z.string().trim().max(300).optional() })), async (c) => {
-  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator"), c.req.valid("param").id, false, c.req.valid("json").reason ?? null));
+  return c.json(await setCancelAtPeriodEnd(c.get("deps"), c.get("operator").id, c.req.valid("param").id, false, c.req.valid("json").reason ?? null));
 });

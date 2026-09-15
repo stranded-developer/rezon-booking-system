@@ -25,12 +25,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | Membership billing (Stripe test mode), sold at the counter | ✅ Built and verified |
 | Booking rules in the database (hold, confirm, expiry, cancel/refund) | ✅ Built and verified (6a) |
 | Public booking API: availability, quote, hold, Stripe payment, cancel links, emails (6b-1) | ✅ Built and verified |
-| **Member login/account API (6b-2), then booking website (6c)** | ❌ **Next** |
+| Member accounts API: login, member pricing, QR, online membership, portal, reminders, back office booking cancel (6b-2) | ✅ Built and verified |
+| **Booking website (6c)** + back office bookings page | ❌ **Next** |
 | Real emails (Resend) | ❌ Console only for now |
 | Reports | ❌ Phase 7 |
 | Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
 
-**Test totals at the last step:** pricing 78 · API 125 · pgTAP 336 · e2e 4 (3 run without `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 150 · pgTAP 353 · e2e 4 (3 run without `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -50,6 +51,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 12 | Counter membership sales, back office billing, real Stripe check | [build/12-counter-membership-sales.md](build/12-counter-membership-sales.md) |
 | 13 | Online booking rules in the database (6a) | [build/13-booking-database.md](build/13-booking-database.md) |
 | 14 | Public booking API + Stripe payments and refunds (6b-1) | [build/14-booking-api-public.md](build/14-booking-api-public.md) |
+| 15 | Member accounts API, online membership, reminders, back office booking cancel (6b-2) | [build/15-member-accounts-api.md](build/15-member-accounts-api.md) |
 
 ## Decisions
 
@@ -60,6 +62,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [03 — 2026-09-14](decisions/03-2026-09-14-launch-values-policies-staff-hosting.md) | D21–D34: launch values, balance rollover, happy hour, referrals (% or $), POS sales, QR vs login, refund/no-show policy, hardware, staff roles, hosting |
 | [04 — 2026-09-14](decisions/04-2026-09-14-final-answers-before-build.md) | D35–D45: name "Raceground", allowances, balance freeze/forfeit, 10-hour cap, cancellation/tier changes, GST display, overrides, USB scanner |
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
+| [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 
 ## Next step — Phase 6: Booking website
 
@@ -68,9 +71,10 @@ Planned sub-steps, each gets its own `build/` file:
 1. ✅ **Database** → [build/13](build/13-booking-database.md)
 2. **API**
    - ✅ 6b-1 public booking API, Stripe payments/refunds, emails, rate limits → [build/14](build/14-booking-api-public.md)
-   - **6b-2 (next):** member login on bookings (discount, free minutes), `/me` account (balance, card, bookings), online membership sign-up, Stripe billing portal, tier change, 24-hour reminder job, back office booking list/cancel with venue-fault refunds
-3. **`apps/booking` website:**
+   - ✅ 6b-2 member accounts, online membership, portal, daily reminders, back office booking cancel API → [build/15](build/15-member-accounts-api.md)
+3. **`apps/booking` website (next):**
    - home, timetable, booking flow, member login/account, cancel page
+   - back office Bookings page in the POS app (list, venue-fault cancel)
    - browser tests including a real Stripe payment
 
 ## How to add to the logs

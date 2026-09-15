@@ -10,6 +10,8 @@ const EnvSchema = z.object({
   OPERATOR_IDLE_SECONDS: z.coerce.number().int().positive().default(300),
   PIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   PIN_LOCK_MINUTES: z.coerce.number().int().positive().default(5),
+  /** HMAC secret member QR tokens are derived from. Changing it invalidates every member QR. */
+  QR_TOKEN_SECRET: z.string().min(32, "QR_TOKEN_SECRET must be at least 32 characters"),
   /** Stripe secret key (sk_test_… / sk_live_…). Billing routes return 503 without it. */
   STRIPE_SECRET_KEY: z.string().startsWith("sk_").optional(),
   /** Signing secret of the webhook endpoint (whsec_…); `stripe listen` prints one for local development. */

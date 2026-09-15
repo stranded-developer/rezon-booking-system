@@ -13,6 +13,9 @@ import {
   quoteBooking,
   viewBooking,
 } from "../services/bookings.js";
+import { optionalAccount } from "../middleware/account.js";
+import { accountContact, accountMember } from "../services/account.js";
+import type { MemberSummary } from "../services/lookup.js";
 import { validate } from "../validate.js";
 
 /** Booking website endpoints, no sign-in. Mounted at /public. */
@@ -30,7 +33,15 @@ const Booking = z.object({
     .max(24 * 60)
     .refine((m) => m % 15 === 0, "Bookings are in 15-minute steps"),
   referralCode: z.string().trim().min(1).max(32).optional(),
+  freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
 });
+
+/** A signed-in member gets member pricing only while active or cancelling; otherwise they book as a guest. */
+function pricingMember(member: MemberSummary | null) {
+  return member?.eligible ? member : null;
+}
+const memberNotice = (member: MemberSummary | null) =>
+  member && !member.eligible ? { status: member.status, message: `Your membership is ${member.status.replace("_", " ")}, so member pricing doesn't apply.` } : null;
 
 publicRoutes.get("/config", rateLimit("public-read", 300, 60), async (c) => c.json(await publicConfig(c.get("deps"))));
 
@@ -44,8 +55,10 @@ publicRoutes.get(
   },
 );
 
-publicRoutes.post("/quote", rateLimit("public-quote", 120, 60), validate("json", Booking), async (c) => {
-  return c.json({ quote: await quoteBooking(c.get("deps"), c.req.valid("json"), null) });
+publicRoutes.post("/quote", rateLimit("public-quote", 120, 60), optionalAccount, validate("json", Booking), async (c) => {
+  const deps = c.get("deps");
+  const member = await accountMember(deps, c.get("account"));
+  return c.json({ quote: await quoteBooking(deps, c.req.valid("json"), pricingMember(member)), memberNotice: memberNotice(member) });
 });
 
 publicRoutes.post("/referral/check", rateLimit("referral-check", 10, 60), validate("json", z.object({ code: z.string().trim().min(1).max(32) })), async (c) => {
@@ -77,10 +90,14 @@ const Customer = z
 bookingRoutes.post(
   "/hold",
   rateLimit("booking-hold", 10, 600),
-  validate("json", Booking.extend({ resourceId: z.uuid().optional(), customer: Customer, expectedTotalCents: z.number().int().min(0), acceptTerms: z.literal(true) })),
+  optionalAccount,
+  validate("json", Booking.extend({ resourceId: z.uuid().optional(), customer: Customer.optional(), expectedTotalCents: z.number().int().min(0), acceptTerms: z.literal(true) })),
   async (c) => {
-    const body = c.req.valid("json");
-    return c.json(await holdBooking(c.get("deps"), body, null), 201);
+    const deps = c.get("deps");
+    const account = c.get("account");
+    const member = pricingMember(await accountMember(deps, account));
+    const contact = account && !member ? await accountContact(deps, account) : null;
+    return c.json(await holdBooking(deps, c.req.valid("json"), member, contact), 201);
   },
 );
 

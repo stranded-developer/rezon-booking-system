@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { handleStripeEvent } from "../services/billing.js";
+import { sendDayBeforeReminders } from "../services/bookings.js";
 
 /** Stripe webhooks, scheduled jobs and the pages Stripe Checkout returns to. No staff session involved. */
 export const systemRoutes = new Hono<AppEnv>();
@@ -38,6 +39,12 @@ systemRoutes.post("/cron/forfeit", async (c) => {
   const { data, error } = await deps.db.rpc("membership_forfeit_balances", { p_now: deps.clock.now().toISOString() });
   if (error) throw mapDbError(error);
   return c.json({ forfeited: data });
+});
+
+systemRoutes.post("/cron/reminders", async (c) => {
+  const deps = c.get("deps");
+  requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
+  return c.json(await sendDayBeforeReminders(deps));
 });
 
 systemRoutes.post("/cron/holds", async (c) => {

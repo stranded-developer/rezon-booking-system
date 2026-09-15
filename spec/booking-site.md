@@ -89,7 +89,7 @@ Customers cancel through the signed link in their email.
 | Email | When |
 |---|---|
 | Booking confirmation + .ics + booking QR + cancel link | On confirm |
-| Reminder | 24 h before start |
+| Reminder | Daily job (~09:00 Sydney) for every confirmed booking tomorrow (D54) |
 | Cancellation + refund amount | On cancel |
 
 ## 6. API implementation notes (Phase 6b)

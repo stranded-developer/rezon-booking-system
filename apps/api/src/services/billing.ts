@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import Stripe from "stripe";
 import type { Json, Tables } from "@raceground/db";
 import type { AppDeps, StaffIdentity } from "../context.js";
@@ -6,7 +5,8 @@ import { ApiError, mapDbError } from "../errors.js";
 import { writeAudit } from "../lib/audit.js";
 import { auditHeaders } from "../lib/audit-headers.js";
 import { handleBookingCheckoutCompleted, handleBookingCheckoutExpired } from "./bookings.js";
-import { getMember, hashQrToken } from "./lookup.js";
+import { getMember } from "./lookup.js";
+import { currentMemberQr, nextMemberCard } from "../lib/qr.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 
 export { requireStripe };
@@ -87,13 +87,17 @@ export interface CheckoutInput {
   email: string;
   phone?: string | undefined;
   tierId: string;
+  /** Where Stripe sends the customer afterwards; defaults to the counter pages. */
+  successUrl?: string | undefined;
+  cancelUrl?: string | undefined;
 }
 
 /** Start a membership: prepare the member, then a Stripe Checkout session (subscription) the customer pays on their phone. */
 export async function startMembershipCheckout(deps: AppDeps, operator: StaffIdentity | null, input: CheckoutInput) {
   const stripe = requireStripe(deps);
   const { data: prepared, error } = await deps.db.rpc("membership_checkout_prepare", {
-    p_staff: operator?.id as string,
+    // null (not undefined) for online sign-ups: an omitted argument makes PostgREST look for a different function.
+    p_staff: (operator?.id ?? null) as string,
     p_name: input.name,
     p_email: input.email,
     p_phone: input.phone ?? "",
@@ -129,8 +133,8 @@ export async function startMembershipCheckout(deps: AppDeps, operator: StaffIden
       client_reference_id: p.memberId,
       metadata: { member_id: p.memberId, tier_id: tier.id },
       subscription_data: { metadata: { member_id: p.memberId, tier_id: tier.id } },
-      success_url: deps.env.CHECKOUT_SUCCESS_URL,
-      cancel_url: deps.env.CHECKOUT_CANCEL_URL,
+      success_url: input.successUrl ?? deps.env.CHECKOUT_SUCCESS_URL,
+      cancel_url: input.cancelUrl ?? deps.env.CHECKOUT_CANCEL_URL,
       expires_at: expiresAt,
       // Always charge the AUD price. Adaptive Pricing would show and charge visitors from abroad in their
       // own currency (a Jakarta visitor saw IDR), and the payment would be recorded with the wrong amount.
@@ -238,7 +242,7 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
             template: "membership_welcome",
             to: contact.email,
             subject: `Welcome to Raceground ${contact.tierName}`,
-            text: `Hi ${contact.name},\n\nYour ${contact.tierName} membership (${contact.memberNo}) is active. You have ${result.balanceMinutes} minutes of free play ready to use.\nCollect your member card at the counter.\n\nRaceground`,
+            text: `Hi ${contact.name},\n\nYour ${contact.tierName} membership (${contact.memberNo}) is active. You have ${result.balanceMinutes} minutes of free play ready to use.\n\nYour member QR is in your account at ${deps.env.BOOKING_SITE_URL}/account (log in or create your account with this email address), or collect a card at the counter.\n\nRaceground`,
             entity: "members",
             entityId: `${memberId}:${invoice.id}`,
           });
@@ -310,7 +314,7 @@ async function subscriptionOf(deps: AppDeps, memberId: string) {
 }
 
 /** Paid members: Stripe bills the new tier's price from the next renewal, and our side switches then too. */
-export async function changeMemberTier(deps: AppDeps, operator: StaffIdentity, memberId: string, tierId: string, reason: string | null) {
+export async function changeMemberTier(deps: AppDeps, actorStaffId: string | null, memberId: string, tierId: string, reason: string | null) {
   const member = await subscriptionOf(deps, memberId);
   if (member.stripe_subscription_id) {
     const stripe = requireStripe(deps);
@@ -322,26 +326,26 @@ export async function changeMemberTier(deps: AppDeps, operator: StaffIdentity, m
     if (!item) throw new ApiError(502, "stripe_error", "The subscription has no items");
     const previousPrice = item.price.id;
     await stripeCall(() => stripe.subscriptions.update(sub.id, { items: [{ id: item.id, price: tier.stripe_price_id! }], proration_behavior: "none" }));
-    const { data, error: rpcError } = await deps.db.rpc("membership_change_tier", { p_member: memberId, p_staff: operator.id, p_tier: tierId, p_reason: reason ?? "" });
+    const { data, error: rpcError } = await deps.db.rpc("membership_change_tier", { p_member: memberId, p_staff: actorStaffId as string, p_tier: tierId, p_reason: reason ?? "" });
     if (rpcError) {
       await stripe.subscriptions.update(sub.id, { items: [{ id: item.id, price: previousPrice }], proration_behavior: "none" }).catch(() => undefined);
       throw mapDbError(rpcError);
     }
     return data as { mode: string };
   }
-  const { data, error } = await deps.db.rpc("membership_change_tier", { p_member: memberId, p_staff: operator.id, p_tier: tierId, p_reason: reason ?? "" });
+  const { data, error } = await deps.db.rpc("membership_change_tier", { p_member: memberId, p_staff: actorStaffId as string, p_tier: tierId, p_reason: reason ?? "" });
   if (error) throw mapDbError(error);
   return data as { mode: string };
 }
 
-export async function setCancelAtPeriodEnd(deps: AppDeps, operator: StaffIdentity, memberId: string, cancel: boolean, reason: string | null) {
+export async function setCancelAtPeriodEnd(deps: AppDeps, actorStaffId: string | null, memberId: string, cancel: boolean, reason: string | null) {
   const member = await subscriptionOf(deps, memberId);
   if (!member.stripe_subscription_id) throw new ApiError(409, "not_billed", "This membership isn't billed through Stripe");
   const stripe = requireStripe(deps);
   await stripeCall(() => stripe.subscriptions.update(member.stripe_subscription_id!, { cancel_at_period_end: cancel }));
   const result = await syncSubscription(deps, member.stripe_subscription_id);
   await writeAudit(deps.db, {
-    actorStaffId: operator.id,
+    actorStaffId,
     action: cancel ? "member.cancel_at_period_end" : "member.resume",
     entity: "members",
     entityId: memberId,
@@ -394,8 +398,12 @@ export async function migrateTierSubscriptions(deps: AppDeps, tierId: string, ac
 
 // ── First card at the counter ────────────────────────────────────────────────
 export async function issueFirstCard(deps: AppDeps, operator: StaffIdentity, memberId: string) {
-  const token = randomBytes(32).toString("base64url");
-  const { error } = await deps.db.rpc("membership_issue_first_card", { p_member: memberId, p_staff: operator.id, p_token_hash: hashQrToken(token) });
+  // The member may already have their QR (online account): print that same QR instead of replacing it.
+  const { data: existing } = await deps.db.from("members").select("id, status, qr_version, qr_token_hash").eq("id", memberId).maybeSingle();
+  const current = existing && (existing.status === "active" || existing.status === "cancelling") ? currentMemberQr(deps.env.QR_TOKEN_SECRET, existing) : null;
+  if (current) return { qr: current, member: await getMember(deps.db, memberId) };
+  const card = await nextMemberCard(deps.db, deps.env.QR_TOKEN_SECRET, memberId);
+  const { error } = await deps.db.rpc("membership_issue_first_card", { p_member: memberId, p_staff: operator.id, p_token_hash: card.hash });
   if (error) throw mapDbError(error);
-  return { qr: `rg:m:${token}`, member: await getMember(deps.db, memberId) };
+  return { qr: card.qr, member: await getMember(deps.db, memberId) };
 }

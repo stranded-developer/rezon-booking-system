@@ -79,6 +79,41 @@ describe("requestIp", () => {
   });
 });
 
+describe("member QR tokens", () => {
+  it("are derived per member and version, and only the matching hash shows a QR", async () => {
+    const { memberQrToken, currentMemberQr } = await import("../src/lib/qr.js");
+    const { hashQrToken } = await import("../src/services/lookup.js");
+    const id = "11111111-1111-4111-8111-111111111111";
+    const v1 = memberQrToken(SECRET, id, 1);
+    expect(v1).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(memberQrToken(SECRET, id, 1)).toBe(v1);
+    expect(memberQrToken(SECRET, id, 2)).not.toBe(v1);
+    expect(memberQrToken(SECRET, "22222222-2222-4222-8222-222222222222", 1)).not.toBe(v1);
+    expect(memberQrToken(`${SECRET}x`, id, 1)).not.toBe(v1);
+    expect(currentMemberQr(SECRET, { id, qr_version: 1, qr_token_hash: hashQrToken(v1) })).toBe(`rg:m:${v1}`);
+    expect(currentMemberQr(SECRET, { id, qr_version: 2, qr_token_hash: hashQrToken(v1) })).toBeNull();
+    expect(currentMemberQr(SECRET, { id, qr_version: 0, qr_token_hash: null })).toBeNull();
+  });
+});
+
+describe("booking calendar invite", () => {
+  it("escapes text and folds long lines", async () => {
+    const { buildIcs } = await import("../src/lib/ics.js");
+    const ics = buildIcs({
+      uid: "abc@raceground",
+      start: new Date("2030-02-16T01:00:00Z"),
+      end: new Date("2030-02-16T02:00:00Z"),
+      stamp: new Date("2030-02-11T00:00:00Z"),
+      summary: "Raceground: Sim, Bay; A",
+      description: "x".repeat(200),
+      location: "Raceground",
+    });
+    expect(ics).toContain("SUMMARY:Raceground: Sim\\, Bay\\; A");
+    expect(ics.split("\r\n").every((l) => Buffer.byteLength(l) <= 75)).toBe(true);
+    expect(ics.replace(/\r\n /g, "")).toContain(`DESCRIPTION:${"x".repeat(200)}`);
+  });
+});
+
 describe("loadEnv", () => {
   it("rejects a short operator secret and applies defaults", () => {
     expect(() =>
@@ -88,8 +123,13 @@ describe("loadEnv", () => {
       SUPABASE_URL: "http://127.0.0.1:54321",
       SUPABASE_SERVICE_ROLE_KEY: "k".repeat(30),
       OPERATOR_TOKEN_SECRET: SECRET,
+      QR_TOKEN_SECRET: SECRET,
     });
     expect(env.OPERATOR_IDLE_SECONDS).toBe(300);
+    expect(env.BOOKING_SITE_URL).toBe("http://localhost:3000");
+    expect(() =>
+      loadEnv({ SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_SERVICE_ROLE_KEY: "k".repeat(30), OPERATOR_TOKEN_SECRET: SECRET }),
+    ).toThrow(/QR_TOKEN_SECRET/);
     expect(env.PIN_MAX_ATTEMPTS).toBe(5);
     expect(env.CORS_ORIGINS).toEqual(["http://localhost:3000", "http://localhost:3001"]);
   });

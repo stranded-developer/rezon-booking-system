@@ -27,6 +27,13 @@ export interface AppDeps {
   email: EmailSender;
 }
 
+/** A signed-in booking-site user, linked to their customer record. */
+export interface AccountIdentity {
+  authUserId: string;
+  email: string;
+  customerId: string;
+}
+
 export interface AppEnv {
   Variables: {
     deps: AppDeps;
@@ -34,5 +41,7 @@ export interface AppEnv {
     device: StaffIdentity;
     /** Staff member currently operating the POS (PIN-verified). */
     operator: StaffIdentity;
+    /** Booking-site account (Supabase JWT, confirmed email); unset for guests on optional routes. */
+    account: AccountIdentity | undefined;
   };
 }

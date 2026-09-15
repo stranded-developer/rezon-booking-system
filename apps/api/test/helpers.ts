@@ -36,6 +36,7 @@ export function testContext(overrides: Record<string, string> = {}) {
     SUPABASE_URL: supabase.url,
     SUPABASE_SERVICE_ROLE_KEY: supabase.secretKey,
     OPERATOR_TOKEN_SECRET: randomBytes(32).toString("hex"),
+    QR_TOKEN_SECRET: "test-qr-secret-0123456789abcdef0123456789",
     ...overrides,
   });
   const db = createServiceClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);

@@ -9,7 +9,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { addDaysToDate, localToInstant, toLocal } from "@raceground/pricing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { call, testContext, type CallOptions, type TestContext } from "./helpers.js";
+import { call, cleanupTestData, makeStaff, operatorToken, testContext, type CallOptions, type TestContext, type TestStaff } from "./helpers.js";
 
 const stripeKey = inject("supabase").stripeKey;
 const WEBHOOK_SECRET = `whsec_test_${randomBytes(16).toString("hex")}`;
@@ -19,6 +19,8 @@ const TZ = "Australia/Sydney";
 let ctx: TestContext;
 let stripe: Stripe;
 let typeId: string;
+let owner: TestStaff;
+let ownerOp: string;
 const resourceIds: string[] = [];
 const checkoutIds: string[] = [];
 /** Two days ahead in venue time: always ≥ 24 h away and inside the 7-day window. */
@@ -86,6 +88,8 @@ describe.skipIf(!stripeKey)("online booking payments with Stripe (test mode)", {
     const { data: resources, error: rError } = await ctx.db.from("resources").insert([{ resource_type_id: typeId, label: "Bay S", sort: 1 }]).select("id");
     if (rError) throw rError;
     resourceIds.push(...resources.map((r) => r.id));
+    owner = await makeStaff(ctx, "superadmin", "2468", "bks-owner");
+    ownerOp = await operatorToken(ctx, owner);
   }, 60_000);
 
   afterAll(async () => {
@@ -94,6 +98,22 @@ describe.skipIf(!stripeKey)("online booking payments with Stripe (test mode)", {
     await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");
     await ctx.db.from("resources").update({ active: false }).in("id", resourceIds);
     await ctx.db.from("resource_types").update({ active: false }).eq("id", typeId);
+    await cleanupTestData(ctx);
+  });
+
+  it("lets the venue cancel a paid booking an hour before as its fault, refunding all of it on Stripe", async () => {
+    const h = await hold("18:00");
+    const pi = await pay(h.totalCents);
+    await deliverCompleted(h.sessionId, pi.id);
+    ctx.clock.set(new Date(localToInstant(day(), "18:00", TZ) - 3_600_000));
+    const r = await call(ctx, `/admin/bookings/${h.bookingId}/cancel`, { jwt: owner.jwt, operatorToken: ownerOp, body: { reason: "Power outage", venueFault: true, expectedRefundCents: h.totalCents } });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json).toMatchObject({ rule: "venue", refundCents: h.totalCents });
+    const refunds = await stripe.refunds.list({ payment_intent: pi.id });
+    expect(refunds.data.map((x) => x.amount)).toEqual([h.totalCents]);
+    const row = (await ctx.db.from("bookings").select("status, cancelled_by_staff_id, cancel_reason").eq("id", h.bookingId).single()).data!;
+    expect(row).toEqual({ status: "cancelled", cancelled_by_staff_id: owner.id, cancel_reason: "Power outage" });
+    ctx.clock.real();
   });
 
   it("holds the slot and opens a card-only AUD Checkout for the exact total", async () => {

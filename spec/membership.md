@@ -69,10 +69,14 @@ ended ──new checkout within 30 days──▶ active   (balance restored — 
 ## 6. Identification
 
 - **Online:** member login with **email + password** (Supabase Auth), with "Forgot password".
-- **In venue:** a **member QR** containing `rg:m:<token>`.
-  - The token is 32 random bytes, base64url. Only its sha256 is stored.
-  - It is shown on the member account page and in the welcome email. No physical cards at launch.
-  - **Reissue** (member or superadmin) generates a new token and the old one stops working immediately.
+  - **Email confirmation is required** (D56).
+  - On first use, a login is linked to the customer with the same email (any case), so counter-sold members and earlier guest bookings join the account. A new email gets a new customer.
+  - Staff logins are refused on the booking site.
+  - Counter-sold members get online access by signing up with the email they gave at the counter.
+- **In venue:** a **member QR** containing `rg:m:<token>` (D57).
+  - The token is `HMAC-SHA256(QR_TOKEN_SECRET, member id + qr_version)`, base64url. Only its sha256 is stored, and `qr_version` moves on whenever the hash changes.
+  - It is shown on the member account page; an active member without a card gets one when the page loads. The cashier's **Print card** prints that same QR.
+  - **Reissue** (member or superadmin) moves to the next version and every older QR stops working immediately.
 - **POS fallback:** search the member by phone or email.
 
 ## 7. Webhooks handled by the API (`POST /webhooks/stripe`)

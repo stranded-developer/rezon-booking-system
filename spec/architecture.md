@@ -68,9 +68,10 @@ Public
   POST /bookings/:ref/cancel          { token, expectedRefundCents }
   POST /bookings/:ref/abandon         { token }  customer backed out of Checkout: expire it, free the slot
 
-Member (JWT)
+Member (Supabase JWT, confirmed email; also optional on /public/quote and /bookings/hold for member pricing)
   GET  /me  ·  GET /me/ledger  ·  POST /me/qr/reissue
-  POST /me/membership/checkout  ·  POST /me/membership/tier  ·  POST /me/portal
+  GET  /me/bookings  ·  GET /me/bookings/:ref  ·  POST /me/bookings/:ref/cancel  { expectedRefundCents }
+  POST /me/membership/checkout  ·  POST /me/membership/tier  ·  POST /me/membership/cancel|resume  ·  POST /me/portal
 
 POS (staff JWT + operator)
   POST /pos/operator                  PIN → operator token
@@ -83,13 +84,14 @@ POS (staff JWT + operator)
 Back office (superadmin)
   CRUD: resource-types, resources, rate-bands, happy-hours, opening-hours, settings,
         tiers (+ price change), members (adjust, reissue, tier, cancel), referral-codes,
-        staff, bookings (cancel/refund)
+        staff, bookings: GET /admin/bookings?date&q · GET /admin/bookings/:id(/cancel-quote?venueFault)
+        · POST /admin/bookings/:id/cancel { reason, venueFault, overrideRefundCents?, returnMinutes?, expectedRefundCents? }
   sales (by venue day), sales/:id/void, payments/:id/refund, shifts, members (+ complimentary), members/:id/balance|card
   GET reports/*, audit
 
 System
   POST /webhooks/stripe
-  POST /cron/reminders     hourly: 24h booking reminders
+  POST /cron/reminders     daily (~09:00 Sydney): reminder for tomorrow's confirmed bookings (D54)
   POST /cron/forfeit       daily: forfeit balances ended > 30 days
   POST /cron/holds         cleanup of expired holds (correctness doesn't depend on it)
 
@@ -99,10 +101,9 @@ Rate limits (per client IP, counted in Postgres `rate_limit_hit` so all instance
 
 ## 5. Scheduled jobs
 
-- **Hourly** (booking reminders) and **daily** (balance forfeit).
-- **Vercel Cron on the Hobby plan runs at most once a day**, so hourly reminders need either **Vercel Pro** or Supabase `pg_cron` + `pg_net` calling the API.
-  - The decision is deferred to Phase 6.
-  - All jobs are idempotent: reminders are marked sent in `email_log`, and forfeits are checked against the ledger.
+- **All daily** (D54): booking reminders for tomorrow, balance forfeit, optional hold cleanup. This fits Vercel Cron on any plan.
+- All jobs are idempotent: reminders are marked sent in `email_log`, and forfeits are checked against the ledger.
+- Every job needs `Authorization: Bearer CRON_SECRET`.
 
 ## 6. Environments
 

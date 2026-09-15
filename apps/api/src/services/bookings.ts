@@ -302,13 +302,21 @@ export type HoldResult =
   | { status: "confirmed"; bookingId: string; ref: string; token: string }
   | { status: "pending_payment"; bookingId: string; ref: string; token: string; checkoutUrl: string; holdExpiresAt: string };
 
-export async function holdBooking(deps: AppDeps, req: HoldRequest, member: MemberSummary | null): Promise<HoldResult> {
+/** A signed-in customer's contact details, used when they book without an active membership. */
+export interface AccountContact {
+  name: string;
+  email: string | null;
+  phone: string | null;
+}
+
+export async function holdBooking(deps: AppDeps, req: HoldRequest, member: MemberSummary | null, accountContact: AccountContact | null = null): Promise<HoldResult> {
   const now = deps.clock.now();
   const quote = await quoteBooking(deps, req, member);
   if (req.expectedTotalCents !== quote.totalCents) {
     throw new ApiError(409, "quote_changed", `The price is now ${formatCents(quote.totalCents)}. Please check it before paying.`, { quote });
   }
-  if (!member && !req.customer) throw new ApiError(422, "validation_failed", "Your name and an email or phone number are required");
+  const guest = member ? null : (req.customer ?? accountContact);
+  if (!member && !guest) throw new ApiError(422, "validation_failed", "Your name and an email or phone number are required");
   if (quote.totalCents > 0) requireStripe(deps);
 
   const resources = await activeResources(deps, quote.resourceTypeId);
@@ -334,7 +342,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
         endsAt: quote.endsAt,
         now: now.toISOString(),
         memberId: member?.id ?? null,
-        customer: member ? null : req.customer,
+        customer: guest,
         referralCodeId: quote.referral?.id ?? null,
         freeMinutes: quote.pricing.freeMinutes,
         pricing: snapshot,
@@ -385,7 +393,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
               },
             },
           ],
-          ...(member?.email ? { customer_email: member.email } : req.customer?.email ? { customer_email: req.customer.email } : {}),
+          ...((member?.email ?? guest?.email) ? { customer_email: (member?.email ?? guest?.email)! } : {}),
           client_reference_id: booking.id,
           // The link token rides along so the webhook can put it in the confirmation email (only its hash is stored).
           metadata: { booking_id: booking.id, booking_ref: booking.ref, booking_token: token },
@@ -519,14 +527,32 @@ async function bookingByLink(deps: AppDeps, ref: string, token: string): Promise
   return row;
 }
 
-async function cancelQuote(deps: AppDeps, bookingId: string, now: Date) {
-  const { data, error } = await deps.db.rpc("booking_cancel_quote", { p_booking: bookingId, p_now: now.toISOString(), p_venue_fault: false });
+async function cancelQuote(deps: AppDeps, bookingId: string, now: Date, venueFault = false) {
+  const { data, error } = await deps.db.rpc("booking_cancel_quote", { p_booking: bookingId, p_now: now.toISOString(), p_venue_fault: venueFault });
   if (error) throw mapDbError(error);
   return data as { allowed: boolean; rule?: string; reason?: string; refundCents?: number; paidCents?: number; returnMinutes?: number; hoursBefore: number };
 }
 
 export async function viewBooking(deps: AppDeps, ref: string, token: string) {
-  const b = await bookingByLink(deps, ref, token);
+  return describeBooking(deps, await bookingByLink(deps, ref, token));
+}
+
+/** A booking of this customer by its code (member account: no link token needed). */
+export async function bookingForCustomer(deps: AppDeps, ref: string, customerId: string): Promise<BookingRow> {
+  const { data, error } = await deps.db.from("bookings").select(BOOKING_SELECT).eq("ref", ref.trim().toUpperCase()).eq("customer_id", customerId).maybeSingle();
+  if (error) throw mapDbError(error);
+  if (!data) throw new ApiError(404, "not_found", "Booking not found");
+  return data as unknown as BookingRow;
+}
+
+export async function bookingById(deps: AppDeps, id: string): Promise<BookingRow> {
+  const { data, error } = await deps.db.from("bookings").select(BOOKING_SELECT).eq("id", id).maybeSingle();
+  if (error) throw mapDbError(error);
+  if (!data) throw new ApiError(404, "not_found", "Booking not found");
+  return data as unknown as BookingRow;
+}
+
+export async function describeBooking(deps: AppDeps, b: BookingRow) {
   const now = deps.clock.now();
   const { start, end } = parseRange(b.period);
   const settings = await loadSettings(deps.db);
@@ -583,18 +609,42 @@ export async function abandonBooking(deps: AppDeps, ref: string, token: string) 
   return { status: data as string };
 }
 
-export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token: string, expectedRefundCents: number) {
-  const b = await bookingByLink(deps, ref, token);
+export interface CancelOptions {
+  /** null when the customer cancels (link or account). */
+  staffId: string | null;
+  reason?: string | undefined;
+  /** Staff only: venue's fault → full refund and minutes back at any time. */
+  venueFault?: boolean | undefined;
+  /** Staff only: refund this amount instead of the policy (any time, up to what was paid). */
+  overrideRefundCents?: number | undefined;
+  /** With an override: give the free minutes back too. */
+  returnMinutes?: boolean | undefined;
+  /** The refund the person saw; required for customers, checked for staff when given. */
+  expectedRefundCents?: number | undefined;
+}
+
+/** Quote → Stripe refund (reusing one already made for this cancel) → cancel in the database → email. */
+export async function cancelBooking(deps: AppDeps, b: BookingRow, opts: CancelOptions) {
   const now = deps.clock.now();
-  const quote = await cancelQuote(deps, b.id, now);
-  if (!quote.allowed) {
-    if (quote.reason === "too_late") {
-      throw new ApiError(409, "too_late", "Bookings can't be cancelled online less than 2 hours before the start. Please call the venue.");
+  const isStaff = opts.staffId !== null;
+  const venueFault = isStaff && opts.venueFault === true;
+  const override = isStaff ? opts.overrideRefundCents : undefined;
+  const quote = await cancelQuote(deps, b.id, now, venueFault);
+  if (quote.reason === "not_cancellable") throw new ApiError(409, "not_cancellable", "This booking can't be cancelled");
+
+  let refundCents: number;
+  if (override !== undefined) {
+    if (override > (quote.paidCents ?? 0)) throw new ApiError(422, "validation_failed", `The refund can't be more than the ${formatCents(quote.paidCents ?? 0)} paid`);
+    refundCents = override;
+  } else {
+    if (!quote.allowed) {
+      throw isStaff
+        ? new ApiError(409, "too_late", "Less than 2 hours before the start: cancel as the venue's fault or set the refund amount.")
+        : new ApiError(409, "too_late", "Bookings can't be cancelled online less than 2 hours before the start. Please call the venue.");
     }
-    throw new ApiError(409, "not_cancellable", "This booking can't be cancelled");
+    refundCents = quote.refundCents ?? 0;
   }
-  const refundCents = quote.refundCents ?? 0;
-  if (expectedRefundCents !== refundCents) {
+  if (opts.expectedRefundCents !== undefined && opts.expectedRefundCents !== refundCents) {
     throw new ApiError(409, "refund_changed", `The refund is now ${formatCents(refundCents)}. Please check it again.`, { refundCents, rule: quote.rule });
   }
 
@@ -602,7 +652,7 @@ export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token:
   if (refundCents > 0) {
     const stripe = requireStripe(deps);
     const paymentIntent = b.stripe_payment_intent_id;
-    if (!paymentIntent) throw new ApiError(500, "internal", "The online payment for this booking is missing");
+    if (!paymentIntent) throw new ApiError(409, "not_refundable", "This booking has no online payment to refund");
     // A retry after a failure below reuses the refund Stripe already made for this cancellation.
     const existing = (await stripeCall(() => stripe.refunds.list({ payment_intent: paymentIntent, limit: 100 }))).data.find(
       (r) => r.metadata?.kind === "booking_cancel" && r.status !== "failed" && r.status !== "canceled",
@@ -614,7 +664,7 @@ export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token:
       existing ??
       (await stripeCall(() =>
         stripe.refunds.create(
-          { payment_intent: paymentIntent, amount: refundCents, metadata: { booking_id: b.id, kind: "booking_cancel", rule: quote.rule ?? "" } },
+          { payment_intent: paymentIntent, amount: refundCents, metadata: { booking_id: b.id, kind: "booking_cancel", rule: override !== undefined ? "override" : (quote.rule ?? "") } },
           { idempotencyKey: `booking-cancel-${b.id}-${refundCents}` },
         ),
       ));
@@ -623,7 +673,14 @@ export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token:
 
   const { data, error } = await deps.db.rpc("booking_cancel", {
     p_booking: b.id,
-    p: { now: now.toISOString(), refundCents, stripeRefundId },
+    p: {
+      now: now.toISOString(),
+      staffId: opts.staffId,
+      reason: opts.reason ?? null,
+      venueFault,
+      ...(override !== undefined ? { overrideRefundCents: override, returnMinutes: opts.returnMinutes === true } : { refundCents }),
+      stripeRefundId,
+    },
   });
   if (error) throw mapDbError(error);
   const result = data as { refundCents: number; minutesReturned: number; rule: string };
@@ -637,16 +694,22 @@ export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token:
         ? `We've refunded ${formatCents(result.refundCents)} to your card. Refunds usually show within 5–10 business days.`
         : "No refund applies to this cancellation.";
     const minutesLine = result.minutesReturned > 0 ? `\n${result.minutesReturned} minutes of free play are back in your balance.` : "";
+    const byVenue = isStaff ? `\nWe're sorry we had to cancel${opts.reason ? `: ${opts.reason}` : "."}` : "";
     await deps.email.send({
       template: "booking_cancelled",
       to: b.customers.email,
       subject: `Raceground booking ${b.ref} cancelled`,
-      text: `Hi ${b.customers.name},\n\nYour booking ${b.ref} (${b.resources.resource_types.name} · ${b.resources.label}, ${s.date} ${s.time}–${venueText(end, settings.timezone).time}) is cancelled.\n${moneyLine}${minutesLine}\n\nRaceground`,
+      text: `Hi ${b.customers.name},\n\nYour booking ${b.ref} (${b.resources.resource_types.name} · ${b.resources.label}, ${s.date} ${s.time}–${venueText(end, settings.timezone).time}) is cancelled.${byVenue}\n${moneyLine}${minutesLine}\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:cancelled`,
     });
   }
   return result;
+}
+
+export async function cancelBookingByCustomer(deps: AppDeps, ref: string, token: string, expectedRefundCents: number) {
+  const b = await bookingByLink(deps, ref, token);
+  return cancelBooking(deps, b, { staffId: null, expectedRefundCents });
 }
 
 // ── Emails ───────────────────────────────────────────────────────────────────
@@ -685,4 +748,109 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
     entityId: `${b.id}:confirmed`,
     attachments: [{ filename: `raceground-${b.ref}.ics`, contentType: "text/calendar; charset=utf-8; method=PUBLISH", content: ics }],
   });
+}
+
+// ── Lists ────────────────────────────────────────────────────────────────────
+function summarize(b: BookingRow, timeZone: string) {
+  const { start, end } = parseRange(b.period);
+  const s = venueText(start, timeZone);
+  return {
+    id: b.id,
+    ref: b.ref,
+    status: b.status,
+    resourceType: b.resources.resource_types.name,
+    resource: b.resources.label,
+    startsAt: start.toISOString(),
+    endsAt: end.toISOString(),
+    venueDate: s.date,
+    venueStartTime: s.time,
+    venueEndTime: venueText(end, timeZone).time,
+    totalCents: b.total_cents,
+    freeMinutesUsed: b.free_minutes_used,
+    refundCents: b.refund_cents,
+  };
+}
+
+/** The customer's bookings, newest first. Unpaid holds that lapsed are left out. */
+export async function customerBookings(deps: AppDeps, customerId: string) {
+  const settings = await loadSettings(deps.db);
+  const { data, error } = await deps.db
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("customer_id", customerId)
+    .neq("status", "expired")
+    .order("period", { ascending: false })
+    .limit(100);
+  if (error) throw mapDbError(error);
+  return (data as unknown as BookingRow[]).map((b) => summarize(b, settings.timezone));
+}
+
+/** Back office: every booking starting on a venue date, optionally filtered by code, name, email or phone. */
+export async function bookingsForDay(deps: AppDeps, date: string, q?: string) {
+  const settings = await loadSettings(deps.db);
+  const tz = settings.timezone;
+  const from = localToInstant(date, "00:00", tz);
+  const to = localToInstant(addDaysToDate(date, 1), "00:00", tz);
+  const { data, error } = await deps.db
+    .from("bookings")
+    .select(`${BOOKING_SELECT}, members(member_no), payments(method, amount_cents)`)
+    .overlaps("period", `[${new Date(from).toISOString()},${new Date(to).toISOString()})`)
+    .order("period");
+  if (error) throw mapDbError(error);
+  const needle = q?.trim().toLowerCase();
+  return (data as unknown as (BookingRow & { members: { member_no: string } | null; payments: { method: string; amount_cents: number }[] })[])
+    .filter((b) => {
+      const start = parseRange(b.period).start.getTime();
+      return start >= from && start < to;
+    })
+    .filter((b) => !needle || [b.ref, b.customers.name, b.customers.email ?? "", b.customers.phone ?? ""].some((v) => v.toLowerCase().includes(needle)))
+    .map((b) => ({
+      ...summarize(b, tz),
+      customer: b.customers,
+      memberNo: b.members?.member_no ?? null,
+      payment: b.payments[0] ? { method: b.payments[0].method, amountCents: b.payments[0].amount_cents } : null,
+      holdExpiresAt: b.status === "held" ? b.hold_expires_at : null,
+      cancelledAt: b.cancelled_at,
+    }));
+}
+
+// ── Reminders ────────────────────────────────────────────────────────────────
+/**
+ * Once a day (owner decision D54): remind everyone with a confirmed booking tomorrow (venue date).
+ * Safe to run more than once: each booking gets at most one reminder (email_log).
+ */
+export async function sendDayBeforeReminders(deps: AppDeps) {
+  const settings = await loadSettings(deps.db);
+  const tz = settings.timezone;
+  const tomorrow = addDaysToDate(toLocal(deps.clock.now().getTime(), tz).date, 1);
+  const from = localToInstant(tomorrow, "00:00", tz);
+  const to = localToInstant(addDaysToDate(tomorrow, 1), "00:00", tz);
+  const { data, error } = await deps.db
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("status", "confirmed")
+    .overlaps("period", `[${new Date(from).toISOString()},${new Date(to).toISOString()})`);
+  if (error) throw mapDbError(error);
+  let sent = 0;
+  let skipped = 0;
+  for (const b of data as unknown as BookingRow[]) {
+    const { start, end } = parseRange(b.period);
+    if (start.getTime() < from || start.getTime() >= to) continue;
+    if (!b.customers.email) {
+      skipped += 1;
+      continue;
+    }
+    const s = venueText(start, tz);
+    const result = await deps.email.send({
+      template: "booking_reminder",
+      to: b.customers.email,
+      subject: `See you tomorrow at Raceground: ${s.time}`,
+      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nShow your booking code at the counter. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start, 50% up to 2 hours before.\n\nRaceground`,
+      entity: "bookings",
+      entityId: `${b.id}:reminder`,
+    });
+    if (result.sent) sent += 1;
+    else skipped += 1;
+  }
+  return { date: tomorrow, sent, skipped };
 }

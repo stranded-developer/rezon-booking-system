@@ -445,6 +445,7 @@ export type Database = {
           member_no: string
           pending_tier_id: string | null
           qr_token_hash: string | null
+          qr_version: number
           status: string
           stripe_subscription_id: string | null
           tier_id: string
@@ -459,6 +460,7 @@ export type Database = {
           member_no?: string
           pending_tier_id?: string | null
           qr_token_hash?: string | null
+          qr_version?: number
           status?: string
           stripe_subscription_id?: string | null
           tier_id: string
@@ -473,6 +475,7 @@ export type Database = {
           member_no?: string
           pending_tier_id?: string | null
           qr_token_hash?: string | null
+          qr_version?: number
           status?: string
           stripe_subscription_id?: string | null
           tier_id?: string
@@ -1376,6 +1379,7 @@ export type Database = {
           member_no: string
           pending_tier_id: string | null
           qr_token_hash: string | null
+          qr_version: number
           status: string
           stripe_subscription_id: string | null
           tier_id: string
@@ -1470,6 +1474,15 @@ export type Database = {
       }
       booking_release_hold: { Args: { p_booking: string }; Returns: string }
       expire_stale_holds: { Args: { p_now?: string }; Returns: number }
+      member_link_account: {
+        Args: {
+          p_auth_user: string
+          p_email: string
+          p_name: string
+          p_phone: string
+        }
+        Returns: string
+      }
       membership_apply_invoice: {
         Args: { p: Json; p_member: string }
         Returns: Json

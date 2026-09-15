@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { adminBookingRoutes } from "./admin-bookings.js";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { mapDbError } from "../errors.js";
@@ -97,3 +98,4 @@ adminRoutes.get("/audit", validate("query", AuditQuery), async (c) => {
 
 adminRoutes.route("/", adminConfigRoutes);
 adminRoutes.route("/", adminMemberRoutes);
+adminRoutes.route("/", adminBookingRoutes);
