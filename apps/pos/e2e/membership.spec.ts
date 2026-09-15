@@ -66,7 +66,9 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     // Back at the counter the POS notices the webhook and shows the member active.
     await expect(page.getByTestId("membership-active")).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId("membership-active")).toContainText("Silver");
-    await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready");
+    // The free minutes are granted by a second webhook (invoice.paid), which can land a little after
+    // the one that activates the membership; the screen fills in when it does.
+    await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready", { timeout: 60_000 });
     await page.screenshot({ path: "test-results/screens/membership-03-active.png" });
     await page.getByRole("button", { name: "Print member card" }).click();
     // Printing the first card asks the API for a new token, so allow for a round trip.

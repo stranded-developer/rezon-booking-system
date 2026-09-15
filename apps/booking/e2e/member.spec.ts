@@ -11,6 +11,17 @@ function bookingDate(): string {
   return new Date(Date.UTC(get("year"), get("month") - 1, get("day") + 4)).toISOString().slice(0, 10);
 }
 
+/**
+ * Type into a field and make sure the value sticks. A page that is still hydrating resets a
+ * controlled input, which would otherwise submit an empty form.
+ */
+async function fillWhenReady(field: import("@playwright/test").Locator, value: string) {
+  await expect(async () => {
+    await field.fill(value);
+    await expect(field).toHaveValue(value);
+  }).toPass({ timeout: 15_000 });
+}
+
 const dayLabel = () => {
   const [y, m, d] = bookingDate().split("-").map(Number);
   return new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" })
@@ -102,7 +113,7 @@ test("a member can ask for a new password", async ({ page }) => {
 
   await page.goto("/login");
   await page.getByRole("link", { name: "Forgot your password?" }).click();
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
+  await fillWhenReady(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
   await page.getByRole("button", { name: "Send me a link" }).click();
   await expect(page.getByText(/we've sent a link/i)).toBeVisible();
 
@@ -110,13 +121,13 @@ test("a member can ask for a new password", async ({ page }) => {
   await page.goto(firstLink(email.body));
   await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
   const newPassword = `${f.password}-new`;
-  await page.getByLabel("New password").fill(newPassword);
+  await fillWhenReady(page.getByLabel("New password"), newPassword);
   await page.getByRole("button", { name: "Save new password" }).click();
 
   await page.waitForURL(/\/login\?reset=1/);
   await expect(page.getByText("Your password is updated")).toBeVisible();
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
-  await page.getByLabel("Password").fill(newPassword);
+  await fillWhenReady(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+  await fillWhenReady(page.getByLabel("Password"), newPassword);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL(/\/account/);
   await expect(page.getByRole("heading", { name: new RegExp(`Hi ${f.counterMember.name}`) })).toBeVisible();

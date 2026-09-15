@@ -44,8 +44,19 @@ The build commands were **run locally from the same directories Vercel uses** (`
 3. **`.env.example` was missing 7 of 16 settings**, including secrets. Now complete and guarded by a test.
 4. The local server and a Vercel entry point would have been two copies of the same wiring; extracted to `bootstrap.ts` before that could rot.
 
-**Also noted**
-- The POS membership test failed once during a full gate run, waiting for the member card QR after a real Stripe payment. The webhooks had been delivered (200s in the Stripe CLI log) and the dialog was gone from the page. It then passed on four consecutive runs, alone and in the full suite, and nothing in this step touches that path. Recorded as an unexplained one-off; that assertion now allows 15 s for its API round trip, which does not hide the failure seen (the dialog was missing entirely, not slow). If it recurs, the Playwright trace is kept on failure.
+**Correction to step 18**
+
+Build log 18 blamed the password-reset test failure on Supabase's local limit of 2 auth emails an hour. That was **wrong**, and the same test failed again after the limit was raised. The real cause: the test clicked through to the page and typed before React had hydrated it, so the controlled input was reset to empty and the form never submitted (the page snapshot showed an empty email field). Tests now type with a small retry that checks the value stuck. The email limit was genuinely too low for a test run as well, and is still raised for local development.
+
+Two things came out of chasing it, both kept:
+- **The "forgot password" page no longer waits for the email to be sent.** It shows the same answer immediately, so its timing can't be used to work out whether an address has an account either.
+- Local Supabase allows 200 auth emails an hour (development only). The hosted project must still send through Resend SMTP.
+
+**A flaky test, explained rather than retried**
+
+The POS membership test failed twice in full gate runs, in two different places. The second failure named the cause: the screen said "**0 min** free play ready" where the test expected 60. Selling a membership involves **two** Stripe webhooks — `checkout.session.completed` activates the member, and `invoice.paid` grants the free minutes — and the test assumed one moment in time for both. Under a loaded machine the second event arrives a little later, so the member was genuinely active with a zero balance at the instant the test looked.
+
+Nothing is wrong in the product: the POS updates as soon as the second event lands. The test now waits for the balance (up to 60 s) instead of assuming it, and the "print card" assertion allows for its API round trip. Two clean runs after the change, plus the full suite.
 
 **Not built yet**
 - Nothing is deployed. The owner creates the accounts and we follow `spec/deploy.md` together.
