@@ -68,7 +68,15 @@ The POS membership test failed twice in full gate runs, in two different places.
 
 Nothing is wrong in the product: the POS updates as soon as the second event lands. The test now waits for the balance (up to 60 s) instead of assuming it, and the "print card" assertion allows for its API round trip. Two clean runs after the change, plus the full suite.
 
+**What the first real deploy found**
+
+The item listed here as "to verify on the first real deploy" was right to be listed, and it was wrong in the repo:
+
+1. **The entry point used the wrong calling convention.** Vercel's Node runtime calls the function with Node's `(request, response)` pair; the entry expected a web `Request` and returned a `Response`. Hono then failed on `this.raw.headers.get is not a function`, and because nothing was ever written to the response, every request hung until the 60-second limit (`FUNCTION_INVOCATION_TIMEOUT`) — which also made the booking site time out, since its home page waits on the API.
+   The entry now wraps the app in `getRequestListener` from `@hono/node-server`, the same adapter the local server uses. **The test was rewritten to run the entry behind a real HTTP server**, the way the runtime does, instead of handing it a web `Request`; putting the old version back reproduces the production error exactly and fails 7 of 8 tests.
+2. **Every setting was present but blank**, which failed validation for all fourteen at once, including ones with defaults. Blank now means unset.
+3. Serving the static page worked from the first try, as did routing, the rewrite, the build of the shared packages, and the function's imports.
+
 **Not built yet**
-- Nothing is deployed. The owner creates the accounts and we follow `spec/deploy.md` together.
-- **To verify on the first real deploy** (can't be checked from here): that Vercel's bundler resolves the API's TypeScript imports, that the workspace packages are traced into the function, and that a cron job fires.
+- The deploy is in progress with the owner. The remaining unknowns are the Stripe webhook endpoint, the scheduled jobs firing, and `CORS_ORIGINS` (its default is localhost, so the deployed booking site cannot call the API until it is set).
 - Reports, Resend email templates, and the final legal wording — the rest of Phase 7.
