@@ -114,6 +114,15 @@ Customers cancel through the signed link in their email.
 - **The booking page and cancel page need the link token**; without it, or with a wrong one, they say "Booking not found".
 - **Legal pages** are drafted below and finished in Phase 7.
 
+**Member area (6c-3)**
+- Supabase Auth in the browser (email + password). The API is called with the member's token, and it decides everything: the site never assumes a discount.
+- **Sign up → confirm email → log in.** The confirmation link signs the member in and lands on the account. A login before confirming is refused with "Please confirm your email first" (D56).
+- **Forgot password** always answers the same way, so the form can't be used to find out who has an account.
+- **The booking flow with a member logged in:** the tier and discount are shown, the referral field is hidden (they never combine), and free play is offered up to `min(balance, length booked)`. **Free minutes are never spent unless the member picks an amount** — the default is none.
+- A signed-in customer without an active membership books with their account details, and the API's `memberNotice` explains that member pricing doesn't apply.
+- **Account page:** member number, status, renewal date, discount, free-play balance and history, the member QR (re-showable, D57, with "get a new code"), bookings with cancel, tier change, cancel/resume, and the Stripe Customer Portal for card and invoices. A venue-managed (complimentary) membership says to ask at the counter.
+- **Joining online** (D60): pick a tier → account first → Stripe Checkout in subscription mode → back to the account, which shows the membership as soon as the webhook lands.
+
 ## 8. Legal pages content (drafted in Phase 7)
 
 - **Terms:** booking rules and the refund policy above, conduct, and the fact that time played is billed per minute.

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, ApiRequestError, errorMessage } from "@/lib/api";
+import { useAccount } from "@/components/account-provider";
+import { ApiRequestError, errorMessage } from "@/lib/api";
 import { addDays, formatCents, formatMinutes, formatVenueDate, formatWallTime } from "@/lib/format";
 import type { Availability, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, Slot } from "@/lib/types";
 import { Button, Card, Field, Input, Notice, Row, Spinner } from "@/components/ui";
@@ -20,6 +22,10 @@ interface Customer {
 
 export function BookingFlow() {
   const router = useRouter();
+  const { session, account, request } = useAccount();
+  /** An active membership prices the booking; a lapsed one books as a guest (the API says so). */
+  const member = account?.member?.eligible ? account.member : null;
+  const [freeMinutesChoice, setFreeMinutesChoice] = useState<number | null>(null);
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -48,11 +54,12 @@ export function BookingFlow() {
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [priceChanged, setPriceChanged] = useState<{ key: string; totalCents: number } | null>(null);
+  const [memberNotice, setMemberNotice] = useState<string | null>(null);
 
   // ── Config ────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    api<PublicConfig>("/public/config")
+    request<PublicConfig>("/public/config")
       .then((c) => {
         if (cancelled) return;
         setConfig(c);
@@ -63,7 +70,7 @@ export function BookingFlow() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [request]);
 
   const dates = useMemo(() => {
     if (!config) return [];
@@ -77,14 +84,14 @@ export function BookingFlow() {
     if (!typeKey || !date) return;
     const key = `${typeKey}|${date}`;
     const controller = new AbortController();
-    api<Availability>(`/public/availability?type=${encodeURIComponent(typeKey)}&date=${date}`, { signal: controller.signal })
+    request<Availability>(`/public/availability?type=${encodeURIComponent(typeKey)}&date=${date}`, { signal: controller.signal })
       .then((data) => setAvailabilityState({ key, data }))
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setSlotsError({ key, message: errorMessage(err) });
       });
     return () => controller.abort();
-  }, [typeKey, date, reloadSlots]);
+  }, [typeKey, date, reloadSlots, request]);
 
   const dayKey = `${typeKey}|${date}`;
   const availability = availabilityState?.key === dayKey ? availabilityState.data : null;
@@ -114,6 +121,10 @@ export function BookingFlow() {
   }, [slot, availability, durationMinutes]);
 
   // ── Quote ─────────────────────────────────────────────────────────────────
+  const maxFreeMinutes = member ? Math.min(member.balanceMinutes, durationMinutes) : 0;
+  /** Free minutes are only spent when the member asks: never silently. */
+  const freeMinutes = Math.min(freeMinutesChoice ?? 0, maxFreeMinutes);
+
   const quoteRequest = useMemo(() => {
     if (!resourceType || !date || !startTime || !durationMinutes) return null;
     return {
@@ -121,22 +132,26 @@ export function BookingFlow() {
       date,
       startTime,
       durationMinutes,
-      ...(referral ? { referralCode: referral.code } : {}),
+      ...(referral && !member ? { referralCode: referral.code } : {}),
+      ...(freeMinutes > 0 ? { freeMinutes } : {}),
     };
-  }, [resourceType, date, startTime, durationMinutes, referral]);
+  }, [resourceType, date, startTime, durationMinutes, referral, member, freeMinutes]);
 
   const quoteKey = quoteRequest ? JSON.stringify(quoteRequest) : null;
   useEffect(() => {
     if (!quoteKey) return;
     const controller = new AbortController();
-    api<QuoteResponse>("/public/quote", { body: JSON.parse(quoteKey) as unknown, signal: controller.signal })
-      .then((r) => setQuoteState({ key: quoteKey, quote: r.quote }))
+    request<QuoteResponse>("/public/quote", { body: JSON.parse(quoteKey) as unknown, signal: controller.signal })
+      .then((r) => {
+        setQuoteState({ key: quoteKey, quote: r.quote });
+        setMemberNotice(r.memberNotice?.message ?? null);
+      })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setQuoteError({ key: quoteKey, message: errorMessage(err) });
       })
     return () => controller.abort();
-  }, [quoteKey]);
+  }, [quoteKey, request]);
 
   // Only ever show a quote, an error or a price change that belongs to the current choice.
   const quote = quoteKey && quoteState?.key === quoteKey ? quoteState.quote : null;
@@ -151,7 +166,7 @@ export function BookingFlow() {
     setCheckingReferral(true);
     setReferralError(null);
     try {
-      const r = await api<ReferralCheck>("/public/referral/check", { body: { code } });
+      const r = await request<ReferralCheck>("/public/referral/check", { body: { code } });
       if (!r.valid) {
         setReferral(null);
         setReferralError(r.reason === "used_up" ? "That code has already been fully used." : "We don't recognise that code.");
@@ -167,7 +182,8 @@ export function BookingFlow() {
   }
 
   // ── Pay ───────────────────────────────────────────────────────────────────
-  const contactGiven = customer.name.trim() !== "" && (customer.email.trim() !== "" || customer.phone.trim() !== "");
+  const accountContact = account ? account.customer.email !== null || account.customer.phone !== null : false;
+  const contactGiven = session ? accountContact || member !== null : customer.name.trim() !== "" && (customer.email.trim() !== "" || customer.phone.trim() !== "");
   const canPay = quote !== null && contactGiven && acceptTerms && !paying;
 
   async function pay() {
@@ -175,21 +191,25 @@ export function BookingFlow() {
     setPaying(true);
     setPayError(null);
     try {
-      const result = await api<HoldResult>("/bookings/hold", {
+      const result = await request<HoldResult>("/bookings/hold", {
         body: {
           ...quoteRequest,
           ...(resourceId === ANY_RESOURCE ? {} : { resourceId }),
-          customer: {
-            name: customer.name.trim(),
-            ...(customer.email.trim() ? { email: customer.email.trim() } : {}),
-            ...(customer.phone.trim() ? { phone: customer.phone.trim() } : {}),
-          },
+          ...(session
+            ? {}
+            : {
+                customer: {
+                  name: customer.name.trim(),
+                  ...(customer.email.trim() ? { email: customer.email.trim() } : {}),
+                  ...(customer.phone.trim() ? { phone: customer.phone.trim() } : {}),
+                },
+              }),
           expectedTotalCents: quote.totalCents,
           acceptTerms: true,
         },
       });
       if (result.status === "pending_payment") {
-        window.location.href = result.checkoutUrl;
+        window.location.assign(result.checkoutUrl);
         return;
       }
       router.push(`/booking/${result.ref}?token=${encodeURIComponent(result.token)}`);
@@ -338,7 +358,46 @@ export function BookingFlow() {
 
       {slot ? (
         <Card title="2. Your details">
-          <div className="grid gap-4 sm:grid-cols-2">
+          {member ? (
+            <div className="rounded-xl bg-flag/30 p-4">
+              <p className="font-semibold">
+                {member.tier.name} member · {member.tier.discountBp / 100}% off
+              </p>
+              <p className="mt-1 text-sm text-ink-600">
+                Booking as {account!.customer.name}. Your discount is already in the price below.
+              </p>
+            </div>
+          ) : session ? (
+            <div className="rounded-xl bg-mist p-4 text-sm text-ink-600">
+              <p>
+                Booking as {account?.customer.name}
+                {account?.customer.email ? ` (${account.customer.email})` : ""}.
+              </p>
+              {memberNotice ? <p className="mt-1">{memberNotice}</p> : null}
+            </div>
+          ) : null}
+
+          {member && member.balanceMinutes > 0 ? (
+            <div className="mt-4 rounded-xl border border-line p-4">
+              <Field label="Use your free play?" hint={`You have ${formatMinutes(member.balanceMinutes)} saved up.`}>
+                <select
+                  className="h-11 w-full rounded-xl border border-line bg-paper px-3 focus:border-ink-950 focus:outline-none"
+                  value={freeMinutes}
+                  onChange={(e) => setFreeMinutesChoice(Number(e.target.value))}
+                >
+                  {Array.from({ length: Math.floor(maxFreeMinutes / STEP_MINUTES) + 1 }, (_, i) => i * STEP_MINUTES)
+                    .concat(maxFreeMinutes % STEP_MINUTES === 0 ? [] : [maxFreeMinutes])
+                    .map((m) => (
+                      <option key={m} value={m}>
+                        {m === 0 ? "None, save them for later" : formatMinutes(m)}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+            </div>
+          ) : null}
+
+          <div className={`grid gap-4 sm:grid-cols-2 ${session ? "hidden" : ""}`}>
             <div className="sm:col-span-2">
               <Field label="Name">
                 <Input autoComplete="name" value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} />
@@ -352,7 +411,7 @@ export function BookingFlow() {
             </Field>
           </div>
 
-          <div className="mt-5 border-t border-line pt-5">
+          <div className={`mt-5 border-t border-line pt-5 ${member ? "hidden" : ""}`}>
             <Field label="Referral code (optional)" error={referralError}>
               <div className="flex gap-2">
                 <Input
@@ -383,7 +442,15 @@ export function BookingFlow() {
               </div>
             </Field>
             {referral ? <p className="mt-2 text-sm font-medium text-emerald-700">Code {referral.code} applied: {referral.label}.</p> : null}
-            <p className="mt-2 text-sm text-ink-500">Members: log in from the top of the page to use your discount (coming soon).</p>
+            {!session ? (
+              <p className="mt-2 text-sm text-ink-500">
+                Members:{" "}
+                <Link href={`/login?next=/book`} className="underline">
+                  log in
+                </Link>{" "}
+                to use your discount and free play.
+              </p>
+            ) : null}
           </div>
         </Card>
       ) : null}

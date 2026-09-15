@@ -72,7 +72,7 @@ ended ──new checkout within 30 days──▶ active   (balance restored — 
   - **Email confirmation is required** (D56).
   - On first use, a login is linked to the customer with the same email (any case), so counter-sold members and earlier guest bookings join the account. A new email gets a new customer.
   - Staff logins are refused on the booking site.
-  - Counter-sold members get online access by signing up with the email they gave at the counter.
+  - Counter-sold members get online access by signing up with the email they gave at the counter. The confirmation link signs them in and their membership is already there.
 - **In venue:** a **member QR** containing `rg:m:<token>` (D57).
   - The token is `HMAC-SHA256(QR_TOKEN_SECRET, member id + qr_version)`, base64url. Only its sha256 is stored, and `qr_version` moves on whenever the hash changes.
   - It is shown on the member account page; an active member without a card gets one when the page loads. The cashier's **Print card** prints that same QR.

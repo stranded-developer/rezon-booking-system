@@ -35,11 +35,11 @@ stripe listen --forward-to localhost:8787/webhooks/stripe   # only for membershi
 ```
 corepack pnpm exec turbo run typecheck lint test --force   # expect "11 successful, 11 total"
 corepack pnpm db:test                                      # expect "Result: PASS"
-cd apps/pos && corepack pnpm build && corepack pnpm e2e        # 4 browser tests
-cd apps/booking && corepack pnpm build && corepack pnpm e2e    # 4 browser tests
+cd apps/pos && corepack pnpm build && corepack pnpm e2e        # 4 browser tests (the walk-in one only runs 10:00–20:45 Sydney)
+cd apps/booking && corepack pnpm build && corepack pnpm e2e    # 7 browser tests
 ```
 
-Both e2e suites need `E2E_STRIPE=1` and `stripe listen --forward-to localhost:8787/webhooks/stripe` for their real-Stripe test; without it that test is skipped.
+Both e2e suites need `E2E_STRIPE=1` and `stripe listen --forward-to localhost:8787/webhooks/stripe` for their real-Stripe tests; without it those tests are skipped. The booking-site tests read confirmation and password emails from the local mail catcher (Mailpit, `http://127.0.0.1:54324`).
 
 - **Commit only if every check passed in that same run.** Put the commit in the same command, conditional on the checks.
 - **Never commit secrets.** `.env.local` files are git-ignored; scan the staged diff for `sk_test_` / `whsec_` / `sb_secret_`.

@@ -19,6 +19,13 @@ export interface Fixture {
   freeCode: string;
   usedUpCode: string;
   customerEmail: string;
+  /** A member sold at the counter, who then signs up on the website (D56). */
+  counterMember: { name: string; email: string; memberNo: string; tierName: string; balanceMinutes: number };
+  /** An account with no membership, used for joining online. */
+  joiner: { name: string; email: string };
+  password: string;
+  /** A superadmin used only to sync the Stripe tier catalogue before the membership test. */
+  staff: { id: string; email: string; pin: string };
 }
 
 export function localSupabase() {

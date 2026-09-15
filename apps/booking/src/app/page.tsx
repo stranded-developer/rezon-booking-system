@@ -142,9 +142,13 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-sm text-ink-500">
-            Unused free minutes roll over, up to {tiers[0]?.maxBalanceMinutes ?? 600} minutes. Ask at the counter to join — joining online is coming soon.
-          </p>
+          <p className="mt-4 text-sm text-ink-500">Unused free minutes roll over, up to {tiers[0]?.maxBalanceMinutes ?? 600} minutes.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ButtonLink href="/membership" variant="primary">
+              Join online
+            </ButtonLink>
+            <ButtonLink href="/login">Member log in</ButtonLink>
+          </div>
         </Card>
       ) : null}
     </div>

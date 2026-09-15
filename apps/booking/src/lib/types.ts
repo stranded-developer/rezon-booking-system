@@ -121,3 +121,45 @@ export interface ReferralCheck {
   value?: number;
   reason?: string;
 }
+
+/** GET /me — the signed-in customer and their membership, if any. */
+export interface Account {
+  customer: { name: string; email: string | null; phone: string | null };
+  member: {
+    memberNo: string;
+    status: "pending" | "active" | "past_due" | "cancelling" | "ended";
+    eligible: boolean;
+    tier: { id: string; name: string; discountBp: number; monthlyPriceCents: number; monthlyFreeMinutes: number; maxBalanceMinutes: number };
+    pendingTier: { id: string; name: string; monthlyPriceCents: number } | null;
+    currentPeriodEnd: string | null;
+    endedAt: string | null;
+    billedOnline: boolean;
+    balanceMinutes: number;
+    qr: string | null;
+  } | null;
+  canManageBilling: boolean;
+}
+
+export interface LedgerEntry {
+  minutes: number;
+  kind: string;
+  reason: string | null;
+  at: string;
+  bookingRef: string | null;
+}
+
+export interface BookingSummary {
+  id: string;
+  ref: string;
+  status: Booking["status"];
+  resourceType: string;
+  resource: string;
+  startsAt: string;
+  venueDate: string;
+  venueStartTime: string;
+  venueEndTime: string;
+  endsAt: string;
+  totalCents: number | null;
+  freeMinutesUsed: number;
+  refundCents: number | null;
+}
