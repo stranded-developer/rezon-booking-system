@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Light public look (D59): the POS wordmark and lime flag accent on a light page. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-ink-950: #0b0d10;
+  --color-ink-800: #1d222a;
+  --color-ink-600: #4a5461;
+  --color-ink-500: #6b7583;
+  --color-line: #e3e6ea;
+  --color-paper: #ffffff;
+  --color-mist: #f5f6f8;
+  --color-flag: #e8ff47;
+}
+
+html,
+body {
+  background: var(--color-mist);
+  color: var(--color-ink-950);
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}

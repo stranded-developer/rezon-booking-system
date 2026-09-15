@@ -14,7 +14,7 @@
 | Payments | Stripe (Checkout, Billing, Customer Portal, Refunds), AUD |
 | Email | Resend + React Email |
 | UI | Tailwind + shadcn/ui in `packages/ui` |
-| Tests | Vitest (unit + API integration), pgTAP (database), Playwright (browser end-to-end, `apps/pos/e2e`) |
+| Tests | Vitest (unit + API integration), pgTAP (database), Playwright (browser end-to-end, `apps/pos/e2e` and `apps/booking/e2e`) |
 | Hosting | Vercel: three projects from one repo |
 
 ## 2. Repository layout

@@ -27,12 +27,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | Public booking API: availability, quote, hold, Stripe payment, cancel links, emails (6b-1) | ✅ Built and verified |
 | Member accounts API: login, member pricing, QR, online membership, portal, reminders, back office booking cancel (6b-2) | ✅ Built and verified |
 | Venue contact details + website photos in the back office (6c-1) | ✅ Built and verified |
-| **Booking website (6c-2 … 6c-4)** + back office bookings page | ❌ **Next** |
+| Booking website for guests: home, timetable, booking, payment, cancel (6c-2) | ✅ Built and verified |
+| **Members on the website (6c-3)** + back office bookings page (6c-4) | ❌ **Next** |
 | Real emails (Resend) | ❌ Console only for now |
 | Reports | ❌ Phase 7 |
 | Deploy (Vercel + hosted Supabase), go-live | ❌ Phase 7 |
 
-**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 4 (3 run without `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 8 (4 POS + 4 booking site; 2 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -54,6 +55,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 14 | Public booking API + Stripe payments and refunds (6b-1) | [build/14-booking-api-public.md](build/14-booking-api-public.md) |
 | 15 | Member accounts API, online membership, reminders, back office booking cancel (6b-2) | [build/15-member-accounts-api.md](build/15-member-accounts-api.md) |
 | 16 | Venue contact details and website photos in the back office (6c-1) | [build/16-venue-details-photos.md](build/16-venue-details-photos.md) |
+| 17 | Booking website for guests, with a real Stripe payment (6c-2) | [build/17-booking-website-guests.md](build/17-booking-website-guests.md) |
 
 ## Decisions
 
@@ -77,8 +79,8 @@ Planned sub-steps, each gets its own `build/` file:
    - ✅ 6b-2 member accounts, online membership, portal, daily reminders, back office booking cancel API → [build/15](build/15-member-accounts-api.md)
 3. **Website:**
    - ✅ 6c-1 venue contact details + photos, editable in the back office → [build/16](build/16-venue-details-photos.md)
-   - **6c-2 (next)** `apps/booking` for guests: light look, home, timetable, booking flow with referral codes, Stripe payment, booking page, cancel page, placeholder legal pages; browser tests including a real Stripe payment
-   - 6c-3 members on the website: sign up, login, forgot/reset password, member pricing + free minutes in the flow, account page, join online (account first)
+   - ✅ 6c-2 `apps/booking` for guests: home, timetable, booking flow with referral codes, Stripe payment, booking and cancel pages, legal pages → [build/17](build/17-booking-website-guests.md)
+   - **6c-3 (next)** members on the website: sign up, login, forgot/reset password, member pricing + free minutes in the flow, account page with QR and ledger, join a membership online (account first, D60)
    - 6c-4 back office Bookings page in the POS app (list, search, cancel with refund)
 
 ## How to add to the logs

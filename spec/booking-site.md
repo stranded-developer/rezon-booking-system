@@ -103,7 +103,18 @@ Customers cancel through the signed link in their email.
 - **Customer cancel:** refund quote → Stripe refund (idempotency key per booking + amount; an earlier refund made for this cancel is reused) → `booking_cancel` with the refund id → email.
 - **Emails** (console transport until Resend): confirmation with `.ics` invite, check-in code `rg:b:<ref>` and link; cancellation with refund amount; late-payment refund.
 
-## 7. Legal pages content (drafted in Phase 7)
+## 7. Website implementation notes (Phase 6c)
+
+- **`apps/booking`** (Next.js App Router, port 3000) reads only the public API. It never holds a secret and never computes a charge: every price on screen comes from `POST /public/quote`, and the API re-prices at hold time.
+- **Light look** (D59) with the wordmark and flag accent; the whole site works at phone width.
+- **Home page** renders per request (`connection()`), so a change in the back office shows immediately. Photos come from Supabase Storage and are resized by Next.
+- **Booking flow** on one page: type → day → start → length → (resource) → details → live quote → terms → pay. The chosen time, length and quote are keyed to the current choice, so a stale price can never be shown or paid.
+- **Errors the customer can hit** are handled: the price changed (shows the new total and asks again), the slot was taken (reloads the timetable), a used-up or unknown referral code, no email or phone given.
+- **After Stripe:** the success URL returns to `/booking/<ref>?token=…&paid=1`, which polls for up to a minute while the webhook confirms. The cancel URL returns with `&abandoned=1`, which releases the hold straight away.
+- **The booking page and cancel page need the link token**; without it, or with a wrong one, they say "Booking not found".
+- **Legal pages** are drafted below and finished in Phase 7.
+
+## 8. Legal pages content (drafted in Phase 7)
 
 - **Terms:** booking rules and the refund policy above, conduct, and the fact that time played is billed per minute.
 - **Privacy policy:** name, email and phone collected. Payments are handled by Stripe, and no card data is stored.

@@ -26,16 +26,20 @@ corepack pnpm db:start            # local Supabase in Docker, incl. Storage for 
 corepack pnpm db:reset            # rebuild DB from migrations + launch seed (wipes local data)
 corepack pnpm --filter @raceground/api dev    # API on :8787 (reads apps/api/.env.local)
 corepack pnpm --filter @raceground/pos dev    # POS + back office on :3001 (reads apps/pos/.env.local)
+corepack pnpm --filter @raceground/booking dev  # booking website on :3000 (reads apps/booking/.env.local)
 stripe listen --forward-to localhost:8787/webhooks/stripe   # only for membership payments locally
 ```
 
 ## Verification gate (run before every commit)
 
 ```
-corepack pnpm exec turbo run typecheck lint test --force   # expect "9 successful, 9 total"
+corepack pnpm exec turbo run typecheck lint test --force   # expect "11 successful, 11 total"
 corepack pnpm db:test                                      # expect "Result: PASS"
-cd apps/pos && corepack pnpm build && corepack pnpm e2e    # E2E_STRIPE=1 + stripe listen for the real Stripe test
+cd apps/pos && corepack pnpm build && corepack pnpm e2e        # 4 browser tests
+cd apps/booking && corepack pnpm build && corepack pnpm e2e    # 4 browser tests
 ```
+
+Both e2e suites need `E2E_STRIPE=1` and `stripe listen --forward-to localhost:8787/webhooks/stripe` for their real-Stripe test; without it that test is skipped.
 
 - **Commit only if every check passed in that same run.** Put the commit in the same command, conditional on the checks.
 - **Never commit secrets.** `.env.local` files are git-ignored; scan the staged diff for `sk_test_` / `whsec_` / `sb_secret_`.
