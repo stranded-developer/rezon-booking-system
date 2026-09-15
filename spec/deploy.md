@@ -64,6 +64,18 @@ The build commands build the shared packages first (`@raceground/pricing`, `@rac
 
 **Custom domains:** add the three addresses from §2 to their projects. Vercel gives the DNS records to add.
 
+**One push, three builds.** All three projects watch the same repository, so every push to `main` builds all three even when only one changed. To skip the ones that don't need it, set **Settings → Git → Ignored Build Step** per project to:
+
+| Project | Ignored Build Step |
+|---|---|
+| `raceground-api` | `npx turbo-ignore @raceground/api` |
+| `raceground-pos` | `npx turbo-ignore @raceground/pos` |
+| `raceground-booking` | `npx turbo-ignore @raceground/booking` |
+
+This uses the workspace graph, so a change to a shared package (`packages/pricing`, `packages/db`) still rebuilds everything that depends on it, while a change to only the booking site leaves the POS and API alone.
+
+> This only works because every deployable app has a `build` task. The API's build is a typecheck (it is bundled by Vercel, not by us). Without it, change detection would never see the API as affected and **its deploys would be skipped silently** — checked, and the reason `@raceground/api` has a `build` script.
+
 ## 5. Environment variables
 
 Set these in each Vercel project (Settings → Environment Variables). Use **Preview** values that point at test mode, and **Production** values for the real thing.
@@ -72,11 +84,11 @@ Set these in each Vercel project (Settings → Environment Variables). Use **Pre
 
 | Name | Production value | Notes |
 |---|---|---|
-| `SUPABASE_URL` | Supabase project URL | |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key | Server only. Never in a browser app. |
-| `OPERATOR_TOKEN_SECRET` | 32+ random characters | `openssl rand -hex 32` |
-| `QR_TOKEN_SECRET` | 32+ random characters | **Never change this after launch:** every member card stops working if you do. |
-| `CRON_SECRET` | 32+ random characters | Vercel sends it to the scheduled jobs itself. |
+| `SUPABASE_URL` | `https://uwfkwcfdegyhvyuspyqr.supabase.co` | |
+| `SUPABASE_SERVICE_ROLE_KEY` | the `sb_secret_…` key (in `SECRETS.local.md`, not in git) | Server only. Never in a browser app. |
+| `OPERATOR_TOKEN_SECRET` | 32+ random characters (generated, in `SECRETS.local.md`) | `openssl rand -hex 32` |
+| `QR_TOKEN_SECRET` | 32+ random characters (generated, in `SECRETS.local.md`) | **Never change this after launch:** every member card stops working if you do. |
+| `CRON_SECRET` | 32+ random characters (generated, in `SECRETS.local.md`) | Vercel sends it to the scheduled jobs itself. |
 | `STRIPE_SECRET_KEY` | `sk_live_…` (test: `sk_test_…`) | |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` from the endpoint in §6 | |
 | `BOOKING_SITE_URL` | `https://racegrounds.eatzyeats.com` | Links in emails and Stripe returns. |
@@ -94,10 +106,14 @@ Set these in each Vercel project (Settings → Environment Variables). Use **Pre
 | Name | Value |
 |---|---|
 | `NEXT_PUBLIC_API_URL` | `https://api.racegrounds.eatzyeats.com` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable key (safe in a browser) |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://uwfkwcfdegyhvyuspyqr.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_qN8fxZFJ7eWXiCRuUT1QUw_MhaNlMpL` |
 
 The booking site needs all three; the POS needs all three. **The service-role key never goes in either app.**
+
+Two things to know about these:
+- They are **baked in at build time**. Changing one in Vercel does nothing until the project is redeployed.
+- `CORS_ORIGINS` on the API must list the exact origins the browsers use, with no trailing slash. Preview deployments get a new URL each time, so a preview of the POS or booking site cannot call the production API unless its URL is added. Test on the production URLs, or give previews their own API project.
 
 ## 6. Supabase (hosted) setup
 

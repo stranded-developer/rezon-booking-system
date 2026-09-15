@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "corepack pnpm exec turbo run build --filter=@raceground/db --filter=@raceground/pricing",
+  "buildCommand": "corepack pnpm exec turbo run build --filter=@raceground/api...",
   "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
