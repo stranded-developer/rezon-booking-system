@@ -35,6 +35,9 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>;
 
+/** Every setting the API reads. `.env.example` must list them all (checked by a test). */
+export const ENV_KEYS = Object.keys(EnvSchema.shape) as (keyof Env)[];
+
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {

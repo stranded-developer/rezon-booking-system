@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "corepack pnpm exec turbo run build --filter=@raceground/db --filter=@raceground/pricing",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/cron/reminders",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/cron/forfeit",
+      "schedule": "20 22 * * *"
+    },
+    {
+      "path": "/cron/holds",
+      "schedule": "40 22 * * *"
+    }
+  ]
+}

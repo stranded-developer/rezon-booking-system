@@ -33,7 +33,11 @@ function requireCron(secret: string | undefined, header: string | undefined) {
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) throw new ApiError(401, "unauthenticated", "Invalid cron secret");
 }
 
-systemRoutes.post("/cron/forfeit", async (c) => {
+/**
+ * Scheduled jobs. Vercel Cron calls them with GET and the CRON_SECRET bearer token it adds itself,
+ * so both methods are accepted; every job is idempotent and safe to run twice.
+ */
+systemRoutes.on(["GET", "POST"], "/cron/forfeit", async (c) => {
   const deps = c.get("deps");
   requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
   const { data, error } = await deps.db.rpc("membership_forfeit_balances", { p_now: deps.clock.now().toISOString() });
@@ -41,13 +45,13 @@ systemRoutes.post("/cron/forfeit", async (c) => {
   return c.json({ forfeited: data });
 });
 
-systemRoutes.post("/cron/reminders", async (c) => {
+systemRoutes.on(["GET", "POST"], "/cron/reminders", async (c) => {
   const deps = c.get("deps");
   requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
   return c.json(await sendDayBeforeReminders(deps));
 });
 
-systemRoutes.post("/cron/holds", async (c) => {
+systemRoutes.on(["GET", "POST"], "/cron/holds", async (c) => {
   const deps = c.get("deps");
   requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
   const { data, error } = await deps.db.rpc("expire_stale_holds", { p_now: deps.clock.now().toISOString() });

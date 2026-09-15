@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { Hono } from "hono";
-import { loadEnv } from "../src/env.js";
+import { ENV_KEYS, loadEnv } from "../src/env.js";
 import { mapDbError } from "../src/errors.js";
 import { requestIp } from "../src/lib/audit.js";
 import { signOperatorToken, verifyOperatorToken } from "../src/lib/operator-token.js";
@@ -132,5 +134,19 @@ describe("loadEnv", () => {
     ).toThrow(/QR_TOKEN_SECRET/);
     expect(env.PIN_MAX_ATTEMPTS).toBe(5);
     expect(env.CORS_ORIGINS).toEqual(["http://localhost:3000", "http://localhost:3001"]);
+  });
+});
+
+describe(".env.example", () => {
+  it("lists every setting the API reads, so nothing is missed when deploying", () => {
+    const example = readFileSync(fileURLToPath(new URL("../.env.example", import.meta.url)), "utf8");
+    const documented = new Set(
+      example
+        .split("\n")
+        .map((line) => /^([A-Z_]+)=/.exec(line.trim())?.[1])
+        .filter((name): name is string => name !== undefined),
+    );
+    const missing = ENV_KEYS.filter((key) => !documented.has(key));
+    expect(missing, `add these to apps/api/.env.example: ${missing.join(", ")}`).toEqual([]);
   });
 });

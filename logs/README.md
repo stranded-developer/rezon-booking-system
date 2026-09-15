@@ -32,9 +32,10 @@ Everything that was planned, decided and built, one file per step so each can be
 | Back office Bookings page (6c-4) | ✅ Built and verified |
 | Reports | ❌ Phase 7 |
 | Real emails (Resend) | ❌ Console only for now |
-| Deploy (Vercel + hosted Supabase), go-live | ❌ **Next: Phase 7** |
+| Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
+| Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 78 · API 161 · pgTAP 372 · e2e 12 (5 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 168 · pgTAP 372 · e2e 12 (5 POS + 7 booking site; 3 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -59,6 +60,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 17 | Booking website for guests, with a real Stripe payment (6c-2) | [build/17-booking-website-guests.md](build/17-booking-website-guests.md) |
 | 18 | Members on the website: accounts, member pricing, joining online (6c-3) | [build/18-booking-website-members.md](build/18-booking-website-members.md) |
 | 19 | Back office Bookings page (6c-4) — **Phase 6 complete** | [build/19-back-office-bookings.md](build/19-back-office-bookings.md) |
+| 20 | Deploy preparation: Vercel config, cron over GET, go-live runbook (7a) | [build/20-deploy-preparation.md](build/20-deploy-preparation.md) |
 
 ## Decisions
 
@@ -92,7 +94,8 @@ Planned sub-steps, each gets its own `build/` file:
 - Real emails through Resend (a custom domain is needed; `.vercel.app` can't be verified)
 - Auth emails through Resend SMTP on hosted Supabase (its built-in sender is rate limited)
 - Final wording for the terms and privacy pages
-- Deploy: three Vercel projects, hosted Supabase, scheduled jobs (reminders, forfeit, hold cleanup), then go-live with live Stripe
+- ✅ Deploy configuration and the go-live runbook → [build/20](build/20-deploy-preparation.md), [spec/deploy.md](../spec/deploy.md)
+- The deploy itself: the owner creates GitHub, Vercel, Supabase, Resend and Stripe accounts, then we follow the runbook together
 
 ## How to add to the logs
 

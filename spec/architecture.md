@@ -103,10 +103,13 @@ Rate limits (per client IP, counted in Postgres `rate_limit_hit` so all instance
 ## 5. Scheduled jobs
 
 - **All daily** (D54): booking reminders for tomorrow, balance forfeit, optional hold cleanup. This fits Vercel Cron on any plan.
+- Defined in `apps/api/vercel.json`. Vercel Cron sends a **GET** with the `CRON_SECRET` bearer token it adds itself, so the endpoints accept GET as well as POST.
 - All jobs are idempotent: reminders are marked sent in `email_log`, and forfeits are checked against the ledger.
 - Every job needs `Authorization: Bearer CRON_SECRET`.
 
 ## 6. Environments
+
+The full go-live procedure is in [deploy.md](./deploy.md).
 
 | Env | Database | Stripe | Email |
 |---|---|---|---|

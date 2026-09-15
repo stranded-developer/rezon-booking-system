@@ -25,6 +25,7 @@ A gaming venue in Sydney that rents time on billiard tables, driving simulators 
 | [membership.md](./membership.md) | Tiers, Stripe subscriptions, free-play balance, QR |
 | [booking-site.md](./booking-site.md) | Public booking flow, checkout, cancellations, policies |
 | [architecture.md](./architecture.md) | Stack, repo layout, auth, security rules, hosting, jobs, emails |
+| [deploy.md](./deploy.md) | Go-live runbook: accounts, Vercel projects, environment variables, Supabase, Stripe, scheduled jobs |
 
 ## Launch configuration at a glance
 

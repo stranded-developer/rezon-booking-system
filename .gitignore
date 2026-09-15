@@ -10,3 +10,6 @@ coverage/
 *.log
 .DS_Store
 supabase/.temp/
+
+# Local credential notes (never committed)
+SECRETS.local.md
