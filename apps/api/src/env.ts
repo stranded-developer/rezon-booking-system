@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const EnvSchema = z.object({
+const BaseEnvSchema = z.object({
   SUPABASE_URL: z.url(),
   /** Secret / service-role key. Server only. */
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
@@ -23,8 +23,10 @@ const EnvSchema = z.object({
   BOOKING_SITE_URL: z.url().default("http://localhost:3000").transform((v) => v.replace(/\/+$/, "")),
   /** Bearer secret for scheduled job endpoints (/cron/*). */
   CRON_SECRET: z.string().min(32).optional(),
-  /** "console" logs emails (development); a real provider is added with Resend. */
-  EMAIL_TRANSPORT: z.enum(["console"]).default("console"),
+  /** "console" logs emails (development); "resend" actually sends them. */
+  EMAIL_TRANSPORT: z.enum(["console", "resend"]).default("console"),
+  /** Required when EMAIL_TRANSPORT is "resend". */
+  RESEND_API_KEY: z.string().startsWith("re_").optional(),
   EMAIL_FROM: z.string().default("Raceground <hello@raceground.local>"),
   /** Comma-separated browser origins allowed to call the API. */
   CORS_ORIGINS: z
@@ -33,10 +35,17 @@ const EnvSchema = z.object({
     .transform((v) => v.split(",").map((s) => s.trim()).filter(Boolean)),
 });
 
-export type Env = z.infer<typeof EnvSchema>;
+export type Env = z.infer<typeof BaseEnvSchema>;
 
 /** Every setting the API reads. `.env.example` must list them all (checked by a test). */
-export const ENV_KEYS = Object.keys(EnvSchema.shape) as (keyof Env)[];
+export const ENV_KEYS = Object.keys(BaseEnvSchema.shape) as (keyof Env)[];
+
+/** Sending email for real needs a key; saying "resend" without one would fail silently at the first email. */
+const EnvSchema = BaseEnvSchema.superRefine((env, ctx) => {
+  if (env.EMAIL_TRANSPORT === "resend" && !env.RESEND_API_KEY) {
+    ctx.addIssue({ code: "custom", path: ["RESEND_API_KEY"], message: "RESEND_API_KEY is required when EMAIL_TRANSPORT is \"resend\"" });
+  }
+});
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   // Hosting dashboards happily store an empty value for a setting that was never filled in.

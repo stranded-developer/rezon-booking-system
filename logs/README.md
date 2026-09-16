@@ -31,7 +31,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Members on the website: login, account, member pricing, join online (6c-3) | ✅ Built and verified |
 | Back office Bookings page (6c-4) | ✅ Built and verified |
 | Reports | ❌ Phase 7 |
-| Real emails (Resend) | ❌ Console only for now |
+| Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
@@ -61,6 +61,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 18 | Members on the website: accounts, member pricing, joining online (6c-3) | [build/18-booking-website-members.md](build/18-booking-website-members.md) |
 | 19 | Back office Bookings page (6c-4) — **Phase 6 complete** | [build/19-back-office-bookings.md](build/19-back-office-bookings.md) |
 | 20 | Deploy preparation: Vercel config, cron over GET, go-live runbook (7a) | [build/20-deploy-preparation.md](build/20-deploy-preparation.md) |
+| 21 | Real emails through Resend (7b) | [build/21-resend-email.md](build/21-resend-email.md) |
 
 ## Decisions
 
@@ -91,7 +92,7 @@ Planned sub-steps, each gets its own `build/` file:
 ## Next step — Phase 7
 
 - Reports (revenue, discounts, usage, membership, free play, staff) with CSV export
-- Real emails through Resend (a custom domain is needed; `.vercel.app` can't be verified)
+- ✅ Real emails through Resend → [build/21](build/21-resend-email.md); switch on with a verified domain
 - Auth emails through Resend SMTP on hosted Supabase (its built-in sender is rate limited)
 - Final wording for the terms and privacy pages
 - ✅ Deploy configuration and the go-live runbook → [build/20](build/20-deploy-preparation.md), [spec/deploy.md](../spec/deploy.md)

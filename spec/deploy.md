@@ -141,6 +141,29 @@ Already defined in `apps/api/vercel.json`:
 - **Plan limits:** check the current Vercel limits on the number of cron jobs and how often they may run. If the plan allows only two, drop `/cron/holds` — expired holds are also cleaned up whenever anyone books.
 - Vercel calls these with a GET and adds `Authorization: Bearer CRON_SECRET` itself. The API accepts GET and POST, and every job is safe to run twice.
 
+## 7b. Email (Resend)
+
+Two separate systems, both pointed at the same verified domain.
+
+**Supabase's own emails** (confirm sign-up, reset password) are sent by Supabase, not by us. Out of the box they come from "Supabase Auth", are rate limited, and in practice only reach project members — so a real customer never receives one. Fix it with custom SMTP:
+
+1. Resend → Domains → add `eatzyeats.com` (or a subdomain such as `mail.eatzyeats.com`) and add the DNS records it shows. Wait for verified.
+2. Resend → API Keys → create one.
+3. Supabase → **Authentication → Emails → SMTP Settings** (older dashboards: Project Settings → Authentication → SMTP): host `smtp.resend.com`, port `465`, username `resend`, password = the API key, sender `noreply@<verified domain>`, sender name `Raceground`. Raise the hourly limit while you are there.
+4. Supabase → Authentication → Email Templates: reword "Confirm signup" and "Reset password" as Raceground. Keep `{{ .ConfirmationURL }}` exactly as it is.
+
+**Our own emails** (booking confirmation with the calendar invite, daily reminders, cancellations, membership welcome) are sent by the API:
+
+```
+EMAIL_TRANSPORT=resend
+RESEND_API_KEY=re_…
+EMAIL_FROM=Raceground <bookings@<verified domain>>
+```
+
+`EMAIL_TRANSPORT=console` (the default) writes them to the log instead, which is right for local development and wrong for a live venue. The API refuses to start with `resend` and no key.
+
+Every email is recorded in `email_log`: one row per message, so nothing is sent twice, and a failure is marked `failed` with the reason — which lets a later attempt through. **Sending never fails a payment, refund or cancellation**; the money operation completes and the email is recorded as failed.
+
 ## 8. Stripe setup
 
 1. **Webhook endpoint:** `https://api.racegrounds.eatzyeats.com/webhooks/stripe`, with these events:

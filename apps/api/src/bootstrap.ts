@@ -3,7 +3,7 @@ import { createServiceClient } from "@raceground/db";
 import { createApp, type App } from "./app.js";
 import { systemClock } from "./context.js";
 import { loadEnv } from "./env.js";
-import { createConsoleEmail } from "./services/email.js";
+import { createEmailSender } from "./services/email.js";
 
 /**
  * The app as it runs for real: environment, database, Stripe and email.
@@ -17,6 +17,6 @@ export function createAppFromEnv(source: Record<string, string | undefined> = pr
     db,
     clock: systemClock,
     stripe: env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY) : null,
-    email: createConsoleEmail(db, env.EMAIL_FROM),
+    email: createEmailSender(db, env),
   });
 }
