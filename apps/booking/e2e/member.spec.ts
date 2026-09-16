@@ -37,6 +37,8 @@ test("a counter member signs up, gets their membership, books with the discount 
   await appReady(page);
   await expect(page.getByRole("heading", { name: "Membership" })).toBeVisible();
   await page.getByRole("link", { name: "Create an account" }).click();
+  // The name is only used for people the venue has no record of; members keep the name on file.
+  await expect(page.getByText("Already a member with us? We'll keep the name we have for you.")).toBeVisible();
   await page.getByLabel("Name").fill(f.counterMember.name);
   await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
   await page.getByLabel("Password").fill(f.password);

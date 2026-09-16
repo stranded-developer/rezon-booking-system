@@ -140,7 +140,7 @@ export function SignUpForm() {
             void signUp();
           }}
         >
-          <Field label="Name">
+          <Field label="Name" hint="Already a member with us? We'll keep the name we have for you.">
             <Input autoComplete="name" value={form.name} onChange={set("name")} required />
           </Field>
           <Field label="Email">
