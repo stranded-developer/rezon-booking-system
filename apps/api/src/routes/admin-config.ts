@@ -56,6 +56,14 @@ const SettingsBody = z
       .pipe(z.string().regex(/^\d{11}$/, "ABN must be 11 digits"))
       .nullable()
       .optional(),
+    // A session is the smallest block sold online; it has to sit on the quarter hour.
+    sessionMinutes: z
+      .number()
+      .int()
+      .min(15)
+      .max(240)
+      .refine((m) => m % 15 === 0, "A session must be a whole number of quarter hours")
+      .optional(),
     bookingWindowDays: z.number().int().min(0).max(60).optional(),
     onlineCutoffMinutes: z.number().int().min(0).max(1440).optional(),
     noShowHoldMinutes: z.number().int().min(0).max(120).optional(),
@@ -95,6 +103,7 @@ adminConfigRoutes.patch("/settings", validate("json", SettingsBody), async (c) =
   const patch = {
     ...(b.businessName !== undefined ? { business_name: b.businessName } : {}),
     ...(b.abn !== undefined ? { abn: b.abn } : {}),
+    ...(b.sessionMinutes !== undefined ? { session_minutes: b.sessionMinutes } : {}),
     ...(b.bookingWindowDays !== undefined ? { booking_window_days: b.bookingWindowDays } : {}),
     ...(b.onlineCutoffMinutes !== undefined ? { online_cutoff_minutes: b.onlineCutoffMinutes } : {}),
     ...(b.noShowHoldMinutes !== undefined ? { no_show_hold_minutes: b.noShowHoldMinutes } : {}),

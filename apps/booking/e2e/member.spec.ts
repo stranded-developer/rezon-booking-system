@@ -88,7 +88,11 @@ test("a counter member signs up, gets their membership, books with the discount 
 
   const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
   await expect(total).toHaveText("$27.00"); // $30 for the hour, less 10%
-  await page.getByLabel("Use your free play?").selectOption("30");
+  // D63: free play on a booking starts at a whole session — no 15-minute option here.
+  const freePlay = page.getByLabel("Use your free play?");
+  await expect(freePlay.locator('option[value="15"]')).toHaveCount(0);
+  await expect(freePlay.locator("option").nth(1)).toHaveText("30 min");
+  await freePlay.selectOption("30");
   await expect(total).toHaveText("$13.50"); // half the hour paid for with free minutes
   await shot(page, "web-09-member-quote");
 

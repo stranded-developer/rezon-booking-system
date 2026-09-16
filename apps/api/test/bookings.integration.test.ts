@@ -142,16 +142,37 @@ describe("config and availability", () => {
     expect(JSON.stringify(r.json)).not.toMatch(/stripe_price_id|pin_hash/);
   });
 
-  it("offers 15-minute starts from the cutoff to close, with lengths up to close", async () => {
+  it("offers 15-minute starts from the cutoff to close, with room for a whole session", async () => {
     ctx.clock.set(at("10:10"));
     const r = await api(`/public/availability?type=${typeId}&date=2030-02-11`);
     expect(r.status, JSON.stringify(r.json)).toBe(200);
-    expect(r.json).toMatchObject({ open: "10:00", close: "21:00", closed: false, inWindow: true });
-    // now 10:10 + 30 min cutoff → first start 10:45; last start 20:45 (15-minute minimum)
+    expect(r.json).toMatchObject({ open: "10:00", close: "21:00", closed: false, inWindow: true, sessionMinutes: 30 });
+    // Now 10:10 + 30 min cutoff → first start 10:45. The last start is 20:30 (D63): a booking is at
+    // least one 30-minute session, so 20:45 leaves too little before closing.
     expect(r.json.slots[0]).toMatchObject({ time: "10:45", availableResources: 2, maxMinutes: 615 });
-    expect(r.json.slots.at(-1)).toMatchObject({ time: "20:45", maxMinutes: 15 });
-    expect(r.json.slots).toHaveLength(41);
+    expect(r.json.slots.at(-1)).toMatchObject({ time: "20:30", maxMinutes: 30 });
+    expect(r.json.slots).toHaveLength(40);
     ctx.clock.set(at("09:00"));
+  });
+
+  it("sells sessions: at least 30 minutes, then 15-minute steps (D63)", async () => {
+    const quote = (durationMinutes: number) =>
+      api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-12", startTime: "12:00", durationMinutes } });
+
+    // Half a session is a walk-in, not a booking.
+    const half = await quote(15);
+    expect(half.status).toBe(422);
+    expect(half.json.error.message).toContain("one session");
+
+    const off = await quote(40);
+    expect(off.status).toBe(422);
+
+    expect((await quote(30)).status, "one session").toBe(200);
+    expect((await quote(45)).status, "a session and a half").toBe(200);
+    expect((await quote(120)).status, "four sessions").toBe(200);
+
+    // The config tells the website what a session is, so it can offer the right choices.
+    expect((await api("/public/config")).json.sessionMinutes).toBe(30);
   });
 
   it("accepts the type key too, and shows nothing outside the 7-day window", async () => {

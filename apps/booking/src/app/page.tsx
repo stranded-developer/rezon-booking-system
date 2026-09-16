@@ -56,13 +56,13 @@ export default async function HomePage() {
             <div key={type.id} className="rounded-xl border border-line p-4">
               <h3 className="font-bold">{type.name}</h3>
               <p className="mt-1 text-2xl font-black tnum">{formatRate(type.baseRateCents)}</p>
-              <p className="text-sm text-ink-500">incl. GST · from {type.minMinutes} min</p>
+              <p className="text-sm text-ink-500">incl. GST · {config.sessionMinutes} min sessions</p>
               <p className="mt-2 text-sm text-ink-600">{type.resources.length} available</p>
             </div>
           ))}
         </div>
         <p className="mt-4 text-sm text-ink-500">
-          Time is billed per minute after the first {resourceTypes[0]?.minMinutes ?? 15} minutes. Every price shown includes GST.
+          Book a {config.sessionMinutes}-minute session, then add 15 minutes at a time. Walk in and we bill by the minute. Every price shown includes GST.
         </p>
         {happyHour ? (
           <p className="mt-3 rounded-xl bg-flag/40 px-4 py-3 text-sm font-medium">

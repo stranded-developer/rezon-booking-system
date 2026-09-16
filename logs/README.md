@@ -35,7 +35,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 78 · API 190 · pgTAP 406 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 191 · pgTAP 423 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -63,6 +63,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 20 | Deploy preparation: Vercel config, cron over GET, go-live runbook (7a) | [build/20-deploy-preparation.md](build/20-deploy-preparation.md) |
 | 21 | Real emails through Resend (7b) | [build/21-resend-email.md](build/21-resend-email.md) |
 | 22 | Memberships paid for at the counter (7c) | [build/22-counter-membership.md](build/22-counter-membership.md) |
+| 23 | Time sold in 30-minute sessions; member free play in sessions (7d) | [build/23-sessions.md](build/23-sessions.md) |
 
 ## Decisions
 
@@ -74,7 +75,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [04 — 2026-09-14](decisions/04-2026-09-14-final-answers-before-build.md) | D35–D45: name "Raceground", allowances, balance freeze/forfeit, 10-hour cap, cancellation/tier changes, GST display, overrides, USB scanner |
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
-| [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D60: venue details + photos editable in the back office ✅, lighter public look ✅, join online account-first ✅ |
+| [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
 
 ## Phase 6 — Booking website ✅ complete
 

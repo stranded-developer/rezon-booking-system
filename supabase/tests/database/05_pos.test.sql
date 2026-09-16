@@ -212,7 +212,7 @@ select throws_like(
 );
 select throws_ok(
   $$ select pos_close_session((select id from t_sessions where name = 'd1'), '00000000-0000-0000-0000-00000000b002',
-       pg_temp.pay('2030-01-16 11:00+11', 0, 'free', null, '{"memberId": "00000000-0000-0000-0000-00000000d001", "freeMinutes": 61}')) $$,
+       pg_temp.pay('2030-01-16 11:00+11', 0, 'free', null, '{"memberId": "00000000-0000-0000-0000-00000000d001", "freeMinutes": 75}')) $$,
   '23514', null, 'using more free minutes than the balance is refused'
 );
 select is((select count(*) from payments where session_id = (select id from t_sessions where name = 'd1')), 0::bigint, 'no payment after a refused balance use');

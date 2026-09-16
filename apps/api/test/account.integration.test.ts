@@ -170,6 +170,16 @@ describe("member pricing and free play online", () => {
     expect(both.json.error.code).toBe("member_and_referral");
     const tooMuch = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 150, durationMinutes: 180 }) });
     expect(tooMuch.json.error.code).toBe("insufficient_balance");
+
+    // D63: free play on a booking is a whole session, then 15-minute steps. The quote has to say so
+    // itself — it never reaches the database, so a wrong amount would price the booking wrongly and
+    // only fail at payment.
+    const halfSession = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 15 }) });
+    expect(halfSession.status).toBe(422);
+    expect(halfSession.json.error.message).toContain("30 minutes");
+    const offGrid = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 40 }) });
+    expect(offGrid.status).toBe(422);
+    expect((await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 45 }) })).status).toBe(200);
   });
 
   let freeRef: string;
@@ -233,9 +243,9 @@ describe("day-before reminders", () => {
   it("emails tomorrow's confirmed bookings once, and nobody else", async () => {
     const tomorrow = await api("/bookings/hold", { jwt: memberJwt, body: { ...request({ date: "2030-03-05", startTime: "20:00", freeMinutes: 60 }), expectedTotalCents: 0, acceptTerms: true } });
     expect(tomorrow.status, JSON.stringify(tomorrow.json)).toBe(201);
-    const later = await api("/bookings/hold", { jwt: memberJwt, body: { ...request({ date: "2030-03-06", startTime: "10:00", freeMinutes: 15, durationMinutes: 15 }), expectedTotalCents: 0, acceptTerms: true } });
+    const later = await api("/bookings/hold", { jwt: memberJwt, body: { ...request({ date: "2030-03-06", startTime: "10:00", freeMinutes: 30, durationMinutes: 30 }), expectedTotalCents: 0, acceptTerms: true } });
     expect(later.status).toBe(201);
-    const cancelled = await api("/bookings/hold", { jwt: memberJwt, body: { ...request({ date: "2030-03-05", startTime: "10:00", freeMinutes: 15, durationMinutes: 15 }), expectedTotalCents: 0, acceptTerms: true } });
+    const cancelled = await api("/bookings/hold", { jwt: memberJwt, body: { ...request({ date: "2030-03-05", startTime: "10:00", freeMinutes: 30, durationMinutes: 30 }), expectedTotalCents: 0, acceptTerms: true } });
     expect((await api(`/me/bookings/${cancelled.json.ref}/cancel`, { jwt: memberJwt, body: { expectedRefundCents: 0 } })).status).toBe(200);
     expect((await api("/cron/reminders", { method: "POST" })).status).toBe(401);
     const first = await api("/cron/reminders", { method: "POST", headers: { Authorization: `Bearer ${CRON_SECRET}` } });

@@ -67,6 +67,7 @@ export async function publicConfig(deps: AppDeps) {
     photos: photos.map((p) => ({ url: p.url, caption: p.caption })),
     timeZone: settings.timezone,
     today: toLocal(clock.now().getTime(), settings.timezone).date,
+    sessionMinutes: settings.session_minutes,
     bookingWindowDays: settings.booking_window_days,
     onlineCutoffMinutes: settings.online_cutoff_minutes,
     holdMinutes: settings.hold_ttl_minutes,
@@ -154,12 +155,15 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const { data: hours, error } = await deps.db.from("opening_hours").select("*").eq("day_of_week", dayOfWeek).maybeSingle();
   if (error) throw mapDbError(error);
 
+  // Bookings are sold in sessions; the resource type's own minimum is for walk-ins at the counter.
+  const sessionMinutes = settings.session_minutes;
   const base = {
     date,
     timeZone: tz,
     today,
     lastDate,
-    resourceType: { id: type.id, key: type.key, name: type.name, minMinutes: type.min_minutes, baseRateCents: type.base_rate_cents },
+    sessionMinutes,
+    resourceType: { id: type.id, key: type.key, name: type.name, minMinutes: sessionMinutes, baseRateCents: type.base_rate_cents },
     resources: resources.map((r) => ({ id: r.id, label: r.label })),
     open: hours ? wallTime(hours.open_time) : null,
     close: hours ? wallTime(hours.close_time) : null,
@@ -174,7 +178,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const busy = await busyPeriods(deps, resources.map((r) => r.id), openAt, closeAt, now);
 
   const slots = [];
-  for (let t = openAt; t + type.min_minutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
+  for (let t = openAt; t + sessionMinutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
     if (t < earliest) continue;
     const resourceMaxMinutes: Record<string, number> = {};
     for (const r of resources) {
@@ -183,7 +187,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
         closeAt,
         busy.filter((b) => b.resourceId === r.id),
       );
-      resourceMaxMinutes[r.id] = max >= type.min_minutes ? max : 0;
+      resourceMaxMinutes[r.id] = max >= sessionMinutes ? max : 0;
     }
     const lengths = Object.values(resourceMaxMinutes);
     slots.push({
@@ -246,6 +250,11 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   const tz = settings.timezone;
   const type = await activeType(deps, req.resourceTypeId);
   if (!isWallTime(req.startTime)) throw new ApiError(422, "validation_failed", "Start time must be HH:MM");
+  // D63: a booking is at least one session, then 15-minute steps. Walk-ins are not sold here.
+  const sessionMinutes = settings.session_minutes;
+  if (req.durationMinutes < sessionMinutes || req.durationMinutes % SLOT_MINUTES !== 0) {
+    throw new ApiError(422, "validation_failed", `Bookings start at ${sessionMinutes} minutes (one session), then go up in ${SLOT_MINUTES}-minute steps`);
+  }
   const startAt = localToInstant(req.date, req.startTime, tz);
   if (toLocal(startAt, tz).label !== `${req.date} ${req.startTime}`) {
     throw new ApiError(422, "invalid_time", "That time doesn't exist on this day (daylight saving change)");
@@ -260,6 +269,9 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   }
   const freeMinutes = req.freeMinutes ?? 0;
   if (freeMinutes > 0 && !member) throw new ApiError(422, "validation_failed", "Free minutes need a member");
+  if (freeMinutes > 0 && (freeMinutes < sessionMinutes || freeMinutes % SLOT_MINUTES !== 0)) {
+    throw new ApiError(422, "validation_failed", `Free play on a booking starts at ${sessionMinutes} minutes, then goes up in ${SLOT_MINUTES}-minute steps`);
+  }
   if (member && freeMinutes > member.balanceMinutes) {
     throw new ApiError(422, "insufficient_balance", "Not enough free-play minutes", { balanceMinutes: member.balanceMinutes });
   }

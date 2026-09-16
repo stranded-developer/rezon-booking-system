@@ -10,6 +10,7 @@ import { centsToInput, parseDollars } from "@/lib/format";
 interface Settings {
   business_name: string | null;
   abn: string | null;
+  session_minutes: number;
   booking_window_days: number;
   online_cutoff_minutes: number;
   no_show_hold_minutes: number;
@@ -237,6 +238,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
   const [f, setF] = useState({
     businessName: settings.business_name ?? "",
     abn: settings.abn ?? "",
+    sessionMinutes: String(settings.session_minutes),
     bookingWindowDays: String(settings.booking_window_days),
     onlineCutoffMinutes: String(settings.online_cutoff_minutes),
     noShowHoldMinutes: String(settings.no_show_hold_minutes),
@@ -249,7 +251,8 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
     setF((x) => ({ ...x, [k]: e.target.value }));
   };
   const int = (v: string) => (/^\d+$/.test(v) ? Number(v) : null);
-  const numbers = [f.bookingWindowDays, f.onlineCutoffMinutes, f.noShowHoldMinutes, f.walkinLastOpenMinutes, f.balanceForfeitDays].map(int);
+  const numbers = [f.bookingWindowDays, f.onlineCutoffMinutes, f.noShowHoldMinutes, f.walkinLastOpenMinutes, f.balanceForfeitDays, f.sessionMinutes].map(int);
+  const sessionValid = numbers[5] !== null && numbers[5] >= 15 && numbers[5] % 15 === 0;
   const variance = parseDollars(f.variance);
 
   return (
@@ -264,6 +267,9 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Session length (min)" hint="The shortest online booking; then 15-minute steps. Walk-ins are not affected.">
+            <Input inputMode="numeric" value={f.sessionMinutes} onChange={set("sessionMinutes")} />
+          </Field>
           <Field label="Book ahead (days)">
             <Input inputMode="numeric" value={f.bookingWindowDays} onChange={set("bookingWindowDays")} />
           </Field>
@@ -287,12 +293,13 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
         <Button
           variant="primary"
           className="w-full"
-          disabled={action.busy || numbers.some((n) => n === null) || variance === null}
+          disabled={action.busy || numbers.some((n) => n === null) || variance === null || !sessionValid}
           onClick={() =>
             void action.run(async () => {
               await api("/admin/settings", {
                 method: "PATCH",
                 body: {
+                  sessionMinutes: numbers[5],
                   businessName: f.businessName.trim() || null,
                   abn: f.abn.trim() || null,
                   bookingWindowDays: numbers[0],

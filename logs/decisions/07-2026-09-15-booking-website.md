@@ -58,3 +58,16 @@
 **Decision:** the reason field when creating a free membership is optional.
 
 **Why:** the owner wants it faster to use. The audit log still records who created it and when, and the reason is kept when one is given — only the requirement is dropped.
+
+## D63 — Time is sold in 30-minute sessions ✅ owner 2026-09-16
+
+**Decision:**
+- **A session is 30 minutes**, set once for the whole venue (editable in the back office).
+- **Booked online:** at least one session, then 15-minute steps — 30, 45, 60, 75 … Half a session cannot be booked.
+- **Walk-in:** unchanged. From the resource type's own minimum (15 minutes), billed by the minute.
+- **Member free play per month, in sessions:** Silver 2 (1 hour), Gold 4 (2 hours), Diamond 8 (4 hours). Unused minutes still roll over, now capped at **ten months' worth** per tier: 600, 1200 and 2400 minutes.
+- **Free play is spent the way the time is sold:** on a booking, a whole session and then 15-minute steps; at the counter, 15-minute blocks, so a half-session walk-in costs half a session.
+
+**Why:** a 15-minute booking is not worth the slot it holds, while a walk-in that plays 15 minutes should still pay for 15. Selling in sessions also makes the membership benefit easy to say out loud: "Gold gives you four free sessions a month."
+
+**Note:** this changes what Gold and Diamond earn each month (60 → 120 and 240 minutes). Existing members keep the balance they have and earn the new amount from their next renewal.

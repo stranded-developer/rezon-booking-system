@@ -38,10 +38,10 @@ All values below are **editable in the back office**. None are hardcoded.
 | Billiard tables | 2 × $30/hr incl. GST |
 | Driving simulators | 6 × $60/hr incl. GST |
 | VR seats | 2 × $50/hr incl. GST |
-| Minimum session | 15 min, then per minute (partial minutes round up) |
+| Session | 30 min (D63). Booked online: one session minimum, then 15-min steps. Walk-in: from 15 min, then per minute |
 | Happy hour | Mon–Fri 10:00–15:00, 10% off, all resource types |
 | Tiers | Silver 5% $100/mo · Gold 10% $200/mo · Diamond 15% $300/mo (incl. GST) |
-| Free play | 60 min/month per tier, rolls over, capped at 600 min |
+| Free play | Silver 2 sessions, Gold 4, Diamond 8 per month; rolls over, capped at ten months (600 / 1200 / 2400 min) |
 | Booking window | Rolling 7 days |
 | Online booking cutoff | Must start ≥ 30 min from now |
 | No-show hold | 15 min after start |

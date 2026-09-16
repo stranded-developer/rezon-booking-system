@@ -13,6 +13,7 @@ const STEP_MINUTES = 15;
 const ANY_RESOURCE = "any";
 /** The lengths most people pick; every other length that fits is in the dropdown beside them. */
 const QUICK_MINUTES = [30, 60, 90, 120];
+const DEFAULT_SESSION_MINUTES = 30;
 
 interface Customer {
   name: string;
@@ -101,13 +102,15 @@ export function BookingFlow() {
   const slot: Slot | null = availability?.slots.find((s) => s.time === startTime) ?? null;
 
   /** Lengths that still fit before the next booking or closing time, on the chosen table. */
+  // A booking is at least one session, then 15-minute steps: 30, 45, 60 … (D63).
+  const sessionMinutes = config?.sessionMinutes ?? DEFAULT_SESSION_MINUTES;
   const durations = useMemo(() => {
-    if (!slot || !resourceType) return [];
+    if (!slot) return [];
     const max = resourceId === ANY_RESOURCE ? slot.maxMinutes : (slot.resourceMaxMinutes[resourceId] ?? 0);
     const lengths: number[] = [];
-    for (let m = resourceType.minMinutes; m <= max; m += STEP_MINUTES) lengths.push(m);
+    for (let m = sessionMinutes; m <= max; m += STEP_MINUTES) lengths.push(m);
     return lengths;
-  }, [slot, resourceId, resourceType]);
+  }, [slot, resourceId, sessionMinutes]);
 
   /** The chosen length if it still fits, otherwise an hour, otherwise the longest that fits. */
   const durationMinutes =
@@ -122,6 +125,11 @@ export function BookingFlow() {
 
   // ── Quote ─────────────────────────────────────────────────────────────────
   const maxFreeMinutes = member ? Math.min(member.balanceMinutes, durationMinutes) : 0;
+  const freeMinuteChoices = useMemo(() => {
+    const choices = [0];
+    for (let m = sessionMinutes; m <= maxFreeMinutes; m += STEP_MINUTES) choices.push(m);
+    return choices;
+  }, [sessionMinutes, maxFreeMinutes]);
   /** Free minutes are only spent when the member asks: never silently. */
   const freeMinutes = Math.min(freeMinutesChoice ?? 0, maxFreeMinutes);
 
@@ -244,7 +252,8 @@ export function BookingFlow() {
       <div>
         <h1 className="text-2xl font-black sm:text-3xl">Book your time</h1>
         <p className="mt-1 text-sm text-ink-500">
-          All times are Sydney time. Prices include GST. You can book from {config.onlineCutoffMinutes} minutes ahead, up to {config.bookingWindowDays} days.
+          All times are Sydney time. Prices include GST. A session is {sessionMinutes} minutes, and you can add 15 minutes at a time. Book from{" "}
+          {config.onlineCutoffMinutes} minutes ahead, up to {config.bookingWindowDays} days.
         </p>
       </div>
 
@@ -288,7 +297,7 @@ export function BookingFlow() {
           ) : (
             <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
               {availability!.slots.map((s) => {
-                const free = s.availableResources > 0 && s.maxMinutes >= resourceType.minMinutes;
+                const free = s.availableResources > 0 && s.maxMinutes >= sessionMinutes;
                 return (
                   <Button
                     key={s.time}
@@ -379,19 +388,20 @@ export function BookingFlow() {
 
           {member && member.balanceMinutes > 0 ? (
             <div className="mt-4 rounded-xl border border-line p-4">
-              <Field label="Use your free play?" hint={`You have ${formatMinutes(member.balanceMinutes)} saved up.`}>
+              <Field
+                label="Use your free play?"
+                hint={`You have ${formatMinutes(member.balanceMinutes)} saved up. On a booking it starts at one session.`}
+              >
                 <select
                   className="h-11 w-full rounded-xl border border-line bg-paper px-3 focus:border-ink-950 focus:outline-none"
                   value={freeMinutes}
                   onChange={(e) => setFreeMinutesChoice(Number(e.target.value))}
                 >
-                  {Array.from({ length: Math.floor(maxFreeMinutes / STEP_MINUTES) + 1 }, (_, i) => i * STEP_MINUTES)
-                    .concat(maxFreeMinutes % STEP_MINUTES === 0 ? [] : [maxFreeMinutes])
-                    .map((m) => (
-                      <option key={m} value={m}>
-                        {m === 0 ? "None, save them for later" : formatMinutes(m)}
-                      </option>
-                    ))}
+                  {freeMinuteChoices.map((m) => (
+                    <option key={m} value={m}>
+                      {m === 0 ? "None, save them for later" : formatMinutes(m)}
+                    </option>
+                  ))}
                 </select>
               </Field>
             </div>

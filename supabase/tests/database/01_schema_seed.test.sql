@@ -1,6 +1,6 @@
 -- Schema presence, RLS coverage, and launch seed values.
 begin;
-select plan(16);
+select plan(17);
 
 select tables_are(
   'public',
@@ -61,9 +61,11 @@ select results_eq(
 select results_eq(
   $$ select name::text, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes
      from membership_tiers order by sort $$,
-  $$ values ('Silver', 500, 10000, 60, 600), ('Gold', 1000, 20000, 60, 600), ('Diamond', 1500, 30000, 60, 600) $$,
-  'tiers: Silver/Gold/Diamond, 5/10/15%, $100/$200/$300, 60 min, cap 600'
+  $$ values ('Silver', 500, 10000, 60, 600), ('Gold', 1000, 20000, 120, 1200), ('Diamond', 1500, 30000, 240, 2400) $$,
+  'tiers: 5/10/15% off, $100/$200/$300, free play 2/4/8 sessions a month, capped at ten months'
 );
+
+select is((select session_minutes from venue_settings), 30, 'a session is 30 minutes');
 
 select is((select count(distinct tier_id) from tier_prices), 3::bigint, 'every tier has price history');
 

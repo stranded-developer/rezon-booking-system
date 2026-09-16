@@ -189,14 +189,15 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     expect((await stripe.subscriptions.retrieve(sub.id)).items.data[0]!.price.id).toBe(diamond.stripe_price_id);
     expect((await member(memberId)).tier_id).toBe(silver.id);
 
-    // 4. Renewal a month later → Diamond, +60 minutes, charged the Diamond price.
+    // 4. Renewal a month later → Diamond, charged the Diamond price, and Diamond's own allowance:
+    // 8 sessions = 240 minutes on top of the 60 Silver gave (D63).
     const periodEnd = sub.items.data[0]!.current_period_end;
     const t2 = Math.floor(Date.now() / 1000);
     await advanceClock(periodEnd + 2 * 3600);
     await deliverUntil(sub.id, customer.id, t2, "invoice.paid");
     m = await member(memberId);
     expect(m).toMatchObject({ status: "active", tier_id: diamond.id, pending_tier_id: null });
-    expect(await balance(memberId)).toBe(120);
+    expect(await balance(memberId)).toBe(60 + 240);
     const { data: payments } = await ctx.db.from("payments").select("amount_cents").eq("member_id", memberId).order("created_at");
     expect(payments!.map((p) => p.amount_cents)).toEqual([silver.monthly_price_cents, diamond.monthly_price_cents]);
 
@@ -220,7 +221,7 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     await stripe.invoices.pay(openInvoices.data[0]!.id!, { payment_method: visa.id });
     await deliverUntil(sub.id, customer.id, t4, "invoice.paid");
     expect((await member(memberId)).status).toBe("active");
-    expect(await balance(memberId)).toBe(180);
+    expect(await balance(memberId)).toBe(60 + 240 + 240);
 
     // 7. Cancel at period end → benefits continue (cancelling), then end.
     const cancel = await admin(`/members/${memberId}/cancel`, { reason: "Moving away" });
@@ -237,14 +238,14 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     expect(m.status).toBe("ended");
     expect(m.ended_at).not.toBeNull();
     expect(ctx.email.outbox.some((e) => e.template === "membership_ended" && e.to === email)).toBe(true);
-    expect(await balance(memberId)).toBe(180);
+    expect(await balance(memberId)).toBe(60 + 240 + 240);
 
     // 8. Daily job: nothing within 30 days, forfeited after.
     const unauth = await ctx.app.request("/cron/forfeit", { method: "POST" });
     expect(unauth.status).toBe(401);
     const cron = () => ctx.app.request("/cron/forfeit", { method: "POST", headers: { Authorization: `Bearer ${ctx.env.CRON_SECRET}` } });
     await cron();
-    expect(await balance(memberId)).toBe(180);
+    expect(await balance(memberId)).toBe(60 + 240 + 240);
     await ctx.db.from("members").update({ ended_at: new Date(Date.now() - 31 * 86_400_000).toISOString() }).eq("id", memberId);
     const forfeit = await cron();
     expect(((await forfeit.json()) as { forfeited: number }).forfeited).toBeGreaterThanOrEqual(1);

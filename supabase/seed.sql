@@ -28,8 +28,8 @@ insert into public.membership_tiers
   (name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, sort)
 values
   ('Silver', 500, 10000, 60, 600, 1),
-  ('Gold', 1000, 20000, 60, 600, 2),
-  ('Diamond', 1500, 30000, 60, 600, 3);
+  ('Gold', 1000, 20000, 120, 1200, 2),
+  ('Diamond', 1500, 30000, 240, 2400, 3);
 
 insert into public.tier_prices (tier_id, amount_cents)
 select id, monthly_price_cents from public.membership_tiers;

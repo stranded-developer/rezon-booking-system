@@ -27,7 +27,7 @@ The timetable is a grid per resource type for a chosen date, with **15-minute co
 
 **Walk-ins don't block online availability.** A walk-in has no end time, so staff get the POS alert and must wrap up the walk-in before the booking.
 
-**Durations** are offered in 15-minute steps from 15 min up to the time remaining until close. There is no maximum session length.
+**Durations** start at one **session** (30 minutes, `venue_settings.session_minutes`) and go up in 15-minute steps to the time remaining until close: 30, 45, 60, 75 … There is no maximum, and half a session can only be bought by walking in (D63).
 
 The customer picks a resource type, then a specific resource or "any available" (the API assigns the lowest-sorted free one).
 

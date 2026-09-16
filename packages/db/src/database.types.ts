@@ -1354,6 +1354,7 @@ export type Database = {
           no_show_hold_minutes: number
           online_cutoff_minutes: number
           phone: string | null
+          session_minutes: number
           timezone: string
           updated_at: string
           walkin_last_open_minutes: number
@@ -1374,6 +1375,7 @@ export type Database = {
           no_show_hold_minutes?: number
           online_cutoff_minutes?: number
           phone?: string | null
+          session_minutes?: number
           timezone?: string
           updated_at?: string
           walkin_last_open_minutes?: number
@@ -1394,6 +1396,7 @@ export type Database = {
           no_show_hold_minutes?: number
           online_cutoff_minutes?: number
           phone?: string | null
+          session_minutes?: number
           timezone?: string
           updated_at?: string
           walkin_last_open_minutes?: number

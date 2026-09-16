@@ -40,16 +40,20 @@ test("a guest books and cancels: timetable, referral code, free booking, QR, ref
   const f = loadFixture();
   await page.goto("/book");
 
-  // 1. What and when: this run's own booth, tomorrow, the first free time, 15 minutes.
+  // 1. What and when: this run's own booth, two days out, the first free time, one session.
   await page.getByRole("button", { name: f.resourceTypeName }).click();
   await page.getByRole("button", { name: bookingDayLabel(), exact: true }).click();
   const firstSlot = page.getByRole("button", { name: /^10:00 am$/ });
   await expect(firstSlot).toBeEnabled();
   await firstSlot.click();
-  await page.getByLabel("Or another length").selectOption({ label: "15 min" });
+  // D63: the shortest booking is one 30-minute session — half a session is a walk-in only.
+  const lengths = page.getByLabel("Or another length");
+  await expect(lengths.locator("option").first()).toHaveText("30 min");
+  await expect(lengths.locator('option[value="15"]')).toHaveCount(0);
+  await lengths.selectOption({ label: "30 min" });
   await expect(page.getByLabel(`Which ${f.resourceTypeName}?`)).toContainText("Any available");
 
-  // A quote appears before any details are given: $30/hr for 15 min, less the 10% weekday happy hour.
+  // A quote appears before any details are given: $30/hr for 30 min, less any happy hour.
   const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
   await expect(total).toHaveText(/\$\d/);
   const beforeCode = await total.textContent();

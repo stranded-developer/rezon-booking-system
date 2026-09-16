@@ -6,6 +6,8 @@ export interface PublicConfig {
   photos: { url: string; caption: string | null }[];
   timeZone: string;
   today: string;
+  /** A session: the smallest block that can be booked (D63). */
+  sessionMinutes: number;
   bookingWindowDays: number;
   onlineCutoffMinutes: number;
   holdMinutes: number;
@@ -40,6 +42,7 @@ export interface Availability {
   timeZone: string;
   today: string;
   lastDate: string;
+  sessionMinutes: number;
   resourceType: { id: string; key: string; name: string; minMinutes: number; baseRateCents: number };
   resources: { id: string; label: string }[];
   open: string | null;

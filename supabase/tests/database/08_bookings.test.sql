@@ -107,7 +107,7 @@ insert into ids select 'mem', (booking_hold(pg_temp.p('{"resourceId": "00000000-
 select is(pg_temp.bal(), 60, 'free minutes are taken when the hold is made');
 select is((select customer_id from bookings where id = pg_temp.id('mem')), '00000000-0000-0000-0000-00000000c101'::uuid, 'member booking uses the member''s customer');
 select throws_like(
-  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 61, "startsAt": "2030-01-15T15:00:00+11:00", "endsAt": "2030-01-15T17:00:00+11:00"}')) $$,
+  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 75, "startsAt": "2030-01-15T15:00:00+11:00", "endsAt": "2030-01-15T17:00:00+11:00"}')) $$,
   'RG:insufficient_balance:%', 'minutes held by one booking cannot be spent again by another');
 
 -- ── Expiry ──────────────────────────────────────────────────────────────────

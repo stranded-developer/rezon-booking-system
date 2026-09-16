@@ -4,9 +4,11 @@
 
 | Tier | Discount | Monthly (incl. GST) | Free play / month | Balance cap |
 |---|---|---|---|---|
-| Silver | 5% | $100 | 60 min | 600 min |
-| Gold | 10% | $200 | 60 min | 600 min |
-| Diamond | 15% | $300 | 60 min | 600 min |
+| Silver | 5% | $100 | 2 sessions (60 min) | 600 min |
+| Gold | 10% | $200 | 4 sessions (120 min) | 1200 min |
+| Diamond | 15% | $300 | 8 sessions (240 min) | 2400 min |
+
+A session is 30 minutes (D63). Free play is spent the way time is sold: a whole session then 15-minute steps on a booking, and 15-minute blocks at the counter.
 
 All values are editable. Benefits are the discount and free play. There are **no booking privileges**: same 7-day window, same cutoff.
 

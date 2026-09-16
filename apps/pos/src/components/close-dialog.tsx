@@ -13,6 +13,9 @@ const QUOTE_TTL_MS = 110_000;
 
 type Method = "cash" | "card_terminal";
 
+/** Free play is spent in 15-minute blocks (D63). */
+const FREE_BLOCK_MINUTES = 15;
+
 export function CloseDialog({
   sessionId,
   title,
@@ -279,31 +282,42 @@ export function CloseDialog({
                   Remove
                 </Button>
               </div>
-              {quote && quote.maxFreeMinutes > 0 ? (
-                <div className="mt-3 flex items-end gap-2">
-                  <Field label={`Free play (balance ${member.balanceMinutes} min)`}>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={quote.maxFreeMinutes}
-                      value={freeMinutes}
-                      className="w-28"
-                      onChange={(e) => setFreeMinutes(Math.max(0, Math.min(quote.maxFreeMinutes, Number(e.target.value) || 0)))}
-                    />
-                  </Field>
-                  <Button size="md" onClick={() => void fetchQuote({ memberId: member.id, freeMinutes })}>
-                    Apply
-                  </Button>
-                  <Button
-                    size="md"
-                    onClick={() => {
-                      setFreeMinutes(quote.maxFreeMinutes);
-                      void fetchQuote({ memberId: member.id, freeMinutes: quote.maxFreeMinutes });
-                    }}
-                  >
-                    Use {quote.maxFreeMinutes} min
-                  </Button>
-                </div>
+              {quote && quote.maxFreeMinutes >= FREE_BLOCK_MINUTES ? (
+                (() => {
+                  // D63: free play is taken in 15-minute blocks — half a session at a time.
+                  const mostUsable = Math.floor(quote.maxFreeMinutes / FREE_BLOCK_MINUTES) * FREE_BLOCK_MINUTES;
+                  const blocks = Array.from({ length: mostUsable / FREE_BLOCK_MINUTES + 1 }, (_, i) => i * FREE_BLOCK_MINUTES);
+                  return (
+                    <div className="mt-3 flex items-end gap-2">
+                      <Field label={`Free play (balance ${member.balanceMinutes} min)`}>
+                        <select
+                          className="h-11 rounded-lg bg-ink-900 px-3 text-ink-50 ring-1 ring-ink-700 focus:outline-none focus:ring-2 focus:ring-flag"
+                          value={freeMinutes}
+                          onChange={(e) => {
+                            const next = Number(e.target.value);
+                            setFreeMinutes(next);
+                            void fetchQuote({ memberId: member.id, freeMinutes: next });
+                          }}
+                        >
+                          {blocks.map((m) => (
+                            <option key={m} value={m}>
+                              {m === 0 ? "None" : `${m} min`}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Button
+                        size="md"
+                        onClick={() => {
+                          setFreeMinutes(mostUsable);
+                          void fetchQuote({ memberId: member.id, freeMinutes: mostUsable });
+                        }}
+                      >
+                        Use {mostUsable} min
+                      </Button>
+                    </div>
+                  );
+                })()
               ) : null}
             </div>
           ) : null}
