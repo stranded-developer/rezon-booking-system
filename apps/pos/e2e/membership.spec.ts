@@ -13,6 +13,10 @@ const enabled = process.env.E2E_STRIPE === "1";
 
 test.skip(!enabled, "Set E2E_STRIPE=1 with `stripe listen` forwarding to run the real Stripe checkout test");
 
+// Two Stripe webhooks have to arrive: one activates the membership, a second grants the free
+// minutes. On a loaded machine the second has taken over a minute, so this test gets more room.
+test.setTimeout(240_000);
+
 test("sell a membership at the counter: Stripe sync, QR checkout paid by card, active, card printed, cancel and undo", async ({ page, context }) => {
   test.setTimeout(240_000);
   const f = loadFixture();
@@ -68,7 +72,7 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     await expect(page.getByTestId("membership-active")).toContainText("Silver");
     // The free minutes are granted by a second webhook (invoice.paid), which can land a little after
     // the one that activates the membership; the screen fills in when it does.
-    await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready", { timeout: 60_000 });
+    await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready", { timeout: 150_000 });
     await page.screenshot({ path: "test-results/screens/membership-03-active.png" });
     await page.getByRole("button", { name: "Print member card" }).click();
     // Printing the first card asks the API for a new token, so allow for a round trip.

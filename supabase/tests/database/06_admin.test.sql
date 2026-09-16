@@ -81,10 +81,11 @@ select throws_like(
        jsonb_build_object('name', 'Comp', 'tierId', (select id from membership_tiers where name = 'Gold')), 'staff perk') $$,
   'RG:invalid:%', 'a member needs an email or phone'
 );
-select throws_like(
+-- D62: a reason is welcome but no longer required.
+select lives_ok(
   $$ select admin_create_member('00000000-0000-0000-0000-00000000b001',
-       jsonb_build_object('name', 'Comp', 'email', 'comp@test.local', 'tierId', (select id from membership_tiers where name = 'Gold')), ' ') $$,
-  'RG:invalid:%', 'a complimentary membership needs a reason'
+       jsonb_build_object('name', 'Comp No Reason', 'email', 'comp-no-reason@test.local', 'tierId', (select id from membership_tiers where name = 'Gold')), ' ') $$,
+  'a complimentary membership can be created without a reason'
 );
 create temp table t_member as
 select * from admin_create_member('00000000-0000-0000-0000-00000000b001',

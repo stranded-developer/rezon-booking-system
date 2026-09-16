@@ -369,6 +369,7 @@ export type Database = {
           id: string
           kind: string
           member_id: string
+          payment_id: string | null
           reason: string | null
           session_id: string | null
           stripe_invoice_id: string | null
@@ -381,6 +382,7 @@ export type Database = {
           id?: string
           kind: string
           member_id: string
+          payment_id?: string | null
           reason?: string | null
           session_id?: string | null
           stripe_invoice_id?: string | null
@@ -393,6 +395,7 @@ export type Database = {
           id?: string
           kind?: string
           member_id?: string
+          payment_id?: string | null
           reason?: string | null
           session_id?: string | null
           stripe_invoice_id?: string | null
@@ -424,6 +427,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_balance_ledger_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
           {
@@ -1548,6 +1558,7 @@ export type Database = {
         }
         Returns: Json
       }
+      membership_expire_venue: { Args: { p_now?: string }; Returns: number }
       membership_forfeit_balances: { Args: { p_now?: string }; Returns: number }
       membership_issue_first_card: {
         Args: { p_member: string; p_staff: string; p_token_hash: string }
@@ -1767,6 +1778,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pos_sell_membership: { Args: { p: Json; p_staff: string }; Returns: Json }
       pos_shift_totals: {
         Args: { p_shift: string }
         Returns: {

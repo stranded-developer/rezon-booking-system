@@ -86,11 +86,25 @@ Superadmin only, with a reason. It is audited. If a payment was taken, a refund 
 
 ## 5. Selling a membership at the counter
 
+The cashier chooses how the customer pays: **on their phone** (a Stripe subscription that renews) or **at the counter** (cash or card terminal, which runs out).
+
+### 5a. On their phone — a subscription
+
 1. Enter customer name + email (+ phone) and pick a tier.
 2. The API creates a Stripe Checkout Session (subscription mode) linked to that customer.
 3. The **POS shows a QR** code of the Checkout URL. The customer scans it with their phone and pays there.
 4. The POS polls the member's status and shows **"Active ✓"** when the webhook lands.
 5. The customer receives the welcome email: a set-password link and their member QR.
+
+### 5b. At the counter — paid up front (D61)
+
+1. Pick a tier, the number of months (**1, 3, 6, 9 or 12**) and cash or card terminal. The price is the tier's monthly price × the months and cannot be edited.
+2. Enter a name and an email **or** phone, or sell to an existing member.
+3. Taking the payment does all of it in one go: the membership period, the money on the open till (cash also goes in the drawer), the free minutes for every month paid for (capped by the tier), and the member card.
+4. **Nothing renews.** The screen says so and shows the date it runs until. Selling again before that date adds to the time already paid for.
+5. Needs an open till. A membership already billed through Stripe can't be sold this way; it is changed in Stripe.
+
+When the period ends, the daily job marks the membership ended; the counter treats it as inactive from the exact moment it lapses. The balance then freezes for 30 days and is forfeited, as with any ended membership.
 
 ## 6. Refunds at the POS
 

@@ -407,3 +407,53 @@ export async function issueFirstCard(deps: AppDeps, operator: StaffIdentity, mem
   if (error) throw mapDbError(error);
   return { qr: card.qr, member: await getMember(deps.db, memberId) };
 }
+
+export interface CounterSaleInput {
+  customerId?: string | undefined;
+  name?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
+  tierId: string;
+  months: number;
+  method: "cash" | "card_terminal";
+  externalRef?: string | undefined;
+}
+
+/**
+ * A membership paid for at the counter (D61): money into the till, a period of whole months, the
+ * free minutes for those months, and no Stripe subscription — so nothing renews and nothing can
+ * fail to renew. The database recomputes the price; the till only proposes it.
+ */
+export async function sellMembershipAtCounter(deps: AppDeps, operator: StaffIdentity, input: CounterSaleInput) {
+  const { data: tier, error: tierError } = await deps.db
+    .from("membership_tiers")
+    .select("id, name, monthly_price_cents, monthly_free_minutes")
+    .eq("id", input.tierId)
+    .eq("active", true)
+    .maybeSingle();
+  if (tierError) throw mapDbError(tierError);
+  if (!tier) throw new ApiError(422, "validation_failed", "Choose an active tier");
+
+  const { data, error } = await deps.db.rpc("pos_sell_membership", {
+    p_staff: operator.id,
+    p: {
+      ...(input.customerId ? { customerId: input.customerId } : {}),
+      ...(input.name ? { name: input.name } : {}),
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.phone ? { phone: input.phone } : {}),
+      tierId: tier.id,
+      months: input.months,
+      method: input.method,
+      amountCents: tier.monthly_price_cents * input.months,
+      ...(input.externalRef ? { externalRef: input.externalRef } : {}),
+      now: deps.clock.now().toISOString(),
+    } as unknown as Json,
+  });
+  if (error) throw mapDbError(error);
+  const result = data as { memberId: string; memberNo: string; newMember: boolean; currentPeriodEnd: string; amountCents: number; gstCents: number; minutesGranted: number };
+
+  // The cashier prints a card straight after the sale; an existing member keeps the QR they have.
+  const card = await issueFirstCard(deps, operator, result.memberId);
+
+  return { ...result, tierName: tier.name, member: card.member, card: { qr: card.qr } };
+}

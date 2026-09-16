@@ -40,9 +40,14 @@ function requireCron(secret: string | undefined, header: string | undefined) {
 systemRoutes.on(["GET", "POST"], "/cron/forfeit", async (c) => {
   const deps = c.get("deps");
   requireCron(deps.env.CRON_SECRET, c.req.header("Authorization"));
-  const { data, error } = await deps.db.rpc("membership_forfeit_balances", { p_now: deps.clock.now().toISOString() });
+  const now = deps.clock.now().toISOString();
+  // Counter memberships end when their period runs out; do that first, so a balance that has just
+  // been frozen starts its 30 days from today rather than a month later.
+  const expired = await deps.db.rpc("membership_expire_venue", { p_now: now });
+  if (expired.error) throw mapDbError(expired.error);
+  const { data, error } = await deps.db.rpc("membership_forfeit_balances", { p_now: now });
   if (error) throw mapDbError(error);
-  return c.json({ forfeited: data });
+  return c.json({ expired: expired.data, forfeited: data });
 });
 
 systemRoutes.on(["GET", "POST"], "/cron/reminders", async (c) => {

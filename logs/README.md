@@ -22,7 +22,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | API (Hono) | ✅ Built and verified |
 | POS app, `apps/pos` at `localhost:3001` | ✅ Built and verified |
 | Back office, inside the POS at `/admin` | ✅ Built and verified |
-| Membership billing (Stripe test mode), sold at the counter | ✅ Built and verified |
+| Membership billing: Stripe subscriptions, or paid at the counter (7c) | ✅ Built and verified |
 | Booking rules in the database (hold, confirm, expiry, cancel/refund) | ✅ Built and verified (6a) |
 | Public booking API: availability, quote, hold, Stripe payment, cancel links, emails (6b-1) | ✅ Built and verified |
 | Member accounts API: login, member pricing, QR, online membership, portal, reminders, back office booking cancel (6b-2) | ✅ Built and verified |
@@ -35,7 +35,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 78 · API 168 · pgTAP 372 · e2e 12 (5 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 78 · API 190 · pgTAP 406 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -62,6 +62,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 19 | Back office Bookings page (6c-4) — **Phase 6 complete** | [build/19-back-office-bookings.md](build/19-back-office-bookings.md) |
 | 20 | Deploy preparation: Vercel config, cron over GET, go-live runbook (7a) | [build/20-deploy-preparation.md](build/20-deploy-preparation.md) |
 | 21 | Real emails through Resend (7b) | [build/21-resend-email.md](build/21-resend-email.md) |
+| 22 | Memberships paid for at the counter (7c) | [build/22-counter-membership.md](build/22-counter-membership.md) |
 
 ## Decisions
 

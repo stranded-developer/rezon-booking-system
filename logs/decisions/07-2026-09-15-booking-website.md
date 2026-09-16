@@ -35,3 +35,26 @@
 - This is how the 6b-2 API already works, and it keeps D56 intact: nobody can take over a counter member's membership by signing up with their email.
 
 **Why:** The owner confirmed the order after it was clarified that the question was only about buying a membership, not about booking.
+
+## D61 — Memberships can be paid for at the counter ✅ owner 2026-09-16
+
+**Decision:**
+- Alongside the Stripe subscription sold by QR, staff can sell a membership paid **at the counter** in cash or on the card terminal.
+- Sold in whole terms: **1, 3, 6, 9 or 12 months**, priced at the tier's monthly price × the months. Staff cannot change the amount.
+- The free minutes for every month paid for are granted at once, still capped by the tier's balance cap.
+- There is **no recurring payment**. The membership runs until its end date and then simply stops. Staff sell it again to continue it; renewing early adds to the time already paid for.
+- At the end: benefits stop, and the balance is frozen for 30 days then forfeited — the same as a membership that ends on Stripe.
+- A membership already billed online cannot be sold over the counter; it is changed in Stripe.
+
+**Why:** not every customer wants to hand over a card for a subscription, and the venue already takes cash and card at the till. It also means memberships can be sold before Stripe is connected at all.
+
+**Limitations, accepted:**
+- Nothing renews itself and nobody is reminded — expiry is silent unless someone looks.
+- The customer has no Stripe portal, no invoices and no automatic receipts for these.
+- Refunds go through the till's own partial refund, not Stripe.
+
+## D62 — A complimentary membership no longer needs a reason ✅ owner 2026-09-16
+
+**Decision:** the reason field when creating a free membership is optional.
+
+**Why:** the owner wants it faster to use. The audit log still records who created it and when, and the reason is kept when one is given — only the requirement is dropped.

@@ -10,6 +10,15 @@
 
 All values are editable. Benefits are the discount and free play. There are **no booking privileges**: same 7-day window, same cutoff.
 
+## 1b. How a membership is paid for
+
+| Paid | How it works | Renews |
+|---|---|---|
+| **Online** (booking site or the counter's QR) | Stripe subscription, card kept by Stripe | Yes, monthly, with retries |
+| **At the counter** (D61) | Cash or card terminal at the till, 1/3/6/9/12 months at the tier's monthly price × months | **No** — it runs out |
+
+A counter membership grants the free minutes for every month paid for at once (still capped), is recorded as a payment against the member on the open shift, and ends on its date: benefits stop, the balance freezes for 30 days and is then forfeited. Renewing early adds to the time already paid for. A membership billed through Stripe cannot be sold over the counter — it is changed in Stripe.
+
 ## 2. Stripe Billing setup
 
 - **Per tier:** one Stripe Product, plus one monthly recurring AUD Price with tax behaviour **inclusive**.

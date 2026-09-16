@@ -4,7 +4,7 @@ import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { requestIp } from "../lib/audit.js";
 import { requireOperator } from "../middleware/auth.js";
-import { issueFirstCard, startMembershipCheckout } from "../services/billing.js";
+import { issueFirstCard, sellMembershipAtCounter, startMembershipCheckout } from "../services/billing.js";
 import { buildReceipt, closeSession, quoteClose } from "../services/charge.js";
 import { getFloor, todaysBookings } from "../services/floor.js";
 import { findMemberByQr, getMember, getReferral, searchMembers } from "../services/lookup.js";
@@ -231,6 +231,29 @@ posOpsRoutes.post(
   async (c) => {
     const result = await startMembershipCheckout(c.get("deps"), c.get("operator"), c.req.valid("json"));
     return c.json(result, 201);
+  },
+);
+
+/** Paid for at the counter, in cash or on the card terminal (D61). */
+posOpsRoutes.post(
+  "/memberships/counter",
+  validate(
+    "json",
+    z
+      .object({
+        customerId: z.uuid().optional(),
+        name: z.string().trim().min(1).max(80).optional(),
+        email: z.email().max(254).optional(),
+        phone: z.string().trim().max(20).optional(),
+        tierId: z.uuid(),
+        months: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(9), z.literal(12)]),
+        method: z.enum(["cash", "card_terminal"]),
+        externalRef: z.string().trim().max(80).optional(),
+      })
+      .refine((b) => b.customerId || (b.name && (b.email || b.phone)), "Give a name and an email or phone, or choose an existing member"),
+  ),
+  async (c) => {
+    return c.json(await sellMembershipAtCounter(c.get("deps"), c.get("operator"), c.req.valid("json")), 201);
   },
 );
 

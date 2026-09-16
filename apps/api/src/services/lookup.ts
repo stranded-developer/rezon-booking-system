@@ -17,17 +17,27 @@ export interface MemberSummary {
 }
 
 const MEMBER_SELECT =
-  "id, member_no, status, customers!inner(name, email, phone), membership_tiers!members_tier_id_fkey(name, discount_bp)" as const;
+  "id, member_no, status, current_period_end, stripe_subscription_id, customers!inner(name, email, phone), membership_tiers!members_tier_id_fkey(name, discount_bp)" as const;
 
 type MemberRow = {
   id: string;
   member_no: string;
   status: string;
+  current_period_end: string | null;
+  stripe_subscription_id: string | null;
   customers: { name: string; email: string | null; phone: string | null };
   membership_tiers: { name: string; discount_bp: number };
 };
 
-async function withBalances(db: Db, rows: MemberRow[]): Promise<MemberSummary[]> {
+/**
+ * A membership paid for at the counter simply runs out: once its period has passed it gives nothing,
+ * even before the daily job marks it ended. One billed through Stripe is left to Stripe's events.
+ */
+function expired(row: MemberRow, now: Date): boolean {
+  return row.stripe_subscription_id === null && row.current_period_end !== null && new Date(row.current_period_end) <= now;
+}
+
+async function withBalances(db: Db, rows: MemberRow[], now: Date = new Date()): Promise<MemberSummary[]> {
   if (rows.length === 0) return [];
   const { data, error } = await db
     .from("member_balances")
@@ -48,7 +58,7 @@ async function withBalances(db: Db, rows: MemberRow[]): Promise<MemberSummary[]>
     tierName: r.membership_tiers.name,
     discountBp: r.membership_tiers.discount_bp,
     balanceMinutes: balance.get(r.id) ?? 0,
-    eligible: r.status === "active" || r.status === "cancelling",
+    eligible: (r.status === "active" || r.status === "cancelling") && !expired(r, now),
   }));
 }
 
