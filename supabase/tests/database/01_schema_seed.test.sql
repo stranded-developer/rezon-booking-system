@@ -1,6 +1,6 @@
 -- Schema presence, RLS coverage, and launch seed values.
 begin;
-select plan(17);
+select plan(19);
 
 select tables_are(
   'public',
@@ -9,7 +9,8 @@ select tables_are(
     'staff', 'customers', 'membership_tiers', 'tier_prices', 'members',
     'referral_codes', 'bookings', 'sessions', 'member_balance_ledger', 'referral_redemptions',
     'shifts', 'payments', 'refunds', 'cash_movements', 'price_overrides',
-    'stripe_events', 'audit_log', 'email_log', 'rate_limits', 'venue_photos'
+    'stripe_events', 'audit_log', 'email_log', 'rate_limits', 'venue_photos',
+    'experiences', 'experience_promos', 'tournaments', 'tournament_entries', 'site_events'
   ],
   'public schema has exactly the spec tables'
 );
@@ -61,8 +62,8 @@ select results_eq(
 select results_eq(
   $$ select name::text, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes
      from membership_tiers order by sort $$,
-  $$ values ('Silver', 500, 10000, 60, 600), ('Gold', 1000, 20000, 120, 1200), ('Diamond', 1500, 30000, 240, 2400) $$,
-  'tiers: 5/10/15% off, $100/$200/$300, free play 2/4/8 sessions a month, capped at ten months'
+  $$ values ('Silver', 1000, 4800, 60, 600), ('Gold', 2000, 7800, 120, 1200), ('Diamond', 2000, 12800, 240, 2400) $$,
+  'tiers: 10/20/20% off, $48/$78/$128, free play 2/4/8 sessions a month, capped at ten months'
 );
 
 select is((select session_minutes from venue_settings), 30, 'a session is 30 minutes');
@@ -79,6 +80,25 @@ select is(
 select has_function('public', 'expire_stale_holds', 'expire_stale_holds exists');
 select function_privs_are('public', 'expire_stale_holds', array['timestamp with time zone'], 'anon', array[]::text[],
   'anon cannot execute expire_stale_holds');
+
+select results_eq(
+  $$ select key, minutes, price_cents from experiences order by sort $$,
+  $$ values ('quick_race', 30, 3500), ('leaderboard_challenge', 30, 3500), ('double_race', 60, 5800) $$,
+  'experiences: Quick Race and Leaderboard Challenge $35 for 30 min, Double Race $58 for an hour'
+);
+
+select results_eq(
+  $$ select e.key, p.name, p.start_time, p.end_time, p.price_cents, p.claimed
+     from experience_promos p join experiences e on e.id = p.experience_id
+     order by e.sort, p.sort $$,
+  $$ values ('quick_race', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
+            ('quick_race', 'Student', '00:00'::time, '24:00'::time, 3200, true),
+            ('leaderboard_challenge', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
+            ('leaderboard_challenge', 'Student', '00:00'::time, '24:00'::time, 3200, true),
+            ('double_race', 'Happy Hour', '12:00'::time, '15:00'::time, 4900, false),
+            ('double_race', 'Student', '00:00'::time, '24:00'::time, 5200, true) $$,
+  'Happy Hour 12:00–15:00 automatically, the student price all hours but only on request'
+);
 
 select * from finish();
 rollback;

@@ -1,6 +1,17 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import Stripe from "stripe";
-import { addDaysToDate, formatCents, isWallTime, localToInstant, priceSession, PricingError, toLocal, type PriceResult } from "@raceground/pricing";
+import {
+  addDaysToDate,
+  formatCents,
+  isWallTime,
+  localToInstant,
+  priceExperience,
+  priceSession,
+  PricingError,
+  toLocal,
+  type ExperiencePromo,
+  type PriceResult,
+} from "@raceground/pricing";
 import type { Json } from "@raceground/db";
 import type { AppDeps } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
@@ -8,7 +19,7 @@ import { writeAudit } from "../lib/audit.js";
 import { buildIcs } from "../lib/ics.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
-import { loadPricingContext, loadSettings, parseRange, wallTime } from "./venue.js";
+import { loadExperience, loadPricingContext, loadPromos, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
 import { listPhotos } from "./venue-photos.js";
 
 const MINUTE_MS = 60_000;
@@ -44,17 +55,27 @@ async function activeResources(deps: AppDeps, typeId: string) {
 // ── Public config ────────────────────────────────────────────────────────────
 export async function publicConfig(deps: AppDeps) {
   const { db, clock } = deps;
-  const [settings, types, resources, hours, hhs, tiers, bands, photos] = await Promise.all([
+  const nowIso = clock.now().toISOString();
+  const [settings, types, resources, hours, hhs, tiers, bands, photos, experiences, events] = await Promise.all([
     loadSettings(db),
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("resources").select("id, label, resource_type_id, sort").eq("active", true).order("sort").order("label"),
     db.from("opening_hours").select("*").order("day_of_week"),
     db.from("happy_hours").select("*").eq("active", true),
-    db.from("membership_tiers").select("id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, stripe_price_id, sort").eq("active", true).order("sort"),
+    db.from("membership_tiers").select("id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, perks, stripe_price_id, sort").eq("active", true).order("sort"),
     db.from("rate_bands").select("*").eq("active", true),
     listPhotos(db),
+    db.from("experiences").select("*").eq("active", true).order("sort"),
+    db
+      .from("site_events")
+      .select("*")
+      .eq("active", true)
+      .or(`show_from.is.null,show_from.lte.${nowIso}`)
+      .or(`show_until.is.null,show_until.gte.${nowIso}`)
+      .order("sort"),
   ]);
-  for (const r of [types, resources, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
+  for (const r of [types, resources, hours, hhs, tiers, bands, experiences, events]) if (r.error) throw mapDbError(r.error);
+  const promos = await loadPromos(db, experiences.data!.map((e) => e.id));
   return {
     businessName: settings.business_name ?? "Raceground",
     venue: {
@@ -104,7 +125,43 @@ export async function publicConfig(deps: AppDeps) {
       monthlyPriceCents: t.monthly_price_cents,
       monthlyFreeMinutes: t.monthly_free_minutes,
       maxBalanceMinutes: t.max_balance_minutes,
+      perks: t.perks,
       sellable: t.stripe_price_id !== null,
+    })),
+    experiences: experiences.data!.map((e) => {
+      const mine = promos.filter((p) => p.experienceId === e.id);
+      return {
+        id: e.id,
+        key: e.key,
+        name: e.name,
+        resourceTypeId: e.resource_type_id,
+        tagline: e.tagline,
+        bullets: e.bullets,
+        badges: e.badges,
+        minutes: e.minutes,
+        priceCents: e.price_cents,
+        // What the card shows as "from": the cheapest price anyone could pay today.
+        fromPriceCents: Math.min(e.price_cents, ...mine.filter((p) => !p.claimed).map((p) => p.priceCents)),
+        promos: mine.map((p) => ({
+          id: p.id,
+          name: p.name,
+          daysOfWeek: p.daysOfWeek,
+          startTime: p.startTime,
+          endTime: p.endTime,
+          priceCents: p.priceCents,
+          claimed: p.claimed,
+        })),
+      };
+    }),
+    events: events.data!.map((e) => ({
+      id: e.id,
+      title: e.title,
+      body: e.body,
+      detail: e.detail,
+      ctaLabel: e.cta_label,
+      ctaUrl: e.cta_url,
+      asPopup: e.as_popup,
+      asBanner: e.as_banner,
     })),
   };
 }
@@ -143,11 +200,21 @@ function maxMinutesFrom(start: number, closeAt: number, busy: Busy[]): number {
   return Math.max(0, Math.floor((limit - start) / (SLOT_MINUTES * MINUTE_MS)) * SLOT_MINUTES);
 }
 
-export async function availability(deps: AppDeps, typeIdOrKey: string, date: string) {
+/**
+ * What is free on one day.
+ *
+ * With `experienceKey`, the length asked of every resource is the experience's own fixed length,
+ * so "3 spots" means three simulators free for the whole Double Race, not for half of it (D65, D70).
+ */
+export async function availability(deps: AppDeps, typeIdOrKey: string, date: string, experienceKey?: string) {
   const now = deps.clock.now();
   const settings = await loadSettings(deps.db);
   const tz = settings.timezone;
-  const type = await activeType(deps, typeIdOrKey);
+  const exp = experienceKey ? await loadExperience(deps.db, experienceKey) : null;
+  const type = await activeType(deps, exp ? exp.experience.resourceTypeId : typeIdOrKey);
+  if (exp && exp.experience.resourceTypeId !== type.id) {
+    throw new ApiError(404, "not_found", "That experience isn't available here");
+  }
   const resources = await activeResources(deps, type.id);
   const today = toLocal(now.getTime(), tz).date;
   const lastDate = addDaysToDate(today, settings.booking_window_days);
@@ -156,14 +223,20 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   if (error) throw mapDbError(error);
 
   // Bookings are sold in sessions; the resource type's own minimum is for walk-ins at the counter.
+  // An experience overrides that with its own fixed length.
   const sessionMinutes = settings.session_minutes;
+  const requiredMinutes = exp ? exp.experience.minutes : sessionMinutes;
   const base = {
     date,
     timeZone: tz,
     today,
     lastDate,
     sessionMinutes,
-    resourceType: { id: type.id, key: type.key, name: type.name, minMinutes: sessionMinutes, baseRateCents: type.base_rate_cents },
+    requiredMinutes,
+    experience: exp
+      ? { id: exp.experience.id, key: exp.experience.key, name: exp.experience.name, minutes: exp.experience.minutes }
+      : null,
+    resourceType: { id: type.id, key: type.key, name: type.name, minMinutes: requiredMinutes, baseRateCents: type.base_rate_cents },
     resources: resources.map((r) => ({ id: r.id, label: r.label })),
     open: hours ? wallTime(hours.open_time) : null,
     close: hours ? wallTime(hours.close_time) : null,
@@ -178,7 +251,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const busy = await busyPeriods(deps, resources.map((r) => r.id), openAt, closeAt, now);
 
   const slots = [];
-  for (let t = openAt; t + sessionMinutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
+  for (let t = openAt; t + requiredMinutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
     if (t < earliest) continue;
     const resourceMaxMinutes: Record<string, number> = {};
     for (const r of resources) {
@@ -187,7 +260,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
         closeAt,
         busy.filter((b) => b.resourceId === r.id),
       );
-      resourceMaxMinutes[r.id] = max >= sessionMinutes ? max : 0;
+      resourceMaxMinutes[r.id] = max >= requiredMinutes ? max : 0;
     }
     const lengths = Object.values(resourceMaxMinutes);
     slots.push({
@@ -218,17 +291,25 @@ export async function checkReferral(deps: AppDeps, code: string, now: Date): Pro
 }
 
 export interface BookingRequest {
-  resourceTypeId: string;
+  /** Ignored when `experienceKey` is given: the experience knows its own resource type. */
+  resourceTypeId?: string | undefined;
+  /** An experience is a fixed length at a flat price (D65). It replaces `durationMinutes`. */
+  experienceKey?: string | undefined;
   date: string;
   startTime: string;
-  durationMinutes: number;
+  durationMinutes?: number | undefined;
   referralCode?: string | undefined;
   freeMinutes?: number | undefined;
+  /** The customer has asked for a price that has to be claimed, e.g. the student price (D66). */
+  claimedPromoIds?: string[] | undefined;
 }
 
 export interface BookingQuote {
   resourceTypeId: string;
   resourceTypeName: string;
+  experience: { id: string; key: string; name: string; minutes: number; listPriceCents: number } | null;
+  /** The promotional prices the customer could still ask for at this start time (D66). */
+  claimablePromos: { id: string; name: string; priceCents: number }[];
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
@@ -243,23 +324,33 @@ export interface BookingQuote {
   maxFreeMinutes: number;
 }
 
-/** Prices a booking with the one engine. `member` is the signed-in, eligible member (6b-2), else null. */
+/**
+ * Prices a booking with the one engine. `member` is the signed-in, eligible member (6b-2), else null.
+ *
+ * Two ways in, as the engine has: an **experience** is a fixed length at a flat price (D65);
+ * anything else is a length of time at an hourly rate.
+ */
 export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: MemberSummary | null): Promise<BookingQuote> {
   const now = deps.clock.now();
   const settings = await loadSettings(deps.db);
   const tz = settings.timezone;
-  const type = await activeType(deps, req.resourceTypeId);
-  if (!isWallTime(req.startTime)) throw new ApiError(422, "validation_failed", "Start time must be HH:MM");
-  // D63: a booking is at least one session, then 15-minute steps. Walk-ins are not sold here.
   const sessionMinutes = settings.session_minutes;
-  if (req.durationMinutes < sessionMinutes || req.durationMinutes % SLOT_MINUTES !== 0) {
+
+  const exp: ExperienceContext | null = req.experienceKey ? await loadExperience(deps.db, req.experienceKey) : null;
+  if (!exp && !req.resourceTypeId) throw new ApiError(422, "validation_failed", "Choose what you'd like to book");
+  const type = await activeType(deps, exp ? exp.experience.resourceTypeId : req.resourceTypeId!);
+
+  if (!isWallTime(req.startTime)) throw new ApiError(422, "validation_failed", "Start time must be HH:MM");
+  // An experience sets its own length; everything else is sold in sessions (D63).
+  const durationMinutes = exp ? exp.experience.minutes : (req.durationMinutes ?? 0);
+  if (!exp && (durationMinutes < sessionMinutes || durationMinutes % SLOT_MINUTES !== 0)) {
     throw new ApiError(422, "validation_failed", `Bookings start at ${sessionMinutes} minutes (one session), then go up in ${SLOT_MINUTES}-minute steps`);
   }
   const startAt = localToInstant(req.date, req.startTime, tz);
   if (toLocal(startAt, tz).label !== `${req.date} ${req.startTime}`) {
     throw new ApiError(422, "invalid_time", "That time doesn't exist on this day (daylight saving change)");
   }
-  const endAt = startAt + req.durationMinutes * MINUTE_MS;
+  const endAt = startAt + durationMinutes * MINUTE_MS;
   if (member && req.referralCode) throw new ApiError(422, "member_and_referral", "A membership and a referral code cannot be used together");
   if (member && !member.eligible) throw new ApiError(409, "member_inactive", "This membership is not active");
 
@@ -269,27 +360,48 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   }
   const freeMinutes = req.freeMinutes ?? 0;
   if (freeMinutes > 0 && !member) throw new ApiError(422, "validation_failed", "Free minutes need a member");
-  if (freeMinutes > 0 && (freeMinutes < sessionMinutes || freeMinutes % SLOT_MINUTES !== 0)) {
-    throw new ApiError(422, "validation_failed", `Free play on a booking starts at ${sessionMinutes} minutes, then goes up in ${SLOT_MINUTES}-minute steps`);
+  // Free play is spent the way the time is sold: whole sessions on an experience, otherwise
+  // a session and then 15-minute steps. The quote has to check this itself — it never reaches
+  // the database, so a wrong amount here would price the booking wrongly and only fail at payment.
+  if (freeMinutes > 0) {
+    if (exp) {
+      if (freeMinutes % sessionMinutes !== 0) {
+        throw new ApiError(422, "validation_failed", `Free play on ${exp.experience.name} is used ${sessionMinutes} minutes at a time`);
+      }
+    } else if (freeMinutes < sessionMinutes || freeMinutes % SLOT_MINUTES !== 0) {
+      throw new ApiError(422, "validation_failed", `Free play on a booking starts at ${sessionMinutes} minutes, then goes up in ${SLOT_MINUTES}-minute steps`);
+    }
   }
   if (member && freeMinutes > member.balanceMinutes) {
     throw new ApiError(422, "insufficient_balance", "Not enough free-play minutes", { balanceMinutes: member.balanceMinutes });
   }
 
-  const ctx = await loadPricingContext(deps.db, type.id, tz);
   let pricing: PriceResult;
   try {
-    pricing = priceSession({
-      startAt,
-      endAt,
-      timeZone: tz,
-      resourceType: ctx.resourceType,
-      rateBands: ctx.rateBands,
-      happyHours: ctx.happyHours,
-      applyMinimum: true,
-      ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
-      ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
-    });
+    if (exp) {
+      pricing = priceExperience({
+        startAt,
+        timeZone: tz,
+        experience: exp.experience,
+        promos: exp.promos,
+        claimedPromoIds: req.claimedPromoIds ?? [],
+        ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
+        ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
+      });
+    } else {
+      const ctx = await loadPricingContext(deps.db, type.id, tz);
+      pricing = priceSession({
+        startAt,
+        endAt,
+        timeZone: tz,
+        resourceType: ctx.resourceType,
+        rateBands: ctx.rateBands,
+        happyHours: ctx.happyHours,
+        applyMinimum: true,
+        ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
+        ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
+      });
+    }
   } catch (err) {
     if (err instanceof PricingError) throw new ApiError(422, "validation_failed", err.message);
     throw err;
@@ -298,9 +410,19 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   return {
     resourceTypeId: type.id,
     resourceTypeName: type.name,
+    experience: exp
+      ? {
+          id: exp.experience.id,
+          key: exp.experience.key,
+          name: exp.experience.name,
+          minutes: exp.experience.minutes,
+          listPriceCents: exp.experience.priceCents,
+        }
+      : null,
+    claimablePromos: exp ? claimableNow(exp.promos, startAt, tz) : [],
     startsAt: new Date(startAt).toISOString(),
     endsAt: new Date(endAt).toISOString(),
-    durationMinutes: req.durationMinutes,
+    durationMinutes,
     pricing,
     subtotalCents: pricing.subtotalCents,
     discountCents: pricing.discount?.amountCents ?? 0,
@@ -309,8 +431,22 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     explanation: pricing.explanation,
     referral: referral && { id: referral.id, code: referral.code, type: referral.type, value: referral.value },
     member: member && { id: member.id, memberNo: member.memberNo, tierName: member.tierName, discountBp: member.discountBp, balanceMinutes: member.balanceMinutes },
-    maxFreeMinutes: member ? Math.min(member.balanceMinutes, req.durationMinutes) : 0,
+    maxFreeMinutes: member ? Math.min(member.balanceMinutes, durationMinutes) : 0,
   };
+}
+
+/** The promotions the customer could tick at this start time, so the site can offer them. */
+function claimableNow(promos: ExperiencePromo[], startAt: number, timeZone: string) {
+  const local = toLocal(startAt, timeZone);
+  const minuteOfDay = local.hour * 60 + local.minute;
+  return promos
+    .filter((p) => {
+      if (!p.claimed || !p.daysOfWeek.includes(local.isoDayOfWeek)) return false;
+      const [sh = 0, sm = 0] = p.startTime.split(":").map(Number);
+      const [eh = 0, em = 0] = p.endTime.split(":").map(Number);
+      return minuteOfDay >= sh * 60 + sm && minuteOfDay < eh * 60 + em;
+    })
+    .map((p) => ({ id: p.id, name: p.name, priceCents: p.priceCents }));
 }
 
 // ── Hold → pay ───────────────────────────────────────────────────────────────
@@ -353,6 +489,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
     discountCents: quote.referral ? quote.discountCents : 0,
     referral: quote.referral,
     member: quote.member && { id: quote.member.id, memberNo: quote.member.memberNo, tierName: quote.member.tierName },
+    experience: quote.experience,
   };
 
   let booking: { id: string; ref: string; hold_expires_at: string | null; resource_id: string } | null = null;
@@ -365,6 +502,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
         now: now.toISOString(),
         memberId: member?.id ?? null,
         customer: guest,
+        experienceId: quote.experience?.id ?? null,
         referralCodeId: quote.referral?.id ?? null,
         freeMinutes: quote.pricing.freeMinutes,
         pricing: snapshot,
@@ -409,7 +547,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
                 currency: "aud",
                 unit_amount: quote.totalCents,
                 product_data: {
-                  name: `${quote.resourceTypeName} · ${resourceLabel}`,
+                  name: quote.experience ? `${quote.experience.name} · ${resourceLabel}` : `${quote.resourceTypeName} · ${resourceLabel}`,
                   description: `${start.date}, ${start.time}–${end.time} (Sydney time) · booking ${booking.ref}`,
                 },
               },
@@ -513,7 +651,8 @@ export async function handleBookingCheckoutExpired(deps: AppDeps, session: Strip
 }
 
 // ── Customer links ───────────────────────────────────────────────────────────
-const BOOKING_SELECT = "*, resources!inner(label, resource_types!inner(name, key)), customers!inner(name, email, phone)" as const;
+const BOOKING_SELECT =
+  "*, resources!inner(label, resource_types!inner(name, key)), customers!inner(name, email, phone), experiences(name, key)" as const;
 
 type BookingRow = {
   id: string;
@@ -533,6 +672,7 @@ type BookingRow = {
   stripe_payment_intent_id: string | null;
   resources: { label: string; resource_types: { name: string; key: string } };
   customers: { name: string; email: string | null; phone: string | null };
+  experiences: { name: string; key: string } | null;
 };
 
 /** A booking link is valid only with its token; anything else looks like "not found". */
@@ -583,6 +723,9 @@ export async function describeBooking(deps: AppDeps, b: BookingRow) {
   return {
     ref: b.ref,
     status: b.status,
+    // What the customer bought: the experience if there was one, otherwise the kind of resource.
+    what: b.experiences?.name ?? b.resources.resource_types.name,
+    experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
     resource: b.resources.label,
     startsAt: start.toISOString(),
@@ -744,7 +887,7 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
   const { start, end } = parseRange(b.period);
   const s = venueText(start, settings.timezone);
   const endTime = venueText(end, settings.timezone).time;
-  const what = `${b.resources.resource_types.name} · ${b.resources.label}`;
+  const what = `${b.experiences?.name ?? b.resources.resource_types.name} · ${b.resources.label}`;
   const paid = b.total_cents
     ? `Paid: ${formatCents(b.total_cents)} (incl. GST ${formatCents(b.gst_cents ?? 0)})`
     : "Paid: $0.00";
@@ -780,6 +923,9 @@ function summarize(b: BookingRow, timeZone: string) {
     id: b.id,
     ref: b.ref,
     status: b.status,
+    // What the customer bought: the experience if there was one, otherwise the kind of resource.
+    what: b.experiences?.name ?? b.resources.resource_types.name,
+    experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
     resource: b.resources.label,
     startsAt: start.toISOString(),

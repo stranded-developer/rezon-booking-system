@@ -8,7 +8,7 @@ import { OPERATOR_HEADER, PASSIVE_HEADER } from "./middleware/auth.js";
 import { adminRoutes } from "./routes/admin.js";
 import { posRoutes } from "./routes/pos.js";
 import { meRoutes } from "./routes/me.js";
-import { bookingRoutes, publicRoutes } from "./routes/public.js";
+import { bookingRoutes, publicRoutes, tournamentRoutes } from "./routes/public.js";
 import { systemRoutes } from "./routes/system.js";
 
 export function createApp(deps: AppDeps) {
@@ -35,6 +35,7 @@ export function createApp(deps: AppDeps) {
   app.route("/admin", adminRoutes);
   app.route("/public", publicRoutes);
   app.route("/bookings", bookingRoutes);
+  app.route("/tournaments", tournamentRoutes);
   app.route("/me", meRoutes);
   app.route("/", systemRoutes);
 

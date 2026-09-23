@@ -5,6 +5,7 @@ import { ApiError, mapDbError } from "../errors.js";
 import { writeAudit } from "../lib/audit.js";
 import { auditHeaders } from "../lib/audit-headers.js";
 import { handleBookingCheckoutCompleted, handleBookingCheckoutExpired } from "./bookings.js";
+import { handleEntryCheckoutCompleted, handleEntryCheckoutExpired } from "./tournaments.js";
 import { getMember } from "./lookup.js";
 import { currentMemberQr, nextMemberCard } from "../lib/qr.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
@@ -195,13 +196,18 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
     case "checkout.session.completed": {
       const session = event.data.object;
       if (session.mode === "subscription" && session.subscription) await syncSubscription(deps, subscriptionIdOf(session.subscription)!);
-      else if (session.mode === "payment") handled = await handleBookingCheckoutCompleted(deps, session);
+      // A one-off payment is either a booking or a tournament entry; each ignores the other's sessions.
+      else if (session.mode === "payment")
+        handled = (await handleBookingCheckoutCompleted(deps, session)) || (await handleEntryCheckoutCompleted(deps, session));
       else handled = false;
       break;
     }
     case "checkout.session.expired": {
       const session = event.data.object;
-      handled = session.mode === "payment" ? await handleBookingCheckoutExpired(deps, session) : false;
+      handled =
+        session.mode === "payment"
+          ? (await handleBookingCheckoutExpired(deps, session)) || (await handleEntryCheckoutExpired(deps, session))
+          : false;
       break;
     }
     case "invoice.paid": {

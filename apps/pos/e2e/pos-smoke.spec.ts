@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { toLocal } from "@raceground/pricing";
-import { loadFixture } from "./fixture";
+import { loadFixture, tierValues } from "./fixture";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
 const dollars = (text: string) => Math.round(Number(text.replace(/[^0-9.]/g, "")) * 100);
@@ -58,18 +58,21 @@ test("a cashier runs the counter: sign in, PIN, till, walk-in, member close, rec
   await scan.fill(`rg:m:${f.memberToken}`);
   await scan.press("Enter");
   await expect(page.getByText(f.memberName)).toBeVisible();
-  await expect(page.getByText("Gold member 10%")).toBeVisible();
+  const gold = await tierValues("Gold");
+  await expect(page.getByText(`${gold.name} member ${gold.discountBp / 100}%`)).toBeVisible();
   await shot(page, "05-close-with-member");
 
   const dialog = page.getByRole("dialog");
   const totalCents = dollars((await dialog.locator(".text-5xl").first().textContent()) ?? "");
-  // Closed straight away → 15-minute minimum on a $30/hr table, Gold 10% off.
-  // Entirely inside weekday happy hour: 15 min @ $27/hr = $6.75 → $6.08. Outside: $7.50 → $6.75.
+  // Closed straight away → 15-minute minimum on a $30/hr table, less the tier's own percentage.
+  // Inside weekday happy hour the rate is $27/hr, so 15 min is $6.75; outside it is $7.50.
+  // The percentage is read from the tier, not typed in, because the owner can change it (D67).
+  const afterTier = (cents: number) => Math.round((cents * (10_000 - gold.discountBp)) / 10_000);
   const at = toLocal(Date.now(), "Australia/Sydney");
   const weekdayHappyHour = at.isoDayOfWeek <= 5 && at.minuteOfDay >= 10 * 60 && at.minuteOfDay < 14 * 60 + 44;
   const outsideHappyHour = at.isoDayOfWeek > 5 || at.minuteOfDay >= 15 * 60;
-  if (weekdayHappyHour) expect(totalCents).toBe(608);
-  else if (outsideHappyHour) expect(totalCents).toBe(675);
+  if (weekdayHappyHour) expect(totalCents).toBe(afterTier(675));
+  else if (outsideHappyHour) expect(totalCents).toBe(afterTier(750));
   else expect(totalCents).toBeGreaterThan(0);
 
   await expect(dialog.getByRole("button", { name: /^Take .* by card$/ })).toBeEnabled();

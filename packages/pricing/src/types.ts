@@ -58,6 +58,8 @@ export interface PriceSessionInput {
 }
 
 export interface PriceSegment {
+  /** "time" is billed per minute at a rate; "experience" is a share of a flat package price (D65). */
+  kind: "time" | "experience";
   startAt: number;
   endAt: number;
   /** "YYYY-MM-DD HH:MM" in the venue timezone. */
@@ -90,5 +92,58 @@ export interface PriceResult {
   discount: AppliedDiscount | null;
   totalCents: number;
   gstCents: number;
+  /** Set when the price came from an experience rather than an hourly rate (D65). */
+  experience: AppliedExperience | null;
   explanation: string[];
+}
+
+// ── Experiences (D65) ───────────────────────────────────────────────────────
+// A named package with a fixed length and a flat price, rather than an hourly rate.
+
+export interface ExperiencePricing {
+  id: string;
+  name: string;
+  resourceTypeId: string;
+  /** Fixed length in minutes. */
+  minutes: number;
+  /** Flat price in cents, GST-inclusive, for the whole experience. */
+  priceCents: number;
+}
+
+/** A named window with its own flat price for one experience (D66). */
+export interface ExperiencePromo {
+  id: string;
+  name: string;
+  experienceId: string;
+  daysOfWeek: IsoDayOfWeek[];
+  startTime: WallTime;
+  endTime: WallTime;
+  priceCents: number;
+  /** When true the price only applies if the customer asks for it (e.g. a student price). */
+  claimed: boolean;
+}
+
+export interface PriceExperienceInput {
+  /** The experience is one fixed block; the promotion is decided by this instant. */
+  startAt: number;
+  timeZone: string;
+  experience: ExperiencePricing;
+  promos: ExperiencePromo[];
+  /** Ids of `claimed` promotions the customer has asked for. */
+  claimedPromoIds?: string[];
+  member?: MemberDiscount;
+  referral?: ReferralDiscount;
+  /** Requested free-play minutes from the member balance; covers a pro-rata share of the price. */
+  freeMinutes?: number;
+}
+
+export interface AppliedExperience {
+  id: string;
+  name: string;
+  minutes: number;
+  /** The experience's own price, before any promotion. */
+  listPriceCents: number;
+  /** The price actually used: the promotion's if one applied, otherwise the list price. */
+  priceCents: number;
+  promo: { id: string; name: string; priceCents: number } | null;
 }

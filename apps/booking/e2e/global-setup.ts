@@ -75,7 +75,15 @@ export default async function globalSetup() {
     freeCode,
     usedUpCode,
     customerEmail: `e2e-web-${run}@raceground.test`,
-    counterMember: { name: memberName, email: memberEmail, memberNo: member.member_no as string, tierName: tier!.name as string, balanceMinutes: 60 },
+    counterMember: {
+      name: memberName,
+      email: memberEmail,
+      memberNo: member.member_no as string,
+      tierName: tier!.name as string,
+      // Read from the tier, not typed in: the owner can change the percentage (D67).
+      discountBp: tier!.discount_bp as number,
+      balanceMinutes: 60,
+    },
     joiner: { name: `E2E Joiner ${run}`, email: `e2e-joiner-${run}@raceground.test` },
     password: "e2e-password-123",
     staff: { id: staff.id as string, email: staffEmail, pin: staffPin },

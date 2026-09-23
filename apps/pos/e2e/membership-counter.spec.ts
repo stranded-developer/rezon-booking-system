@@ -2,7 +2,7 @@
  * Selling a membership paid for at the counter (D61). No Stripe involved, so this runs always.
  */
 import { expect, test } from "@playwright/test";
-import { loadFixture, localSupabase } from "./fixture";
+import { loadFixture, localSupabase, money, tierValues } from "./fixture";
 
 /** This test opens the till; leave it closed for whatever runs next. */
 test.afterAll(async () => {
@@ -53,14 +53,16 @@ test("a cashier sells three months of Silver for cash and prints the card", asyn
   await sale.getByLabel("Name").fill(name);
   await sale.getByLabel(/^Email/).fill(email);
 
-  // $100 a month for three months, shown before anything is taken.
-  await expect(sale.getByRole("button", { name: "Take $300.00" })).toBeEnabled();
-  await sale.getByRole("button", { name: "Take $300.00" }).click();
+  // The tier's own monthly price for three months, shown before anything is taken.
+  const silver = await tierValues("Silver");
+  const threeMonths = money(silver.monthlyPriceCents * 3);
+  await expect(sale.getByRole("button", { name: `Take ${threeMonths}` })).toBeEnabled();
+  await sale.getByRole("button", { name: `Take ${threeMonths}` }).click();
 
   const done = sale.getByTestId("counter-sale-done");
   await expect(done).toBeVisible();
   await expect(done).toContainText(name);
-  await expect(done).toContainText("$300.00 taken (cash)");
+  await expect(done).toContainText(`${threeMonths} taken (cash)`);
   await expect(done).toContainText("180 min free play");
   await expect(done).toContainText("not billed automatically");
   await expect(sale.getByTestId("member-qr").locator("svg")).toBeVisible();
@@ -73,7 +75,7 @@ test("a cashier sells three months of Silver for cash and prints the card", asyn
   expect(new Date(member!.current_period_end!).getTime()).toBeGreaterThan(Date.now());
 
   const { data: payment } = await db.from("payments").select("id, method, amount_cents, gst_cents").eq("member_id", member!.id).single();
-  expect(payment).toMatchObject({ method: "cash", amount_cents: 30000, gst_cents: 2727 });
+  expect(payment).toMatchObject({ method: "cash", amount_cents: silver.monthlyPriceCents * 3, gst_cents: Math.round((silver.monthlyPriceCents * 3) / 11) });
 
   const { count: movements } = await db.from("cash_movements").select("id", { count: "exact", head: true }).eq("payment_id", payment!.id);
   expect(movements).toBe(1);

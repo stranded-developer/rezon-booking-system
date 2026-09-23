@@ -12,6 +12,9 @@ let owner: TestStaff;
 let op: string;
 let silverId: string;
 let goldId: string;
+/** Read from the tier, not typed in: the price is the owner's to change (D67). */
+let silverPrice: number;
+const gstOf = (cents: number) => Math.round(cents / 11);
 const run = randomUUID().slice(0, 6);
 const CRON_SECRET = `counter-${run}-0123456789abcdef0123456789`;
 
@@ -30,8 +33,10 @@ beforeAll(async () => {
   owner = await makeStaff(ctx, "superadmin", "3344", "counter-owner");
   op = await operatorToken(ctx, cashier);
   await finishOpenWork(ctx, owner.id);
-  const { data: tiers } = await ctx.db.from("membership_tiers").select("id, name").in("name", ["Silver", "Gold"]);
-  silverId = tiers!.find((t) => t.name === "Silver")!.id;
+  const { data: tiers } = await ctx.db.from("membership_tiers").select("id, name, monthly_price_cents").in("name", ["Silver", "Gold"]);
+  const silver = tiers!.find((t) => t.name === "Silver")!;
+  silverId = silver.id;
+  silverPrice = silver.monthly_price_cents;
   goldId = tiers!.find((t) => t.name === "Gold")!.id;
 });
 
@@ -55,7 +60,7 @@ describe("selling a membership at the counter", () => {
     const email = uniqueEmail("counter-member");
     const r = await sell({ name: `Counter Member ${run}`, email, tierId: silverId, months: 3, method: "cash" });
     expect(r.status).toBe(201);
-    expect(r.json).toMatchObject({ newMember: true, amountCents: 30000, gstCents: 2727, minutesGranted: 180, tierName: "Silver" });
+    expect(r.json).toMatchObject({ newMember: true, amountCents: silverPrice * 3, gstCents: gstOf(silverPrice * 3), minutesGranted: 180, tierName: "Silver" });
     expect(r.json.member).toMatchObject({ status: "active", eligible: true, balanceMinutes: 180 });
     expect(r.json.card.qr).toMatch(/^rg:m:/);
 
@@ -68,10 +73,10 @@ describe("selling a membership at the counter", () => {
 
     // The money is on the till, as cash.
     const { data: payment } = await ctx.db.from("payments").select("method, amount_cents, gst_cents, shift_id").eq("member_id", r.json.memberId).single();
-    expect(payment).toMatchObject({ method: "cash", amount_cents: 30000, gst_cents: 2727 });
+    expect(payment).toMatchObject({ method: "cash", amount_cents: silverPrice * 3, gst_cents: gstOf(silverPrice * 3) });
     expect(payment!.shift_id).not.toBeNull();
     const { data: movement } = await ctx.db.from("cash_movements").select("amount_cents, kind").eq("payment_id", (await ctx.db.from("payments").select("id").eq("member_id", r.json.memberId).single()).data!.id).single();
-    expect(movement).toMatchObject({ kind: "sale", amount_cents: 30000 });
+    expect(movement).toMatchObject({ kind: "sale", amount_cents: silverPrice * 3 });
   });
 
   it("refuses a length that isn't sold, and a tier that isn't active", async () => {

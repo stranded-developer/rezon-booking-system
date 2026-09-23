@@ -72,6 +72,34 @@ happy_hours
 ```
 Overlap rules for rate bands and happy hours are enforced by the API using `packages/pricing` validators. Array overlaps are awkward as DB constraints.
 
+### Experiences (D65, D66)
+
+An **experience** is a named package with a fixed length and a flat price, sold online instead of a length of time. Simulators are sold this way; billiards and VR keep the hourly rate, and **every walk-in stays hourly**.
+
+```
+experiences
+  key              text unique      'quick_race' | 'leaderboard_challenge' | 'double_race'
+  resource_type_id → resource_types
+  name             text             'Quick Race'
+  tagline          text null        'Single session'
+  bullets          text[]           the lines on the card
+  badges           text[]           'Most popular', 'Save over 20%'
+  minutes          int  check (> 0 and minutes % 15 = 0)
+  price_cents      int  check ≥ 0   -- flat, for the whole experience, incl. GST
+  sort, active
+
+experience_promos                    -- flat promotional prices; the cheapest match wins
+  experience_id  → experiences (on delete cascade)
+  name           text              'Happy Hour' | 'Student'
+  days_of_week   smallint[]        values 1..7
+  start_time, end_time             check (end_time > start_time); '24:00' allowed as an end
+  price_cents    int check ≥ 0
+  claimed        boolean           true = only applies if the customer asks for it
+  sort, active
+```
+
+**Overlap is allowed on `experience_promos`, on purpose.** The cheapest matching price wins, so an overlap is how "the student price is not included in Happy Hour" is expressed. There is no validator rejecting it.
+
 ## People
 
 ```
@@ -101,6 +129,8 @@ membership_tiers
   monthly_price_cents  int check ≥ 0      -- incl. GST
   monthly_free_minutes int check ≥ 0
   max_balance_minutes  int check ≥ 0
+  perks                text[]            -- listed on the site, not enforced (D67)
+  monthly_free_tournaments int check ≥ 0 -- 0 at launch; the flow is built, the perk is off (D68)
   stripe_product_id    text
   stripe_price_id      text               -- current price; old prices kept in tier_prices
   sort, active
@@ -170,6 +200,7 @@ bookings
   stripe_payment_intent_id   text unique null
   cancel_token_hash text             -- for the email cancel link
   cancelled_at, cancelled_by_staff_id, cancel_reason, refund_cents
+  experience_id    → experiences null -- set when sold as an experience (D65)
 
   EXCLUDE USING gist (resource_id WITH =, period WITH &&)
     WHERE (status IN ('held','confirmed','arrived'))
@@ -195,6 +226,50 @@ sessions
   void_reason
 
   UNIQUE (resource_id) WHERE status = 'open'
+```
+
+### Tournaments (D68)
+
+```
+tournaments
+  name            text
+  blurb           text null
+  starts_at       timestamptz
+  spots           int check > 0
+  entry_fee_cents int check ≥ 0
+  published       boolean           -- unpublished is invisible to the public
+  sort
+
+tournament_entries
+  ref             text unique       6-char, same alphabet as bookings
+  tournament_id   → tournaments
+  customer_id     → customers
+  member_id       → members null
+  status          text check in ('held','confirmed','cancelled','expired')
+  hold_expires_at timestamptz null
+  free_entry      boolean           -- covered by the member's allowance rather than paid for
+  pricing_snapshot jsonb null
+  total_cents, gst_cents
+  stripe_checkout_session_id / stripe_payment_intent_id  text unique null
+  cancel_token_hash, cancelled_at
+
+  UNIQUE (tournament_id, customer_id) WHERE status IN ('held','confirmed')
+```
+
+**Spots left** counts confirmed entries *and* holds that have not expired, the same way a referral code counts live holds. A cancelled entry frees its spot and lets that person sign up again.
+
+### Site events (D69)
+
+```
+site_events
+  title      text
+  body       text null
+  detail     text null         -- a highlight line, e.g. '$2,000 cash prize pool'
+  cta_label  text null         -- label and url are both set or both null
+  cta_url    text null
+  show_from, show_until  timestamptz null    check (show_until > show_from)
+  as_popup, as_banner    boolean
+  sort, active
 ```
 
 ## Money
@@ -240,7 +315,7 @@ price_overrides
 | Function | Purpose |
 |---|---|
 | `expire_stale_holds(now)` | Marks `held` bookings past `hold_expires_at` as `expired`, returns their free minutes. Returns the count. |
-| `booking_hold(p)` | One transaction: sweep stale holds; resource active; 15-min grid and type minimum; ≥ online cutoff; within the booking window (venue dates); inside opening hours; member active/cancelling or guest with email/phone (customer reused by email, any case, or phone); member XOR referral; referral valid with live holds counted; insert `held` (overlap → `slot_taken`); free minutes `use`; audit. |
+| `booking_hold(p)` | One transaction: sweep stale holds; resource active; 15-min grid; **either** an experience (active, on this resource type, booked for exactly its own length, free play in whole sessions) **or** the session rules (≥ one session, then 15-min steps); ≥ online cutoff; within the booking window (venue dates); inside opening hours; member active/cancelling or guest with email/phone (customer reused by email, any case, or phone); member XOR referral; referral valid with live holds counted; insert `held` (overlap → `slot_taken`); free minutes `use`; audit. |
 | `booking_attach_checkout`, `booking_release_hold` | Store the Checkout session on a hold; release a hold now (Checkout expired) returning minutes. |
 | `booking_confirm(booking, p)` | Held → confirmed; amount paid must equal the total (`free` only for $0); payment row (not on the till); referral use + redemption; saves Stripe's email to a customer without one; a repeat is `duplicate`; an expired hold raises `hold_expired` (the API refunds). |
 | `booking_cancel_quote(booking, now, venue_fault)`, `booking_cancel(booking, p)` | Refund policy from the amount paid: ≥ 24 h full + minutes; 2–24 h half (rounded down), minutes kept; < 2 h refused; venue fault (staff) full + minutes. The customer's refund must match the quote they saw. Staff override: any amount up to paid, with reason, optional minutes. Refund row with the Stripe refund id; referral use not restored; audited. |
@@ -249,6 +324,11 @@ price_overrides
 | `pos_close_session(session, staff, payload)` | One transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
 | `pos_void_session` | Open walk-in: void. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
 | `admin_create_member`, `admin_adjust_balance`, `admin_reissue_qr`, `admin_set_tier_price` | Complimentary member (customer + member + audit); ± balance with reason (can't go negative); card reissue by token hash; tier price + `tier_prices` history. |
+| `tournament_spots_left(tournament, now)` | Spots minus confirmed entries and live holds. |
+| `expire_stale_tournament_holds(now)` | Marks `held` entries past `hold_expires_at` as `expired`. Returns the count. |
+| `tournament_hold(p)` | One transaction: sweep stale entry holds; tournament published and not started; member active or guest with email/phone; a member with free entries left is **confirmed immediately at $0** (allowance 0 at launch, so today nobody is); spots checked; insert (duplicate → `already_entered`, none left → `tournament_full`); audit. |
+| `tournament_attach_checkout`, `tournament_release_hold` | Store the Checkout session on an entry hold; release a hold now. |
+| `tournament_confirm(entry, p)` | Held → confirmed; the amount paid must equal the entry total; payment row; a repeat is `duplicate`; an expired hold raises `hold_expired`. |
 | `pos_refund_payment(payment, staff, amount, reason)` | Partial refund of a cash/card payment: never more than what's left, needs an open till, cash-out movement for cash, audited. Stripe payments are refunded through Stripe. |
 | trigger `audit_config_change` | On config tables (including `venue_photos`): writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
 | `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
@@ -282,6 +362,9 @@ rate_limits           key PK, window_start, hits   -- fixed-window counters shar
 | `opening_hours` | days 1–7, 10:00–21:00 |
 | `resource_types` | billiard $30.00 / 15 min · sim $60.00 / 15 min · vr $50.00 / 15 min |
 | `resources` | Table 1–2 · Sim 1–6 · VR 1–2 |
-| `happy_hours` | "Weekday Happy Hour", all types, days 1–5, 10:00–15:00, 1000 bp |
-| `membership_tiers` | Silver 500 bp $100.00 60 min cap 600 · Gold 1000 bp $200.00 60/600 · Diamond 1500 bp $300.00 60/600 |
+| `happy_hours` | "Happy Hour", all types, days 1–5, 10:00–15:00, 1000 bp — prices **billiards, VR and every walk-in** |
+| `experiences` | Quick Race 30 min $35.00 · Leaderboard Challenge 30 min $35.00 · Double Race 60 min $58.00 (badged) — all on the simulators |
+| `experience_promos` | Happy Hour, every day 12:00–15:00: $29 / $29 / $49, automatic · Student, every day, all hours: $32 / $32 / $52, only on request |
+| `membership_tiers` | Silver 1000 bp $48.00 60 min cap 600 · Gold 2000 bp $78.00 120/1200 · Diamond 2000 bp $128.00 240/2400, each with a `perks` list and 0 free tournaments |
+| `tournaments`, `site_events` | none — the owner creates these in the back office |
 | `staff` | 1 superadmin, 1 cashier (created via setup script, not committed credentials) |

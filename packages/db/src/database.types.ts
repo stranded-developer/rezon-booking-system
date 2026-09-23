@@ -74,6 +74,7 @@ export type Database = {
           cancelled_by_staff_id: string | null
           created_at: string
           customer_id: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           hold_expires_at: string | null
@@ -98,6 +99,7 @@ export type Database = {
           cancelled_by_staff_id?: string | null
           created_at?: string
           customer_id: string
+          experience_id?: string | null
           free_minutes_used?: number
           gst_cents?: number | null
           hold_expires_at?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           cancelled_by_staff_id?: string | null
           created_at?: string
           customer_id?: string
+          experience_id?: string | null
           free_minutes_used?: number
           gst_cents?: number | null
           hold_expires_at?: string | null
@@ -152,6 +155,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_experience_id_fkey"
+            columns: ["experience_id"]
+            isOneToOne: false
+            referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
@@ -320,6 +330,115 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      experience_promos: {
+        Row: {
+          active: boolean
+          claimed: boolean
+          created_at: string
+          days_of_week: number[]
+          end_time: string
+          experience_id: string
+          id: string
+          name: string
+          price_cents: number
+          sort: number
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          claimed?: boolean
+          created_at?: string
+          days_of_week: number[]
+          end_time: string
+          experience_id: string
+          id?: string
+          name: string
+          price_cents: number
+          sort?: number
+          start_time: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          claimed?: boolean
+          created_at?: string
+          days_of_week?: number[]
+          end_time?: string
+          experience_id?: string
+          id?: string
+          name?: string
+          price_cents?: number
+          sort?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_promos_experience_id_fkey"
+            columns: ["experience_id"]
+            isOneToOne: false
+            referencedRelation: "experiences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiences: {
+        Row: {
+          active: boolean
+          badges: string[]
+          bullets: string[]
+          created_at: string
+          id: string
+          key: string
+          minutes: number
+          name: string
+          price_cents: number
+          resource_type_id: string
+          sort: number
+          tagline: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          badges?: string[]
+          bullets?: string[]
+          created_at?: string
+          id?: string
+          key: string
+          minutes: number
+          name: string
+          price_cents: number
+          resource_type_id: string
+          sort?: number
+          tagline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          badges?: string[]
+          bullets?: string[]
+          created_at?: string
+          id?: string
+          key?: string
+          minutes?: number
+          name?: string
+          price_cents?: number
+          resource_type_id?: string
+          sort?: number
+          tagline?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiences_resource_type_id_fkey"
+            columns: ["resource_type_id"]
+            isOneToOne: false
+            referencedRelation: "resource_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       happy_hours: {
         Row: {
@@ -523,8 +642,10 @@ export type Database = {
           id: string
           max_balance_minutes: number
           monthly_free_minutes: number
+          monthly_free_tournaments: number
           monthly_price_cents: number
           name: string
+          perks: string[]
           sort: number
           stripe_price_id: string | null
           stripe_product_id: string | null
@@ -537,8 +658,10 @@ export type Database = {
           id?: string
           max_balance_minutes: number
           monthly_free_minutes: number
+          monthly_free_tournaments?: number
           monthly_price_cents: number
           name: string
+          perks?: string[]
           sort?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -551,8 +674,10 @@ export type Database = {
           id?: string
           max_balance_minutes?: number
           monthly_free_minutes?: number
+          monthly_free_tournaments?: number
           monthly_price_cents?: number
           name?: string
+          perks?: string[]
           sort?: number
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -601,6 +726,7 @@ export type Database = {
           session_id: string | null
           shift_id: string | null
           staff_id: string | null
+          tournament_entry_id: string | null
         }
         Insert: {
           amount_cents: number
@@ -615,6 +741,7 @@ export type Database = {
           session_id?: string | null
           shift_id?: string | null
           staff_id?: string | null
+          tournament_entry_id?: string | null
         }
         Update: {
           amount_cents?: number
@@ -629,6 +756,7 @@ export type Database = {
           session_id?: string | null
           shift_id?: string | null
           staff_id?: string | null
+          tournament_entry_id?: string | null
         }
         Relationships: [
           {
@@ -671,6 +799,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tournament_entry_id_fkey"
+            columns: ["tournament_entry_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_entries"
             referencedColumns: ["id"]
           },
         ]
@@ -1212,6 +1347,57 @@ export type Database = {
           },
         ]
       }
+      site_events: {
+        Row: {
+          active: boolean
+          as_banner: boolean
+          as_popup: boolean
+          body: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          detail: string | null
+          id: string
+          show_from: string | null
+          show_until: string | null
+          sort: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          as_banner?: boolean
+          as_popup?: boolean
+          body?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          detail?: string | null
+          id?: string
+          show_from?: string | null
+          show_until?: string | null
+          sort?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          as_banner?: boolean
+          as_popup?: boolean
+          body?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          detail?: string | null
+          id?: string
+          show_from?: string | null
+          show_until?: string | null
+          sort?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           active: boolean
@@ -1309,6 +1495,134 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tournament_entries: {
+        Row: {
+          cancel_token_hash: string | null
+          cancelled_at: string | null
+          created_at: string
+          customer_id: string
+          free_entry: boolean
+          gst_cents: number | null
+          hold_expires_at: string | null
+          id: string
+          member_id: string | null
+          pricing_snapshot: Json | null
+          ref: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          total_cents: number | null
+          tournament_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_token_hash?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_id: string
+          free_entry?: boolean
+          gst_cents?: number | null
+          hold_expires_at?: string | null
+          id?: string
+          member_id?: string | null
+          pricing_snapshot?: Json | null
+          ref?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          total_cents?: number | null
+          tournament_id: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_token_hash?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          customer_id?: string
+          free_entry?: boolean
+          gst_cents?: number | null
+          hold_expires_at?: string | null
+          id?: string
+          member_id?: string | null
+          pricing_snapshot?: Json | null
+          ref?: string
+          status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          total_cents?: number | null
+          tournament_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "member_balances"
+            referencedColumns: ["member_id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_entries_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          blurb: string | null
+          created_at: string
+          entry_fee_cents: number
+          id: string
+          name: string
+          published: boolean
+          sort: number
+          spots: number
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          blurb?: string | null
+          created_at?: string
+          entry_fee_cents: number
+          id?: string
+          name: string
+          published?: boolean
+          sort?: number
+          spots: number
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          blurb?: string | null
+          created_at?: string
+          entry_fee_cents?: number
+          id?: string
+          name?: string
+          published?: boolean
+          sort?: number
+          spots?: number
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       venue_photos: {
         Row: {
@@ -1470,8 +1784,10 @@ export type Database = {
           id: string
           max_balance_minutes: number
           monthly_free_minutes: number
+          monthly_free_tournaments: number
           monthly_price_cents: number
           name: string
+          perks: string[]
           sort: number
           stripe_price_id: string | null
           stripe_product_id: string | null
@@ -1503,6 +1819,7 @@ export type Database = {
           cancelled_by_staff_id: string | null
           created_at: string
           customer_id: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           hold_expires_at: string | null
@@ -1529,6 +1846,10 @@ export type Database = {
       }
       booking_release_hold: { Args: { p_booking: string }; Returns: string }
       expire_stale_holds: { Args: { p_now?: string }; Returns: number }
+      expire_stale_tournament_holds: {
+        Args: { p_now?: string }
+        Returns: number
+      }
       member_link_account: {
         Args: {
           p_auth_user: string
@@ -1677,6 +1998,7 @@ export type Database = {
           cancelled_by_staff_id: string | null
           created_at: string
           customer_id: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           hold_expires_at: string | null
@@ -1824,6 +2146,44 @@ export type Database = {
           just_locked: boolean
           locked_until: string
         }[]
+      }
+      tournament_attach_checkout: {
+        Args: { p_checkout_session_id: string; p_entry: string }
+        Returns: undefined
+      }
+      tournament_confirm: { Args: { p: Json; p_entry: string }; Returns: Json }
+      tournament_hold: {
+        Args: { p: Json }
+        Returns: {
+          cancel_token_hash: string | null
+          cancelled_at: string | null
+          created_at: string
+          customer_id: string
+          free_entry: boolean
+          gst_cents: number | null
+          hold_expires_at: string | null
+          id: string
+          member_id: string | null
+          pricing_snapshot: Json | null
+          ref: string
+          status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          total_cents: number | null
+          tournament_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tournament_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      tournament_release_hold: { Args: { p_entry: string }; Returns: string }
+      tournament_spots_left: {
+        Args: { p_now?: string; p_tournament: string }
+        Returns: number
       }
     }
     Enums: {

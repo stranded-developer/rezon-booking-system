@@ -1,4 +1,11 @@
-import type { HappyHour, PriceSessionInput, ResourceTypePricing } from "../src/index.js";
+import type {
+  ExperiencePricing,
+  ExperiencePromo,
+  HappyHour,
+  PriceExperienceInput,
+  PriceSessionInput,
+  ResourceTypePricing,
+} from "../src/index.js";
 
 export const TZ = "Australia/Sydney";
 
@@ -17,9 +24,9 @@ export const weekdayHappyHour: HappyHour = {
   discountBp: 1000,
 };
 
-export const silver = { tierName: "Silver", discountBp: 500 };
-export const gold = { tierName: "Gold", discountBp: 1000 };
-export const diamond = { tierName: "Diamond", discountBp: 1500 };
+export const silver = { tierName: "Silver", discountBp: 1000 };
+export const gold = { tierName: "Gold", discountBp: 2000 };
+export const diamond = { tierName: "Diamond", discountBp: 2000 };
 
 /**
  * Sydney local time during AEST (UTC+10) → epoch ms.
@@ -37,6 +44,49 @@ export function base(overrides: Partial<PriceSessionInput> & Pick<PriceSessionIn
     resourceType: billiard,
     rateBands: [],
     happyHours: [weekdayHappyHour],
+    ...overrides,
+  };
+}
+
+// ── Experiences (D65, D66): launch values from spec/README.md ───────────────
+
+export const quickRace: ExperiencePricing = {
+  id: "exp-quick",
+  name: "Quick Race",
+  resourceTypeId: "sim",
+  minutes: 30,
+  priceCents: 35_00,
+};
+
+export const doubleRace: ExperiencePricing = {
+  id: "exp-double",
+  name: "Double Race",
+  resourceTypeId: "sim",
+  minutes: 60,
+  priceCents: 58_00,
+};
+
+/** Every day 12:00–15:00, applied automatically. */
+export const happyHourPrices: ExperiencePromo[] = [
+  { id: "hp-quick", name: "Happy Hour", experienceId: "exp-quick", daysOfWeek: [1, 2, 3, 4, 5, 6, 7], startTime: "12:00", endTime: "15:00", priceCents: 29_00, claimed: false },
+  { id: "hp-double", name: "Happy Hour", experienceId: "exp-double", daysOfWeek: [1, 2, 3, 4, 5, 6, 7], startTime: "12:00", endTime: "15:00", priceCents: 49_00, claimed: false },
+];
+
+/** All hours, but only when the customer asks for it. */
+export const studentPrices: ExperiencePromo[] = [
+  { id: "st-quick", name: "Student", experienceId: "exp-quick", daysOfWeek: [1, 2, 3, 4, 5, 6, 7], startTime: "00:00", endTime: "24:00", priceCents: 32_00, claimed: true },
+  { id: "st-double", name: "Student", experienceId: "exp-double", daysOfWeek: [1, 2, 3, 4, 5, 6, 7], startTime: "00:00", endTime: "24:00", priceCents: 52_00, claimed: true },
+];
+
+export const allPromos: ExperiencePromo[] = [...happyHourPrices, ...studentPrices];
+
+export function experience(
+  overrides: Partial<PriceExperienceInput> & Pick<PriceExperienceInput, "startAt">,
+): PriceExperienceInput {
+  return {
+    timeZone: TZ,
+    experience: quickRace,
+    promos: allPromos,
     ...overrides,
   };
 }

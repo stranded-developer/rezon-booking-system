@@ -2,6 +2,13 @@
 
 The most important component. It is a **pure function with no I/O and no runtime dependencies**. The booking site quote, the booking charge, the POS close and the overstay charge all call it. There must never be a second implementation.
 
+It has **two entry points**, which share their discount, rounding and GST steps:
+
+| Function | Used for | Price comes from |
+|---|---|---|
+| `priceSession` | every walk-in, and online bookings of billiard tables and VR seats | an **hourly rate**, per minute |
+| `priceExperience` | online bookings of a named package on the simulators (D65) | a **flat price** for a fixed length |
+
 ## 1. Units and representation
 
 | Quantity | Representation | Why |
@@ -153,11 +160,11 @@ Every case below is an automated test. The dollar values use launch configuratio
 | T1 | Table, 5 min actual, weekday 16:00 (no HH) | billed 15 min, $7.50 |
 | T2 | Table, exactly 15:00 min | billed 15, $7.50 |
 | T3 | Table, 16 min 10 s | billed 17 min, $8.50 |
-| T4 | Sim, Wed 14:30–15:30, Gold | $27.00 + $30.00 = $57.00 − $5.70 = **$51.30**, GST $4.66 |
+| T4 | Sim, Wed 14:30–15:30, Gold | $27.00 + $30.00 = $57.00 − $11.40 = **$45.60**, GST $4.15 |
 | T5 | Table, 1 h inside HH, $5 fixed referral | $27.00 − $5.00 = **$22.00** |
 | T6 | Table, 1 h inside HH, $30 fixed referral | total floors at **$0.00** |
 | T7 | Table, 1 h Saturday 11:00 | no HH, $30.00 |
-| T8 | Sim 1 h Mon 10:00, Silver, 45 free minutes | 45 free + 15 paid @ $54/hr = $13.50 − 5% = **$12.83** (12.825 rounds half up) |
+| T8 | Sim 1 h Mon 10:00, Silver, 45 free minutes | 45 free + 15 paid @ $54/hr = $13.50 − 10% = **$12.15** |
 | T9 | Free minutes > billed minutes | free = billed, total $0.00 |
 | T10 | Member + referral both given | throws |
 | T11 | VR 1 min @ $50/hr, no minimum | 83.33… → $0.83; segments sum to subtotal |
@@ -170,3 +177,89 @@ Every case below is an automated test. The dollar values use launch configuratio
 | T18 | Overstay: `applyMinimum = false`, 4 min | billed 4 min |
 | T19 | Referral 20% percent + HH | multiplicative |
 | T20 | Validation helpers reject overlap, bad bp, bad times | throws/returns errors |
+
+
+## 9. Experiences — `priceExperience` (D65, D66)
+
+An **experience** is a named package with a **fixed length** and a **flat price**: Quick Race is 30 minutes for $35.00 whatever the simulator's hourly rate happens to be. Its price cannot be expressed as a rate, because a 30-minute Quick Race is $70/hr while a 60-minute Double Race is $58/hr.
+
+### 9.1 Inputs
+
+```ts
+priceExperience({
+  startAt: number,                 // UTC ms. One fixed block, so this alone decides the promotion.
+  timeZone: string,
+  experience: { id, name, resourceTypeId, minutes, priceCents },
+  promos: ExperiencePromo[],
+  claimedPromoIds?: string[],      // the `claimed` promotions the customer asked for
+  member?: { tierName, discountBp },
+  referral?: { code, type, value },
+  freeMinutes?: number,
+})
+```
+
+```ts
+ExperiencePromo = { id, name, experienceId, daysOfWeek, startTime, endTime, priceCents, claimed }
+```
+
+### 9.2 Algorithm
+
+```
+1. minutes      = experience.minutes            (fixed; the resource type's minimum never applies)
+   freeMinutes  = min(requested ?? 0, minutes)
+   paidMinutes  = minutes − freeMinutes
+
+2. Candidate promotions: same experience, `daysOfWeek` and `startTime ≤ local(startAt) < endTime`,
+   and — if `claimed` — listed in `claimedPromoIds`.
+   The one with the LOWEST priceCents wins. Ties keep the first in the list.
+
+3. priceCents    = winning promotion's price, else experience.priceCents
+
+4. subtotal (exact) = priceCents × paidMinutes / minutes      // free play is pro rata
+
+5–7. Identical to §3 steps 5–7: member % or referral, round once each, GST = total / 11.
+     Segments are at most two — the free part and the paid part — allocated by largest remainder.
+```
+
+**Why the cheapest promotion wins.** It makes "the student price is not included in Happy Hour" true without a rule for it: during Happy Hour the automatic $29 beats the claimed student $32, so the customer gets $29. It is also always the answer in the customer's favour, which is the only safe default for a price shown before payment.
+
+**Why the start instant decides.** An experience is one indivisible block sold at one price. A Double Race starting at 14:30 is a Happy Hour Double Race even though it runs past 15:00. Per-minute classification (§3) stays the rule for everything priced by the hour.
+
+### 9.3 Output
+
+The same `PriceResult` as `priceSession`, with:
+- `segments[].kind === "experience"`, `rateCents === 0` — there is no hourly rate to report.
+- `experience` set to `{ id, name, minutes, listPriceCents, priceCents, promo }`, where `promo` is `null` unless one applied. `priceSession` sets `experience` to `null`.
+
+### 9.4 Validation helpers
+
+- `validateExperience(values, sessionMinutes)`: name required, price ≥ 0, length a whole number of sessions.
+- `validateExperiencePromos(promos)`: each window is real (§7 rules) and the price is ≥ 0. **Overlap is allowed** — the cheapest wins, so overlapping windows are a feature, not an error.
+
+### 9.5 Required test cases
+
+| # | Case | Expected |
+|---|---|---|
+| X1 | Quick Race, outside every window | $35.00, and the sim's $60/hr is not consulted |
+| X2 | Double Race | $58.00, GST $5.27 |
+| X3 | Any experience | the resource type's minimum never applies |
+| X4 | Quick Race at 13:00 | Happy Hour $29.00 |
+| X5 | Double Race starting 14:30 | Happy Hour $49.00, though it ends at 15:30 |
+| X6 | Quick Race at 15:00 | $35.00; the window end is exclusive |
+| X7 | Student promotion | ignored unless claimed, then $32.00 |
+| X8 | Student claimed at 13:00 | $29.00 — the cheapest wins |
+| X8b | The same, with the promotions reversed | $29.00 — the order they arrive in makes no difference |
+| X9 | A promotion for another experience | ignored |
+| X10 | Quick Race, Gold 20% | $28.00 |
+| X11 | Quick Race Silver 10%; Double Race Gold 20% | $31.50 and $46.40 (not the rounded marketing figures) |
+| X12 | Quick Race 13:00, Gold | $29.00 − 20% = $23.20 |
+| X13 | Double Race, 30 free minutes | $29.00 — free play is pro rata |
+| X14 | Quick Race, 30 free minutes | $0.00, GST $0.00 |
+| X15 | Free minutes beyond the length | clamped to the length |
+| X16 | $5 and $99 fixed referrals | $30.00 and $0.00 |
+| X17 | Any split | segment amounts sum exactly to the subtotal |
+| X18 | Member + referral | throws |
+| X19 | Free minutes without a member | throws |
+| X20 | Promotion + free play + member | full explanation, in order |
+| X21 | Plain list price | three lines only |
+| X22 | Any experience | every segment has `kind: "experience"` |

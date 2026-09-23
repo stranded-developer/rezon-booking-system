@@ -138,7 +138,9 @@ select is((select count(*) from audit_log where action = 'member.qr_reissue' and
 
 -- ── Tier price ──────────────────────────────────────────────────────────────
 select throws_like(
-  $$ select admin_set_tier_price((select id from membership_tiers where name = 'Silver'), '00000000-0000-0000-0000-00000000b001', 10000, 'same') $$,
+  $$ select admin_set_tier_price((select id from membership_tiers where name = 'Silver'),
+       '00000000-0000-0000-0000-00000000b001',
+       (select monthly_price_cents from membership_tiers where name = 'Silver'), 'same') $$,
   'RG:invalid:%', 'setting the same price is refused'
 );
 select is(

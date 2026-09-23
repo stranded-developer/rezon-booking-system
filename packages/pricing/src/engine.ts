@@ -3,11 +3,16 @@ import { allocateLargestRemainder, formatBp, formatCents, roundHalfUp } from "./
 import { MINUTE_MS, parseWallTime, toLocal, windowContains } from "./time.js";
 import type {
   AppliedDiscount,
+  AppliedExperience,
+  ExperiencePromo,
   HappyHour,
+  MemberDiscount,
+  PriceExperienceInput,
   PriceResult,
   PriceSegment,
   PriceSessionInput,
   RateBand,
+  ReferralDiscount,
 } from "./types.js";
 
 const BP = 10_000n;
@@ -26,14 +31,12 @@ function assertBp(value: number, name: string, allowZero: boolean): void {
   }
 }
 
-function validateInput(input: PriceSessionInput): void {
-  const { startAt, endAt, resourceType, member, referral, freeMinutes } = input;
-  if (!Number.isFinite(startAt) || !Number.isFinite(endAt)) {
-    throw new PricingError("startAt and endAt must be finite epoch milliseconds");
-  }
-  if (endAt < startAt) throw new PricingError("endAt is before startAt");
-  assertInteger(resourceType.baseRateCents, "resourceType.baseRateCents", 0);
-  assertInteger(resourceType.minMinutes, "resourceType.minMinutes", 1);
+/** The discount rules are the same whichever way the subtotal was reached (D9, D10). */
+function validateDiscounts(
+  member: MemberDiscount | undefined,
+  referral: ReferralDiscount | undefined,
+  freeMinutes: number | undefined,
+): void {
   if (member && referral) {
     throw new PricingError("Membership and referral discounts cannot be combined");
   }
@@ -46,6 +49,69 @@ function validateInput(input: PriceSessionInput): void {
     if (!member) throw new PricingError("freeMinutes requires a member");
     assertInteger(freeMinutes, "freeMinutes", 0);
   }
+}
+
+/**
+ * Step 5 of the algorithm, shared by both ways of pricing: apply the member percentage,
+ * the referral, or nothing, to an exact subtotal, and round the total once.
+ */
+function applyDiscount(
+  subtotalExact: bigint,
+  denominator: bigint,
+  subtotalCents: bigint,
+  member: MemberDiscount | undefined,
+  referral: ReferralDiscount | undefined,
+): { totalCents: bigint; discount: AppliedDiscount | null } {
+  let totalCents: bigint;
+  let draft:
+    | { kind: "member"; label: string; valueBp: number }
+    | { kind: "referral_percent"; label: string; code: string; valueBp: number }
+    | { kind: "referral_fixed"; label: string; code: string; valueCents: number }
+    | null = null;
+
+  if (member) {
+    totalCents = roundHalfUp(subtotalExact * (BP - BigInt(member.discountBp)), denominator * BP);
+    draft = {
+      kind: "member",
+      label: `${member.tierName} member ${formatBp(member.discountBp)}`,
+      valueBp: member.discountBp,
+    };
+  } else if (referral?.type === "percent") {
+    totalCents = roundHalfUp(subtotalExact * (BP - BigInt(referral.value)), denominator * BP);
+    draft = {
+      kind: "referral_percent",
+      label: `Referral ${referral.code} ${formatBp(referral.value)}`,
+      code: referral.code,
+      valueBp: referral.value,
+    };
+  } else if (referral?.type === "fixed") {
+    const afterFixed = subtotalExact - BigInt(referral.value) * denominator;
+    totalCents = roundHalfUp(afterFixed > 0n ? afterFixed : 0n, denominator);
+    draft = {
+      kind: "referral_fixed",
+      label: `Referral ${referral.code} ${formatCents(referral.value)} off`,
+      code: referral.code,
+      valueCents: referral.value,
+    };
+  } else {
+    totalCents = subtotalCents;
+  }
+
+  const discount: AppliedDiscount | null = draft
+    ? ({ ...draft, amountCents: Number(subtotalCents - totalCents) } as AppliedDiscount)
+    : null;
+  return { totalCents, discount };
+}
+
+function validateInput(input: PriceSessionInput): void {
+  const { startAt, endAt, resourceType, member, referral, freeMinutes } = input;
+  if (!Number.isFinite(startAt) || !Number.isFinite(endAt)) {
+    throw new PricingError("startAt and endAt must be finite epoch milliseconds");
+  }
+  if (endAt < startAt) throw new PricingError("endAt is before startAt");
+  assertInteger(resourceType.baseRateCents, "resourceType.baseRateCents", 0);
+  assertInteger(resourceType.minMinutes, "resourceType.minMinutes", 1);
+  validateDiscounts(member, referral, freeMinutes);
   for (const band of input.rateBands) {
     assertInteger(band.rateCents, `rateBand ${band.id}.rateCents`, 0);
     parseWallTime(band.startTime);
@@ -136,52 +202,14 @@ export function priceSession(input: PriceSessionInput): PriceResult {
   const subtotalExact = drafts.reduce((sum, d) => sum + d.numerator, 0n);
   const subtotalCents = roundHalfUp(subtotalExact, MINUTE_DENOMINATOR);
 
-  let totalCents: bigint;
-  let discountDraft:
-    | { kind: "member"; label: string; valueBp: number }
-    | { kind: "referral_percent"; label: string; code: string; valueBp: number }
-    | { kind: "referral_fixed"; label: string; code: string; valueCents: number }
-    | null = null;
-
-  if (member) {
-    totalCents = roundHalfUp(
-      subtotalExact * (BP - BigInt(member.discountBp)),
-      MINUTE_DENOMINATOR * BP,
-    );
-    discountDraft = {
-      kind: "member",
-      label: `${member.tierName} member ${formatBp(member.discountBp)}`,
-      valueBp: member.discountBp,
-    };
-  } else if (referral?.type === "percent") {
-    totalCents = roundHalfUp(
-      subtotalExact * (BP - BigInt(referral.value)),
-      MINUTE_DENOMINATOR * BP,
-    );
-    discountDraft = {
-      kind: "referral_percent",
-      label: `Referral ${referral.code} ${formatBp(referral.value)}`,
-      code: referral.code,
-      valueBp: referral.value,
-    };
-  } else if (referral?.type === "fixed") {
-    const afterFixed = subtotalExact - BigInt(referral.value) * MINUTE_DENOMINATOR;
-    totalCents = roundHalfUp(afterFixed > 0n ? afterFixed : 0n, MINUTE_DENOMINATOR);
-    discountDraft = {
-      kind: "referral_fixed",
-      label: `Referral ${referral.code} ${formatCents(referral.value)} off`,
-      code: referral.code,
-      valueCents: referral.value,
-    };
-  } else {
-    totalCents = subtotalCents;
-  }
-
+  const { totalCents, discount } = applyDiscount(
+    subtotalExact,
+    MINUTE_DENOMINATOR,
+    subtotalCents,
+    member,
+    referral,
+  );
   const gstCents = roundHalfUp(totalCents, 11n);
-  const discountCents = Number(subtotalCents - totalCents);
-  const discount: AppliedDiscount | null = discountDraft
-    ? ({ ...discountDraft, amountCents: discountCents } as AppliedDiscount)
-    : null;
 
   // 4. Display amounts per segment that sum exactly to the subtotal.
   const allocated = allocateLargestRemainder(
@@ -194,6 +222,7 @@ export function priceSession(input: PriceSessionInput): PriceResult {
     const segStart = startAt + d.startIndex * MINUTE_MS;
     const segEnd = segStart + d.count * MINUTE_MS;
     return {
+      kind: "time" as const,
       startAt: segStart,
       endAt: segEnd,
       localStart: toLocal(segStart, timeZone).label,
@@ -220,6 +249,101 @@ export function priceSession(input: PriceSessionInput): PriceResult {
     discount,
     totalCents: Number(totalCents),
     gstCents: Number(gstCents),
+    experience: null,
+  };
+  return { ...result, explanation: explain(result) };
+}
+
+/**
+ * Price one experience: a named package with a fixed length and a flat price (D65).
+ *
+ * The flat price replaces the per-minute rate, but everything after it is the same as
+ * `priceSession`: free play first, then the member percentage or a referral, then GST.
+ */
+export function priceExperience(input: PriceExperienceInput): PriceResult {
+  const { startAt, timeZone, experience, member, referral } = input;
+  if (!Number.isFinite(startAt)) {
+    throw new PricingError("startAt must be finite epoch milliseconds");
+  }
+  assertInteger(experience.minutes, "experience.minutes", 1);
+  assertInteger(experience.priceCents, "experience.priceCents", 0);
+  validateDiscounts(member, referral, input.freeMinutes);
+  for (const promo of input.promos) {
+    assertInteger(promo.priceCents, `promo ${promo.id}.priceCents`, 0);
+    parseWallTime(promo.startTime);
+    parseWallTime(promo.endTime);
+  }
+
+  const minutes = experience.minutes;
+  const freeMinutes = Math.min(input.freeMinutes ?? 0, minutes);
+  const paidMinutes = minutes - freeMinutes;
+
+  // The cheapest promotion that matches wins. Nothing more is needed to make
+  // "the student price is not included in Happy Hour" true: $29 beats $32 (D66).
+  const claimed = new Set(input.claimedPromoIds ?? []);
+  const local = toLocal(startAt, timeZone);
+  let promo: ExperiencePromo | null = null;
+  for (const p of input.promos) {
+    if (p.experienceId !== experience.id) continue;
+    if (p.claimed && !claimed.has(p.id)) continue;
+    if (!windowContains(p, local)) continue;
+    if (!promo || p.priceCents < promo.priceCents) promo = p;
+  }
+
+  const priceCents = promo ? promo.priceCents : experience.priceCents;
+  const applied: AppliedExperience = {
+    id: experience.id,
+    name: experience.name,
+    minutes,
+    listPriceCents: experience.priceCents,
+    priceCents,
+    promo: promo ? { id: promo.id, name: promo.name, priceCents: promo.priceCents } : null,
+  };
+
+  // Free play covers its pro-rata share of the flat price; kept exact over `minutes`.
+  const denominator = BigInt(minutes);
+  const subtotalExact = BigInt(priceCents) * BigInt(paidMinutes);
+  const subtotalCents = roundHalfUp(subtotalExact, denominator);
+  const { totalCents, discount } = applyDiscount(subtotalExact, denominator, subtotalCents, member, referral);
+  const gstCents = roundHalfUp(totalCents, 11n);
+
+  const drafts: { startIndex: number; count: number; free: boolean; numerator: bigint }[] = [];
+  if (freeMinutes > 0) drafts.push({ startIndex: 0, count: freeMinutes, free: true, numerator: 0n });
+  if (paidMinutes > 0) drafts.push({ startIndex: freeMinutes, count: paidMinutes, free: false, numerator: subtotalExact });
+  const allocated = allocateLargestRemainder(drafts.map((d) => d.numerator), denominator, subtotalCents);
+
+  const segments: PriceSegment[] = drafts.map((d, i) => {
+    const segStart = startAt + d.startIndex * MINUTE_MS;
+    const segEnd = segStart + d.count * MINUTE_MS;
+    return {
+      kind: "experience" as const,
+      startAt: segStart,
+      endAt: segEnd,
+      localStart: toLocal(segStart, timeZone).label,
+      localEnd: toLocal(segEnd, timeZone).label,
+      minutes: d.count,
+      free: d.free,
+      rateCents: 0,
+      rateBandId: null,
+      happyHourBp: 0,
+      happyHourId: null,
+      happyHourName: null,
+      amountCents: Number(allocated[i]),
+    };
+  });
+
+  const result: Omit<PriceResult, "explanation"> = {
+    actualMinutes: minutes,
+    billedMinutes: minutes,
+    minimumApplied: false,
+    freeMinutes,
+    paidMinutes,
+    segments,
+    subtotalCents: Number(subtotalCents),
+    discount,
+    totalCents: Number(totalCents),
+    gstCents: Number(gstCents),
+    experience: applied,
   };
   return { ...result, explanation: explain(result) };
 }
@@ -232,6 +356,26 @@ function explain(r: Omit<PriceResult, "explanation">): string[] {
     const start = multiDay ? s.localStart : s.localStart.slice(11);
     return `${start}–${s.localEnd.slice(11)}`;
   };
+
+  const exp = r.experience;
+  if (exp) {
+    lines.push(
+      exp.promo
+        ? `${exp.name} · ${exp.minutes} min · ${exp.promo.name} ${formatCents(exp.priceCents)} (normally ${formatCents(exp.listPriceCents)})`
+        : `${exp.name} · ${exp.minutes} min · ${formatCents(exp.listPriceCents)}`,
+    );
+    for (const s of r.segments) {
+      if (s.free) {
+        lines.push(`${span(s)}  ${s.minutes} min free play (member balance)  ${formatCents(0)}`);
+      } else if (r.freeMinutes > 0) {
+        lines.push(`${span(s)}  ${s.minutes} of ${exp.minutes} min  ${formatCents(s.amountCents)}`);
+      }
+    }
+    lines.push(`Subtotal  ${formatCents(r.subtotalCents)}`);
+    if (r.discount) lines.push(`${r.discount.label}  ${formatCents(-r.discount.amountCents)}`);
+    lines.push(`Total (incl. GST ${formatCents(r.gstCents)})  ${formatCents(r.totalCents)}`);
+    return lines;
+  }
 
   if (r.minimumApplied) {
     lines.push(`Minimum ${r.billedMinutes} min charge (played ${r.actualMinutes} min)`);

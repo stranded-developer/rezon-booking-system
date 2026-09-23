@@ -2,7 +2,7 @@
  * Booking-site accounts against local Supabase (no Stripe): login linking, member pricing and free play online,
  * the account QR, account bookings, day-before reminders and back office booking cancellation.
  * Fixed clock: Monday 4 Mar 2030, 09:00 Sydney (AEDT, +11). Own resource type ($40/hr) per run.
- * Launch config assumed: Gold 10%, open 10:00–21:00, happy hour weekdays only.
+ * Launch config assumed: Gold 20%, open 10:00–21:00, happy hour weekdays only.
  */
 import { randomUUID } from "node:crypto";
 import pg from "pg";
@@ -125,7 +125,7 @@ describe("signing in", () => {
     const r = await me("", memberJwt);
     expect(r.status, JSON.stringify(r.json)).toBe(200);
     expect(r.json.customer.name).toBe("Casey Counter");
-    expect(r.json.member).toMatchObject({ status: "active", eligible: true, tier: { name: "Gold", discountBp: 1000 }, balanceMinutes: 120, billedOnline: false });
+    expect(r.json.member).toMatchObject({ status: "active", eligible: true, tier: { name: "Gold", discountBp: 2000 }, balanceMinutes: 120, billedOnline: false });
   });
 });
 
@@ -160,9 +160,10 @@ describe("member QR on the account", () => {
 describe("member pricing and free play online", () => {
   it("quotes with the member discount and free minutes, and refuses a referral code", async () => {
     const plain = await api("/public/quote", { jwt: memberJwt, body: request() });
-    expect(plain.json.quote).toMatchObject({ totalCents: 3600, member: { tierName: "Gold" }, maxFreeMinutes: 60 });
+    // $40.00 for the hour, less Gold's 20%.
+    expect(plain.json.quote).toMatchObject({ totalCents: 3200, member: { tierName: "Gold" }, maxFreeMinutes: 60 });
     const free = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 30 }) });
-    expect(free.json.quote).toMatchObject({ totalCents: 1800 });
+    expect(free.json.quote).toMatchObject({ totalCents: 1600 });
     const guest = await api("/public/quote", { body: request() });
     expect(guest.json.quote).toMatchObject({ totalCents: 4000, member: null });
     const both = await api("/public/quote", { jwt: memberJwt, body: request({ referralCode: fixedCode }) });

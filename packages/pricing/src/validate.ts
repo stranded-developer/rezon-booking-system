@@ -1,5 +1,5 @@
 import { isWallTime, parseWallTime } from "./time.js";
-import type { HappyHour, IsoDayOfWeek, RateBand, ReferralDiscount, WallTime } from "./types.js";
+import type { ExperiencePromo, HappyHour, IsoDayOfWeek, RateBand, ReferralDiscount, WallTime } from "./types.js";
 
 export interface ValidationIssue {
   path: string;
@@ -140,5 +140,42 @@ export function validateTier(tier: TierValues): ValidationIssue[] {
   if (!Number.isInteger(tier.maxBalanceMinutes) || tier.maxBalanceMinutes < 0) {
     issues.push({ path: "maxBalanceMinutes", message: "Balance cap cannot be negative" });
   }
+  return issues;
+}
+
+// ── Experiences and their promotional prices (D65, D66) ─────────────────────
+
+export interface ExperienceValues {
+  name: string;
+  minutes: number;
+  priceCents: number;
+}
+
+export function validateExperience(experience: ExperienceValues, sessionMinutes: number): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (!experience.name.trim()) issues.push({ path: "name", message: "Name is required" });
+  checkCents(experience.priceCents, "priceCents", issues, 0);
+  if (!Number.isInteger(experience.minutes) || experience.minutes < 1) {
+    issues.push({ path: "minutes", message: "Length must be at least 1 minute" });
+  } else if (!Number.isInteger(sessionMinutes) || sessionMinutes < 1) {
+    issues.push({ path: "minutes", message: "The venue's session length is not set" });
+  } else if (experience.minutes % sessionMinutes !== 0) {
+    issues.push({ path: "minutes", message: `Length must be a whole number of ${sessionMinutes}-minute sessions` });
+  }
+  return issues;
+}
+
+/**
+ * Promotional prices may overlap: the cheapest one wins (D66). What is checked is that each
+ * window is a real window and the price is sane.
+ */
+export function validateExperiencePromos(promos: ExperiencePromo[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  promos.forEach((promo, i) => {
+    const path = `promos[${i}]`;
+    if (!promo.name.trim()) issues.push({ path: `${path}.name`, message: "Name is required" });
+    checkCents(promo.priceCents, `${path}.priceCents`, issues, 0);
+    checkWindow(promo, path, issues);
+  });
   return issues;
 }

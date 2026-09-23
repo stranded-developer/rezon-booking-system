@@ -60,15 +60,15 @@ describe("happy hour and membership (spec D2, D24)", () => {
       ["2026-09-16 15:00", "2026-09-16 15:30", 30, 0, 30_00],
     ]);
     expect(r.subtotalCents).toBe(57_00);
-    expect(r.discount).toMatchObject({ kind: "member", valueBp: 1000, amountCents: 5_70 });
-    expect(r.totalCents).toBe(51_30);
-    expect(r.gstCents).toBe(4_66);
+    expect(r.discount).toMatchObject({ kind: "member", valueBp: 2000, amountCents: 11_40 });
+    expect(r.totalCents).toBe(45_60);
+    expect(r.gstCents).toBe(4_15);
     expect(r.explanation).toEqual([
       "14:30–15:00  30 min @ $60.00/hr − Happy Hour 10% = $54.00/hr  $27.00",
       "15:00–15:30  30 min @ $60.00/hr  $30.00",
       "Subtotal  $57.00",
-      "Gold member 10%  −$5.70",
-      "Total (incl. GST $4.66)  $51.30",
+      "Gold member 20%  −$11.40",
+      "Total (incl. GST $4.15)  $45.60",
     ]);
   });
 
@@ -102,12 +102,12 @@ describe("happy hour and membership (spec D2, D24)", () => {
     expect(r.subtotalCents).toBe(7_95);
   });
 
-  it("Diamond 15% applies multiplicatively after happy hour", () => {
+  it("Diamond 20% applies multiplicatively after happy hour", () => {
     const r = priceSession(
       base({ startAt: aest("2026-09-14T10:00:00"), endAt: aest("2026-09-14T11:00:00"), member: diamond }),
     );
-    // $30 × 0.9 = $27.00, × 0.85 = $22.95
-    expect(r.totalCents).toBe(22_95);
+    // $30 × 0.9 = $27.00, × 0.80 = $21.60
+    expect(r.totalCents).toBe(21_60);
   });
 
   it("happy hour limited to specific resource types does not apply to others", () => {
@@ -211,9 +211,9 @@ describe("free-play balance (spec D15, D22)", () => {
       ["10:00", "10:45", true, 0],
       ["10:45", "11:00", false, 13_50],
     ]);
-    // $13.50 × 0.95 = $12.825 → half up → $12.83
-    expect(r.totalCents).toBe(12_83);
-    expect(r.discount?.amountCents).toBe(67);
+    // $13.50 × 0.90 = $12.15
+    expect(r.totalCents).toBe(12_15);
+    expect(r.discount?.amountCents).toBe(1_35);
     expect(r.explanation[0]).toBe("10:00–10:45  45 min free play (member balance)  $0.00");
   });
 
@@ -233,7 +233,7 @@ describe("free-play balance (spec D15, D22)", () => {
     );
     expect(r.billedMinutes).toBe(15);
     expect(r.paidMinutes).toBe(5);
-    expect(r.totalCents).toBe(2_25); // 5 min @ $30/hr = $2.50, −10%
+    expect(r.totalCents).toBe(2_00); // 5 min @ $30/hr = $2.50, −20%
   });
 
   it("free minutes without a member are rejected", () => {

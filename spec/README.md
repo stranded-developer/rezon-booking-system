@@ -10,7 +10,7 @@ A gaming venue in Sydney that rents time on billiard tables, driving simulators 
 
 | App | Who uses it | URL (for now) |
 |---|---|---|
-| **Booking site** | Public: book and pay online, member sign-up and account | `raceground.vercel.app` |
+| **Booking site** | Public: book and pay online, tournaments, member sign-up and account | `raceground.vercel.app` |
 | **POS + back office** | Staff: run the floor, take payments, manage everything | `raceground-pos.vercel.app` |
 | **API** | Both apps. Owns every write that touches money. | `raceground-api.vercel.app` |
 
@@ -39,8 +39,10 @@ All values below are **editable in the back office**. None are hardcoded.
 | Driving simulators | 6 × $60/hr incl. GST |
 | VR seats | 2 × $50/hr incl. GST |
 | Session | 30 min (D63). Booked online: one session minimum, then 15-min steps. Walk-in: from 15 min, then per minute |
-| Happy hour | Mon–Fri 10:00–15:00, 10% off, all resource types |
-| Tiers | Silver 5% $100/mo · Gold 10% $200/mo · Diamond 15% $300/mo (incl. GST) |
+| Experiences (simulators, online) | Quick Race 30 min $35 · Leaderboard Challenge 30 min $35 · Double Race 60 min $58 (D65) |
+| Experience promotions | Happy Hour every day 12:00–15:00: $29 / $29 / $49 · Student, any time on request: $32 / $32 / $52. The cheapest match wins (D66) |
+| Happy hour (hourly rate) | Mon–Fri 10:00–15:00, 10% off. Prices billiards, VR and every walk-in |
+| Tiers | Silver 10% $48/mo · Gold 20% $78/mo · Diamond 20% $128/mo (incl. GST) |
 | Free play | Silver 2 sessions, Gold 4, Diamond 8 per month; rolls over, capped at ten months (600 / 1200 / 2400 min) |
 | Booking window | Rolling 7 days |
 | Online booking cutoff | Must start ≥ 30 min from now |
@@ -69,6 +71,7 @@ All values below are **editable in the back office**. None are hardcoded.
 | 5 | Membership, Stripe Billing, QR, balance | Stripe (test mode), Resend |
 | 6 | Booking site, Stripe Checkout, cancellations | Stripe, Resend |
 | 7 | Reports, hardening, deploy, launch | Vercel, GitHub, ABN + Stripe live activation |
+| 8 | Public site rebuilt to the owner's reference: experiences, tournaments, events, new look | Stripe |
 
 Progress is tracked in [`logs/README.md`](../logs/README.md), one file per build step.
 

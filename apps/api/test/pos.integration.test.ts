@@ -1,7 +1,7 @@
 /**
  * A full POS day against local Supabase on a fixed clock: Wednesday 16 Jan 2030, Sydney (AEDT, +11).
  * Launch configuration assumed: billiard $30/hr, sim $60/hr, happy hour Mon–Fri 10:00–15:00 10%,
- * Gold 10%, 15-minute minimum, open 10:00–21:00. `pnpm db:reset` restores it.
+ * Gold 20%, 15-minute minimum, open 10:00–21:00. `pnpm db:reset` restores it.
  *
  * Tests in this file run in order and share state (one till, one day).
  */
@@ -205,7 +205,7 @@ describe("walk-in with a member", () => {
   it("finds the member by QR scan and by search", async () => {
     const scan = await pos("/members/scan", { body: { code: `rg:m:${gold.token}` } });
     expect(scan.status).toBe(200);
-    expect(scan.json.member).toMatchObject({ id: gold.id, tierName: "Gold", discountBp: 1000, balanceMinutes: 60, eligible: true });
+    expect(scan.json.member).toMatchObject({ id: gold.id, tierName: "Gold", discountBp: 2000, balanceMinutes: 60, eligible: true });
     expect((await pos("/members/scan", { body: { code: "hello" } })).status).toBe(422);
     expect((await pos("/members/scan", { body: { code: `rg:m:${randomBytes(32).toString("base64url")}` } })).status).toBe(404);
     expect((await pos("/members/search?q=go")).status).toBe(422);
@@ -213,17 +213,17 @@ describe("walk-in with a member", () => {
     expect(search.json.members.map((m: { id: string }) => m.id)).toEqual([gold.id]);
   });
 
-  it("quotes 14:30–15:30 across the end of happy hour with Gold 10%", async () => {
+  it("quotes 14:30–15:30 across the end of happy hour with Gold 20%", async () => {
     const q = await quote(memberSession, "15:30", { memberId: gold.id });
     expect(q.status).toBe(200);
     const quoteBody = q.json.quote;
-    expect(quoteBody).toMatchObject({ mode: "walk_in", subtotalCents: 2850, discountCents: 285, totalCents: 2565, gstCents: 233, maxFreeMinutes: 60 });
+    expect(quoteBody).toMatchObject({ mode: "walk_in", subtotalCents: 2850, discountCents: 570, totalCents: 2280, gstCents: 207, maxFreeMinutes: 60 });
     expect(quoteBody.explanation).toEqual([
       "14:30–15:00  30 min @ $30.00/hr − Happy Hour 10% = $27.00/hr  $13.50",
       "15:00–15:30  30 min @ $30.00/hr  $15.00",
       "Subtotal  $28.50",
-      "Gold member 10%  −$2.85",
-      "Total (incl. GST $2.33)  $25.65",
+      "Gold member 20%  −$5.70",
+      "Total (incl. GST $2.07)  $22.80",
     ]);
     memberQuoteClosedAt = quoteBody.closedAt;
   });
@@ -238,7 +238,7 @@ describe("walk-in with a member", () => {
 
     ctx.clock.set(at("15:31"));
     const changed = await pos(`/sessions/${memberSession}/close`, {
-      body: { closedAt: memberQuoteClosedAt, expectedTotalCents: 2565, tender: { method: "cash", tenderedCents: 3000 } },
+      body: { closedAt: memberQuoteClosedAt, expectedTotalCents: 2280, tender: { method: "cash", tenderedCents: 3000 } },
     });
     expect(changed.status).toBe(409);
     expect(changed.json.error).toMatchObject({ code: "quote_changed", details: { totalCents: 2850 } });
@@ -247,20 +247,20 @@ describe("walk-in with a member", () => {
   it("closes for cash within the quote window at the frozen price, with change and a receipt", async () => {
     ctx.clock.set(at("15:31"));
     const r = await pos(`/sessions/${memberSession}/close`, {
-      body: { memberId: gold.id, closedAt: memberQuoteClosedAt, expectedTotalCents: 2565, tender: { method: "cash", tenderedCents: 3000 } },
+      body: { memberId: gold.id, closedAt: memberQuoteClosedAt, expectedTotalCents: 2280, tender: { method: "cash", tenderedCents: 3000 } },
     });
     expect(r.status, JSON.stringify(r.json)).toBe(200);
-    expect(r.json.changeCents).toBe(435);
+    expect(r.json.changeCents).toBe(720);
     expect(r.json.receipt).toMatchObject({
       title: "Receipt",
       businessName: "Raceground",
-      totalCents: 2565,
-      gstCents: 233,
+      totalCents: 2280,
+      gstCents: 207,
       subtotalCents: 2850,
-      discountCents: 285,
+      discountCents: 570,
       paymentMethod: "cash",
       tenderedCents: 3000,
-      changeCents: 435,
+      changeCents: 720,
       servedBy: "Test pos-cashier",
       openedAt: "2030-01-16 14:30",
       closedAt: "2030-01-16 15:30",
@@ -440,7 +440,7 @@ describe("voids", () => {
     expect(byCashier.status).toBe(403);
     const r = await pos(`/sessions/${memberSession}/void`, { as: "owner", body: { reason: "customer complaint" } });
     expect(r.status).toBe(200);
-    expect(r.json.result).toMatchObject({ refundCents: 2565, refundMethod: "cash" });
+    expect(r.json.result).toMatchObject({ refundCents: 2280, refundMethod: "cash" });
     const receipt = await pos(`/sessions/${memberSession}/receipt`);
     expect(receipt.json.receipt.voided).toBe(true);
   });
@@ -549,8 +549,8 @@ describe("closing the till", () => {
   });
 
   it("closes with exact counts, and the report adds up", async () => {
-    // Cash: float 20000 + member sale 2565 + override sale 2000 − void refund 2565 − paid out 500.
-    const expectedCash = 20_000 + 2565 + 2000 - 2565 - 500;
+    // Cash: float 20000 + member sale 2280 + override sale 2000 − void refund 2280 − paid out 500.
+    const expectedCash = 20_000 + 2280 + 2000 - 2280 - 500;
     const current = await pos("/shifts/current");
     expect(current.json.shift.cash.expectedCents).toBe(expectedCash);
     expect(current.json.shift.card.posTotalCents).toBe(cardTotal);
@@ -561,15 +561,15 @@ describe("closing the till", () => {
     expect(report.shift).toMatchObject({ flagged: false, openedBy: "Test pos-cashier", closedBy: "Test pos-cashier" });
     expect(report.cash).toMatchObject({
       openingFloatCents: 20_000,
-      salesCents: 4565,
-      refundsCents: 2565,
+      salesCents: 4280,
+      refundsCents: 2280,
       paidOutCents: 500,
       expectedCents: expectedCash,
       countedCents: expectedCash,
       varianceCents: 0,
     });
     expect(report.card).toMatchObject({ posTotalCents: cardTotal, terminalTotalCents: cardTotal, varianceCents: 0 });
-    expect(report.refundsCents).toBe(2565);
+    expect(report.refundsCents).toBe(2280);
     expect(report.discounts.referralCents).toBe(500 + 100);
     expect(report.discounts.overrideCents).toBe(1000 + 500);
     expect(report.freeMinutesUsed).toBe(60);

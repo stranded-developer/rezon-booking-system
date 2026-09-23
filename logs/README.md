@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-09-15)
+## Current status (2026-09-23)
 
 | Area | State |
 |---|---|
@@ -31,11 +31,17 @@ Everything that was planned, decided and built, one file per step so each can be
 | Members on the website: login, account, member pricing, join online (6c-3) | ✅ Built and verified |
 | Back office Bookings page (6c-4) | ✅ Built and verified |
 | Reports | ❌ Phase 7 |
+| **Phase 8 — public site rebuilt to the owner's reference** | 🚧 in progress |
+| Experiences: flat-price packages in the pricing engine (8a) | ✅ Built and verified |
+| Experiences, tournaments and events in the database (8b) | ✅ Built and verified |
+| Public API: experiences, promotions, tournaments, events (8c) | ✅ Built and verified |
+| Back office screens for all of the above (8e) | ❌ Next |
+| The booking website's new look and flow (8d) | ❌ Next |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 78 · API 191 · pgTAP 423 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 101 · API 213 · pgTAP 456 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
 
 ## Build steps (in the order they were done)
 
@@ -64,6 +70,9 @@ Everything that was planned, decided and built, one file per step so each can be
 | 21 | Real emails through Resend (7b) | [build/21-resend-email.md](build/21-resend-email.md) |
 | 22 | Memberships paid for at the counter (7c) | [build/22-counter-membership.md](build/22-counter-membership.md) |
 | 23 | Time sold in 30-minute sessions; member free play in sessions (7d) | [build/23-sessions.md](build/23-sessions.md) |
+| 24 | Experiences in the pricing engine: flat prices, flat promotions (8a) | [build/24-pricing-experiences.md](build/24-pricing-experiences.md) |
+| 25 | Experiences, tournaments and site events in the database (8b) | [build/25-experiences-tournaments-database.md](build/25-experiences-tournaments-database.md) |
+| 26 | The API serves experiences, tournaments and events (8c) | [build/26-experiences-tournaments-api.md](build/26-experiences-tournaments-api.md) |
 
 ## Decisions
 
@@ -76,6 +85,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
+| [08 — 2026-09-23](decisions/08-2026-09-23-public-site-experiences-tournaments.md) | D64–D72: dark racing look (**supersedes D59**), experiences at flat prices, flat promotional prices, new membership values and listed perks, tournaments, event pop-up and banner, spots left, three-step booking panel, new home page |
 
 ## Phase 6 — Booking website ✅ complete
 
@@ -90,6 +100,20 @@ Planned sub-steps, each gets its own `build/` file:
    - ✅ 6c-2 `apps/booking` for guests: home, timetable, booking flow with referral codes, Stripe payment, booking and cancel pages, legal pages → [build/17](build/17-booking-website-guests.md)
    - ✅ 6c-3 members on the website: accounts, member pricing and free play, account page, joining online → [build/18](build/18-booking-website-members.md)
    - ✅ 6c-4 back office Bookings page in the POS app (list, search, cancel with refund) → [build/19](build/19-back-office-bookings.md)
+
+## Phase 8 — the public site, rebuilt to the owner's reference
+
+The owner supplied `velocitysimlounge.com` as a reference (screenshots and three recordings in `logs/screenshots/`), plus a price list, membership promo prices, and notes on tournaments and event pop-ups. The reference is a **look and flow reference only**: every price, time, resource and rule stays ours. Decisions are in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md).
+
+1. ✅ **8a** pricing engine: experiences and flat promotional prices → [build/24](build/24-pricing-experiences.md)
+2. ✅ **8b** database: experiences, promotions, tournaments, site events, new tier values → [build/25](build/25-experiences-tournaments-database.md)
+3. ✅ **8c** API: config, availability, quotes and holds for experiences; tournaments; events → [build/26](build/26-experiences-tournaments-api.md)
+4. **8d** the booking website: new look, home page, booking panel, tournaments, events, membership
+5. **8e** back office: screens for experiences, promotional prices, tournaments and events
+
+**Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
+- The venue now has **two happy hour windows** — 10:00–15:00 on the hourly rate for billiards, VR and walk-ins, and 12:00–15:00 on the simulator experiences. Both are editable; they need aligning.
+- **Free tournament entry** is built and set to 0 for every tier. The written brief describes it as a Diamond perk; the answer to the perks question did not include it.
 
 ## Next step — Phase 7
 

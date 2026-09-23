@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loadFixture } from "./fixture";
+import { loadFixture, tierValues } from "./fixture";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -46,7 +46,8 @@ test("a superadmin uses the back office: referral codes, complimentary member, b
   const add = page.getByRole("dialog");
   await add.getByLabel("Name").fill(memberName);
   await add.getByLabel("Email").fill(`e2e-comp-${f.run}@raceground.test`);
-  await add.getByLabel("Tier").selectOption({ label: "Gold · 10% off" });
+  const goldTier = await tierValues("Gold");
+  await add.getByLabel("Tier").selectOption({ label: `${goldTier.name} · ${goldTier.discountBp / 100}% off` });
   await add.getByLabel("Reason").fill("Staff perk");
   await add.getByRole("button", { name: "Create member" }).click();
   await expect(page.getByText("Member created")).toBeVisible();

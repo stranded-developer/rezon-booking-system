@@ -1,8 +1,10 @@
 import type { Db, Tables } from "@raceground/db";
-import type { HappyHour, IsoDayOfWeek, RateBand, ResourceTypePricing } from "@raceground/pricing";
+import type { ExperiencePricing, ExperiencePromo, HappyHour, IsoDayOfWeek, RateBand, ResourceTypePricing } from "@raceground/pricing";
 import { ApiError, mapDbError } from "../errors.js";
 
 export type VenueSettings = Tables<"venue_settings">;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function loadSettings(db: Db): Promise<VenueSettings> {
   const { data, error } = await db.from("venue_settings").select("*").eq("id", 1).single();
@@ -69,3 +71,61 @@ export function parseRange(range: unknown): { start: Date; end: Date } {
 }
 
 export const gstOf = (totalCents: number) => Math.floor((totalCents * 2 + 11) / 22);
+
+// ── Experiences (D65, D66) ──────────────────────────────────────────────────
+
+export interface ExperienceContext {
+  experience: ExperiencePricing & { key: string; tagline: string | null; bullets: string[]; badges: string[] };
+  promos: ExperiencePromo[];
+}
+
+/** One experience and every promotional price that could apply to it. */
+export async function loadExperience(db: Db, idOrKey: string): Promise<ExperienceContext> {
+  const query = db
+    .from("experiences")
+    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, active");
+  const { data, error } = await (UUID.test(idOrKey) ? query.eq("id", idOrKey) : query.eq("key", idOrKey)).maybeSingle();
+  if (error) throw mapDbError(error);
+  if (!data || !data.active) throw new ApiError(404, "not_found", "That experience isn't available");
+  return { experience: toExperience(data), promos: await loadPromos(db, [data.id]) };
+}
+
+export async function loadPromos(db: Db, experienceIds: string[]): Promise<ExperiencePromo[]> {
+  if (experienceIds.length === 0) return [];
+  const { data, error } = await db
+    .from("experience_promos")
+    .select("*")
+    .in("experience_id", experienceIds)
+    .eq("active", true)
+    .order("sort");
+  if (error) throw mapDbError(error);
+  return data.map((p) => ({
+    id: p.id,
+    name: p.name,
+    experienceId: p.experience_id,
+    daysOfWeek: p.days_of_week as IsoDayOfWeek[],
+    startTime: wallTime(p.start_time),
+    endTime: wallTime(p.end_time),
+    priceCents: p.price_cents,
+    claimed: p.claimed,
+  }));
+}
+
+type ExperienceRow = Pick<
+  Tables<"experiences">,
+  "id" | "key" | "name" | "resource_type_id" | "tagline" | "bullets" | "badges" | "minutes" | "price_cents"
+>;
+
+export function toExperience(row: ExperienceRow): ExperienceContext["experience"] {
+  return {
+    id: row.id,
+    key: row.key,
+    name: row.name,
+    resourceTypeId: row.resource_type_id,
+    tagline: row.tagline,
+    bullets: row.bullets,
+    badges: row.badges,
+    minutes: row.minutes,
+    priceCents: row.price_cents,
+  };
+}

@@ -20,7 +20,7 @@ export interface Fixture {
   usedUpCode: string;
   customerEmail: string;
   /** A member sold at the counter, who then signs up on the website (D56). */
-  counterMember: { name: string; email: string; memberNo: string; tierName: string; balanceMinutes: number };
+  counterMember: { name: string; email: string; memberNo: string; tierName: string; discountBp: number; balanceMinutes: number };
   /** An account with no membership, used for joining online. */
   joiner: { name: string; email: string };
   password: string;

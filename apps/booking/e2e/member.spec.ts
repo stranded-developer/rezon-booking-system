@@ -82,22 +82,25 @@ test("a counter member signs up, gets their membership, books with the discount 
   await page.getByRole("button", { name: dayLabel(), exact: true }).click();
   await page.getByRole("button", { name: /^4:00 pm$/ }).click();
   await page.getByRole("button", { name: "1 hour", exact: true }).click();
-  await expect(page.getByText(`${f.counterMember.tierName} member · 10% off`)).toBeVisible();
+  await expect(page.getByText(`${f.counterMember.tierName} member · ${f.counterMember.discountBp / 100}% off`)).toBeVisible();
   // Members never see the referral field: a membership and a code can't be combined.
   await expect(page.getByLabel("Referral code")).toBeHidden();
 
   const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
-  await expect(total).toHaveText("$27.00"); // $30 for the hour, less 10%
+  // $30 for the hour on this booth, less the tier's own percentage (D67 can change it).
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const afterDiscount = (cents: number) => Math.round((cents * (10_000 - f.counterMember.discountBp)) / 10_000);
+  await expect(total).toHaveText(money(afterDiscount(30_00)));
   // D63: free play on a booking starts at a whole session — no 15-minute option here.
   const freePlay = page.getByLabel("Use your free play?");
   await expect(freePlay.locator('option[value="15"]')).toHaveCount(0);
   await expect(freePlay.locator("option").nth(1)).toHaveText("30 min");
   await freePlay.selectOption("30");
-  await expect(total).toHaveText("$13.50"); // half the hour paid for with free minutes
+  await expect(total).toHaveText(money(afterDiscount(15_00))); // half the hour paid for with free minutes
   await shot(page, "web-09-member-quote");
 
   await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: /Pay \$13\.50/ }).click();
+  await page.getByRole("button", { name: `Pay ${money(afterDiscount(15_00))}` }).click();
   await page.waitForURL(/checkout\.stripe\.com|\/booking\//, { timeout: 60_000 });
   // Paying is covered by the Stripe test; here we only need the hold, so step back out of Checkout.
   await page.goto("/account");

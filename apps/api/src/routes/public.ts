@@ -13,6 +13,7 @@ import {
   quoteBooking,
   viewBooking,
 } from "../services/bookings.js";
+import { listTournaments, signUp, viewEntry } from "../services/tournaments.js";
 import { optionalAccount } from "../middleware/account.js";
 import { accountContact, accountMember } from "../services/account.js";
 import type { MemberSummary } from "../services/lookup.js";
@@ -22,19 +23,28 @@ import { validate } from "../validate.js";
 export const publicRoutes = new Hono<AppEnv>();
 
 const DateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
-const Booking = z.object({
-  resourceTypeId: z.string().min(1).max(64),
-  date: DateStr,
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM"),
-  durationMinutes: z
-    .number()
-    .int()
-    .min(15)
-    .max(24 * 60)
-    .refine((m) => m % 15 === 0, "Bookings are in 15-minute steps"),
-  referralCode: z.string().trim().min(1).max(32).optional(),
-  freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
-});
+/**
+ * Either an experience (its own fixed length, D65) or a resource type and a length.
+ * The experience wins if both are given; the API never trusts a length sent with one.
+ */
+const Booking = z
+  .object({
+    resourceTypeId: z.string().min(1).max(64).optional(),
+    experienceKey: z.string().min(1).max(64).optional(),
+    date: DateStr,
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:MM"),
+    durationMinutes: z
+      .number()
+      .int()
+      .min(15)
+      .max(24 * 60)
+      .refine((m) => m % 15 === 0, "Bookings are in 15-minute steps")
+      .optional(),
+    referralCode: z.string().trim().min(1).max(32).optional(),
+    freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
+    claimedPromoIds: z.array(z.uuid()).max(10).optional(),
+  })
+  .refine((v) => v.experienceKey || (v.resourceTypeId && v.durationMinutes), "Choose what you'd like to book");
 
 /** A signed-in member gets member pricing only while active or cancelling; otherwise they book as a guest. */
 function pricingMember(member: MemberSummary | null) {
@@ -48,10 +58,11 @@ publicRoutes.get("/config", rateLimit("public-read", 300, 60), async (c) => c.js
 publicRoutes.get(
   "/availability",
   rateLimit("public-read", 300, 60),
-  validate("query", z.object({ type: z.string().min(1).max(64), date: DateStr })),
+  validate("query", z.object({ type: z.string().min(1).max(64).optional(), experience: z.string().min(1).max(64).optional(), date: DateStr })),
   async (c) => {
     const q = c.req.valid("query");
-    return c.json(await availability(c.get("deps"), q.type, q.date));
+    if (!q.type && !q.experience) throw new ApiError(422, "validation_failed", "Choose what you'd like to book");
+    return c.json(await availability(c.get("deps"), q.type ?? "", q.date, q.experience));
   },
 );
 
@@ -60,6 +71,8 @@ publicRoutes.post("/quote", rateLimit("public-quote", 120, 60), optionalAccount,
   const member = await accountMember(deps, c.get("account"));
   return c.json({ quote: await quoteBooking(deps, c.req.valid("json"), pricingMember(member)), memberNotice: memberNotice(member) });
 });
+
+publicRoutes.get("/tournaments", rateLimit("public-read", 300, 60), async (c) => c.json(await listTournaments(c.get("deps"))));
 
 publicRoutes.post("/referral/check", rateLimit("referral-check", 10, 60), validate("json", z.object({ code: z.string().trim().min(1).max(32) })), async (c) => {
   const deps = c.get("deps");
@@ -121,4 +134,33 @@ bookingRoutes.post(
 
 bookingRoutes.post("/:ref/abandon", rateLimit("booking-link", 30, 60), validate("param", Ref), validate("json", z.object({ token: Token })), async (c) => {
   return c.json(await abandonBooking(c.get("deps"), c.req.valid("param").ref, c.req.valid("json").token));
+});
+
+/** Tournament sign-up and the entry link. Mounted at /tournaments. */
+export const tournamentRoutes = new Hono<AppEnv>();
+
+tournamentRoutes.post(
+  "/signup",
+  rateLimit("tournament-signup", 10, 600),
+  optionalAccount,
+  validate(
+    "json",
+    z.object({
+      tournamentId: z.uuid(),
+      customer: Customer.optional(),
+      expectedTotalCents: z.number().int().min(0),
+      acceptTerms: z.literal(true),
+    }),
+  ),
+  async (c) => {
+    const deps = c.get("deps");
+    const account = c.get("account");
+    const member = pricingMember(await accountMember(deps, account));
+    const contact = account && !member ? await accountContact(deps, account) : null;
+    return c.json(await signUp(deps, c.req.valid("json"), member, contact), 201);
+  },
+);
+
+tournamentRoutes.get("/:ref", rateLimit("booking-link", 30, 60), validate("param", Ref), validate("query", z.object({ token: Token })), async (c) => {
+  return c.json(await viewEntry(c.get("deps"), c.req.valid("param").ref, c.req.valid("query").token));
 });

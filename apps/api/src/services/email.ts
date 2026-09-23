@@ -9,7 +9,8 @@ export type EmailTemplate =
   | "booking_confirmed"
   | "booking_cancelled"
   | "booking_payment_refunded"
-  | "booking_reminder";
+  | "booking_reminder"
+  | "tournament_entry_confirmed";
 
 export interface EmailAttachment {
   filename: string;

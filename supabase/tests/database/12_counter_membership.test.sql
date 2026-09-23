@@ -16,14 +16,16 @@ values ('00000000-0000-0000-0000-00000000b101', '00000000-0000-0000-0000-0000000
 
 create temp table t_ids as select
   (select id from public.membership_tiers where name = 'Silver') as silver,
-  (select id from public.membership_tiers where name = 'Gold') as gold;
+  (select id from public.membership_tiers where name = 'Gold') as gold,
+  (select monthly_price_cents from public.membership_tiers where name = 'Silver') as silver_price,
+  (select monthly_price_cents from public.membership_tiers where name = 'Gold') as gold_price;
 grant select on t_ids to public;
 
 -- ── The till has to be open ─────────────────────────────────────────────────
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('name', 'No Till', 'email', 'notill@test.local', 'tierId', (select silver from t_ids),
-                          'months', 1, 'method', 'cash', 'amountCents', 10000)) $$,
+                          'months', 1, 'method', 'cash', 'amountCents', (select silver_price from t_ids))) $$,
   'RG:no_shift:%', 'the till must be open to sell a membership');
 
 select pos_open_shift('00000000-0000-0000-0000-00000000b101', 20000);
@@ -32,43 +34,45 @@ select pos_open_shift('00000000-0000-0000-0000-00000000b101', 20000);
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('name', 'Bad Months', 'email', 'bad@test.local', 'tierId', (select silver from t_ids),
-                          'months', 2, 'method', 'cash', 'amountCents', 20000)) $$,
+                          'months', 2, 'method', 'cash', 'amountCents', (select silver_price * 2 from t_ids))) $$,
   'RG:invalid:Choose 1, 3, 6, 9 or 12 months', 'only whole terms are sold');
 
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('name', 'Bad Method', 'email', 'bad@test.local', 'tierId', (select silver from t_ids),
-                          'months', 1, 'method', 'stripe', 'amountCents', 10000)) $$,
+                          'months', 1, 'method', 'stripe', 'amountCents', (select silver_price from t_ids))) $$,
   'RG:invalid:Pay by cash or card at the counter', 'only money taken at the counter');
 
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('name', 'Wrong Price', 'email', 'bad@test.local', 'tierId', (select silver from t_ids),
-                          'months', 3, 'method', 'cash', 'amountCents', 10000)) $$,
-  'RG:amount_mismatch:This membership costs 30000 cents', 'the price is recomputed here, not trusted');
+                          'months', 3, 'method', 'cash', 'amountCents', (select silver_price from t_ids))) $$,
+  (select format('RG:amount_mismatch:This membership costs %s cents', silver_price * 3) from t_ids),
+  'the price is recomputed here, not trusted');
 
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('email', 'noname@test.local', 'tierId', (select silver from t_ids),
-                          'months', 1, 'method', 'cash', 'amountCents', 10000)) $$,
+                          'months', 1, 'method', 'cash', 'amountCents', (select silver_price from t_ids))) $$,
   'RG:invalid:Name is required', 'a new member needs a name');
 
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('name', 'No Contact', 'tierId', (select silver from t_ids),
-                          'months', 1, 'method', 'cash', 'amountCents', 10000)) $$,
+                          'months', 1, 'method', 'cash', 'amountCents', (select silver_price from t_ids))) $$,
   'RG:invalid:An email or phone number is required', 'a new member needs an email or phone');
 
 -- ── Selling three months of Silver for cash ─────────────────────────────────
 create temp table t_sale as select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
   jsonb_build_object('name', 'Cash Member', 'email', 'cash@test.local', 'tierId', (select silver from t_ids),
-                     'months', 3, 'method', 'cash', 'amountCents', 30000, 'qrTokenHash', 'hash-counter-1',
+                     'months', 3, 'method', 'cash', 'amountCents', (select silver_price * 3 from t_ids), 'qrTokenHash', 'hash-counter-1',
                      'now', '2030-03-04T02:00:00Z')) as r;
 grant select on t_sale to public;
 
 select is((select (r ->> 'newMember')::boolean from t_sale), true, 'a new member is created');
-select is((select (r ->> 'amountCents')::int from t_sale), 30000, '3 x $100 taken');
-select is((select (r ->> 'gstCents')::int from t_sale), 2727, 'GST is the price divided by eleven');
+select is((select (r ->> 'amountCents')::int from t_sale), (select silver_price * 3 from t_ids), 'three months of Silver taken');
+select is((select (r ->> 'gstCents')::int from t_sale), (select private.gst_of(silver_price * 3) from t_ids),
+  'GST is the price divided by eleven');
 select is((select (r ->> 'minutesGranted')::int from t_sale), 180, '3 months of free play granted at once');
 select is(
   (select (r ->> 'currentPeriodEnd')::timestamptz from t_sale), '2030-06-04T02:00:00Z'::timestamptz,
@@ -87,11 +91,12 @@ select is(
 select results_eq(
   $$ select method, amount_cents, gst_cents, member_id is not null, session_id is null, shift_id is not null
      from public.payments where id = (select (r ->> 'paymentId')::uuid from t_sale) $$,
-  $$ values ('cash', 30000, 2727, true, true, true) $$,
+  $$ select 'cash', silver_price * 3, private.gst_of(silver_price * 3), true, true, true from t_ids $$,
   'the payment is against the member, on the open shift');
 
 select is(
-  (select amount_cents from public.cash_movements where payment_id = (select (r ->> 'paymentId')::uuid from t_sale)), 30000,
+  (select amount_cents from public.cash_movements where payment_id = (select (r ->> 'paymentId')::uuid from t_sale)),
+  (select silver_price * 3 from t_ids),
   'cash goes into the till');
 
 select is(
@@ -114,7 +119,7 @@ select throws_ok(
 create temp table t_renew as select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
   jsonb_build_object('customerId', (select customer_id from public.members where id = (select (r ->> 'memberId')::uuid from t_sale)),
                      'tierId', (select gold from t_ids), 'months', 1, 'method', 'card_terminal',
-                     'amountCents', 20000, 'now', '2030-04-04T02:00:00Z')) as r;
+                     'amountCents', (select gold_price from t_ids), 'now', '2030-04-04T02:00:00Z')) as r;
 grant select on t_renew to public;
 
 select is((select (r ->> 'newMember')::boolean from t_renew), false, 'the same member is renewed, not duplicated');
@@ -132,7 +137,7 @@ select is(
 create temp table t_cap as select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
   jsonb_build_object('customerId', (select customer_id from public.members where id = (select (r ->> 'memberId')::uuid from t_sale)),
                      'tierId', (select gold from t_ids), 'months', 12, 'method', 'cash',
-                     'amountCents', 240000, 'now', '2030-04-05T02:00:00Z')) as r;
+                     'amountCents', (select gold_price * 12 from t_ids), 'now', '2030-04-05T02:00:00Z')) as r;
 grant select on t_cap to public;
 
 -- Gold now carries up to 1200 minutes (ten months of 4 sessions), and the cap still binds.
@@ -148,7 +153,7 @@ values ('00000000-0000-0000-0000-00000000d101', '00000000-0000-0000-0000-0000000
 select throws_like(
   $$ select pos_sell_membership('00000000-0000-0000-0000-00000000b101',
        jsonb_build_object('customerId', '00000000-0000-0000-0000-00000000c101', 'tierId', (select silver from t_ids),
-                          'months', 1, 'method', 'cash', 'amountCents', 10000)) $$,
+                          'months', 1, 'method', 'cash', 'amountCents', (select silver_price from t_ids))) $$,
   'RG:stripe_billed:%', 'a membership billed online cannot be sold over the counter');
 
 -- ── Expiry ──────────────────────────────────────────────────────────────────

@@ -99,11 +99,11 @@ describe("T20: validateReferral", () => {
 });
 
 describe("T20: validateTier", () => {
-  const silver = { name: "Silver", discountBp: 500, monthlyPriceCents: 100_00, monthlyFreeMinutes: 60, maxBalanceMinutes: 600 };
+  const silver = { name: "Silver", discountBp: 1000, monthlyPriceCents: 48_00, monthlyFreeMinutes: 60, maxBalanceMinutes: 600 };
 
   it("accepts launch tiers", () => {
     expect(validateTier(silver)).toEqual([]);
-    expect(validateTier({ ...silver, name: "Diamond", discountBp: 1500, monthlyPriceCents: 300_00 })).toEqual([]);
+    expect(validateTier({ ...silver, name: "Diamond", discountBp: 2000, monthlyPriceCents: 128_00 })).toEqual([]);
   });
 
   it.each([

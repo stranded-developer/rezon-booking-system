@@ -43,3 +43,14 @@ export function localSupabase() {
 
 export const saveFixture = (f: Fixture) => writeFileSync(FIXTURE_FILE, JSON.stringify(f, null, 2));
 export const loadFixture = (): Fixture => JSON.parse(readFileSync(FIXTURE_FILE, "utf8")) as Fixture;
+
+
+/** A tier's current values, read from the database. Prices and percentages are the owner's to change (D67). */
+export async function tierValues(name: string): Promise<{ id: string; name: string; discountBp: number; monthlyPriceCents: number }> {
+  const db = localSupabase();
+  const { data, error } = await db.from("membership_tiers").select("id, name, discount_bp, monthly_price_cents").eq("name", name).single();
+  if (error) throw error;
+  return { id: data.id as string, name: data.name as string, discountBp: data.discount_bp as number, monthlyPriceCents: data.monthly_price_cents as number };
+}
+
+export const money = (cents: number) => `$${(cents / 100).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
