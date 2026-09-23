@@ -35,13 +35,14 @@ Everything that was planned, decided and built, one file per step so each can be
 | Experiences: flat-price packages in the pricing engine (8a) | ✅ Built and verified |
 | Experiences, tournaments and events in the database (8b) | ✅ Built and verified |
 | Public API: experiences, promotions, tournaments, events (8c) | ✅ Built and verified |
-| Back office screens for all of the above (8e) | ❌ Next |
-| The booking website's new look and flow (8d) | ❌ Next |
+| The booking website's new look, home, events, tournaments (8d) | ✅ Built and verified |
+| The experience grid and three-step booking panel (8e) | ❌ Next |
+| Back office screens for all of the above (8f) | ❌ Next |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 101 · API 213 · pgTAP 456 · e2e 13 (6 POS + 7 booking site; 3 of them need `stripe listen`).
+**Test totals at the last step:** pricing 101 · API 213 · pgTAP 456 · e2e 17 (6 POS + 11 booking site; 4 of them need `stripe listen` or the venue to be open).
 
 ## Build steps (in the order they were done)
 
@@ -73,6 +74,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 24 | Experiences in the pricing engine: flat prices, flat promotions (8a) | [build/24-pricing-experiences.md](build/24-pricing-experiences.md) |
 | 25 | Experiences, tournaments and site events in the database (8b) | [build/25-experiences-tournaments-database.md](build/25-experiences-tournaments-database.md) |
 | 26 | The API serves experiences, tournaments and events (8c) | [build/26-experiences-tournaments-api.md](build/26-experiences-tournaments-api.md) |
+| 27 | The booking site's new look, home page, events and tournaments (8d) | [build/27-booking-site-look.md](build/27-booking-site-look.md) |
 
 ## Decisions
 
@@ -108,8 +110,9 @@ The owner supplied `velocitysimlounge.com` as a reference (screenshots and three
 1. ✅ **8a** pricing engine: experiences and flat promotional prices → [build/24](build/24-pricing-experiences.md)
 2. ✅ **8b** database: experiences, promotions, tournaments, site events, new tier values → [build/25](build/25-experiences-tournaments-database.md)
 3. ✅ **8c** API: config, availability, quotes and holds for experiences; tournaments; events → [build/26](build/26-experiences-tournaments-api.md)
-4. **8d** the booking website: new look, home page, booking panel, tournaments, events, membership
-5. **8e** back office: screens for experiences, promotional prices, tournaments and events
+4. ✅ **8d** the booking website: new look, home page, events, tournaments, contact → [build/27](build/27-booking-site-look.md)
+5. **8e** the `/book` experience grid, the three-step booking panel with spots left, and the membership page
+6. **8f** back office: screens for experiences, promotional prices, tournaments and events
 
 **Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
 - The venue now has **two happy hour windows** — 10:00–15:00 on the hourly rate for billiards, VR and walk-ins, and 12:00–15:00 on the simulator experiences. Both are editable; they need aligning.
