@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loadFixture, localSupabase } from "./fixture";
 import { clearInbox, firstLink, latestEmail } from "./mailpit";
 
@@ -20,6 +20,22 @@ async function appReady(page: Page) {
   await expect(page.getByRole("link", { name: /Member log in|My account/ })).toBeVisible({ timeout: 20_000 });
 }
 
+/**
+ * Fill a field and make sure the value survives.
+ *
+ * `appReady` only proves the **header** is live. The header lives in the shared layout, so after a
+ * client-side navigation it is already hydrated while the form on the new page may not be — and a
+ * value typed into a React-controlled input before it hydrates is silently wiped, leaving a form
+ * that looks filled in and submits nothing. Retrying until the value sticks is what actually waits
+ * for the form.
+ */
+async function fillLive(field: Locator, value: string) {
+  await expect(async () => {
+    await field.fill(value);
+    await expect(field).toHaveValue(value, { timeout: 500 });
+  }).toPass({ timeout: 20_000 });
+}
+
 const dayLabel = () => {
   const [y, m, d] = bookingDate().split("-").map(Number);
   return new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" })
@@ -39,17 +55,17 @@ test("a counter member signs up, gets their membership, books with the discount 
   await page.getByRole("link", { name: "Create an account" }).click();
   // The name is only used for people the venue has no record of; members keep the name on file.
   await expect(page.getByText("Already a member with us? We'll keep the name we have for you.")).toBeVisible();
-  await page.getByLabel("Name").fill(f.counterMember.name);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
-  await page.getByLabel("Password").fill(f.password);
+  await fillLive(page.getByLabel("Name"), f.counterMember.name);
+  await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+  await fillLive(page.getByLabel("Password"), f.password);
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByText(/We've sent a confirmation link/)).toBeVisible();
 
   // Until the email is confirmed the login is refused, so nobody can claim someone else's membership.
   await page.goto("/login");
   await appReady(page);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
-  await page.getByLabel("Password").fill(f.password);
+  await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+  await fillLive(page.getByLabel("Password"), f.password);
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText(/confirm your email first/i)).toBeVisible();
 
@@ -59,8 +75,8 @@ test("a counter member signs up, gets their membership, books with the discount 
   await page.waitForURL(/\/account/, { timeout: 20_000 }).catch(async () => {
     // If the link only confirmed the address, log in as usual.
     await expect(page.getByText("Your email is confirmed")).toBeVisible();
-    await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
-    await page.getByLabel("Password").fill(f.password);
+    await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+    await fillLive(page.getByLabel("Password"), f.password);
     await page.getByRole("button", { name: "Log in" }).click();
     await page.waitForURL(/\/account/);
   });
@@ -124,7 +140,7 @@ test("a member can ask for a new password", async ({ page }) => {
   await appReady(page);
   await page.getByRole("link", { name: "Forgot your password?" }).click();
   await appReady(page);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
+  await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
   await page.getByRole("button", { name: "Send me a link" }).click();
   await expect(page.getByText(/we've sent a link/i)).toBeVisible();
 
@@ -133,14 +149,14 @@ test("a member can ask for a new password", async ({ page }) => {
   await appReady(page);
   await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
   const newPassword = `${f.password}-new`;
-  await page.getByLabel("New password").fill(newPassword);
+  await fillLive(page.getByLabel("New password"), newPassword);
   await page.getByRole("button", { name: "Save new password" }).click();
 
   await page.waitForURL(/\/login\?reset=1/);
   await expect(page.getByText("Your password is updated")).toBeVisible();
   await appReady(page);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.counterMember.email);
-  await page.getByLabel("Password").fill(newPassword);
+  await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+  await fillLive(page.getByLabel("Password"), newPassword);
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL(/\/account/);
   await expect(page.getByRole("heading", { name: new RegExp(`Hi ${f.counterMember.name}`) })).toBeVisible();

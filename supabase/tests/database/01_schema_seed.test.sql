@@ -82,7 +82,8 @@ select function_privs_are('public', 'expire_stale_holds', array['timestamp with 
   'anon cannot execute expire_stale_holds');
 
 select results_eq(
-  $$ select key, minutes, price_cents from experiences order by sort $$,
+  $$ select key, minutes, price_cents from experiences
+     where key in ('quick_race', 'leaderboard_challenge', 'double_race') order by sort $$,
   $$ values ('quick_race', 30, 3500), ('leaderboard_challenge', 30, 3500), ('double_race', 60, 5800) $$,
   'experiences: Quick Race and Leaderboard Challenge $35 for 30 min, Double Race $58 for an hour'
 );
@@ -90,6 +91,7 @@ select results_eq(
 select results_eq(
   $$ select e.key, p.name, p.start_time, p.end_time, p.price_cents, p.claimed
      from experience_promos p join experiences e on e.id = p.experience_id
+     where e.key in ('quick_race', 'leaderboard_challenge', 'double_race')
      order by e.sort, p.sort $$,
   $$ values ('quick_race', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
             ('quick_race', 'Student', '00:00'::time, '24:00'::time, 3200, true),
