@@ -152,7 +152,11 @@ describe("access", () => {
     const r = await pos("/config");
     expect(r.status).toBe(200);
     expect(r.json.timeZone).toBe("Australia/Sydney");
-    expect(r.json.resourceTypes.map((t: { key: string }) => t.key)).toEqual(["billiard", "sim", "vr"]);
+    // Scoped to the launch types: a used database also holds whatever other suites have created,
+    // and a killed browser run can leave one active. This is about the launch config being served,
+    // not about nothing else existing.
+    const keys = r.json.resourceTypes.map((t: { key: string }) => t.key);
+    expect(keys.filter((k: string) => ["billiard", "sim", "vr"].includes(k))).toEqual(["billiard", "sim", "vr"]);
     expect(r.json.happyHours[0]).toMatchObject({ start_time: "10:00", end_time: "15:00", discount_bp: 1000 });
     expect(Array.isArray(r.json.rateBands)).toBe(true);
   });

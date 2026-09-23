@@ -13,3 +13,6 @@ supabase/.temp/
 
 # Local credential notes (never committed)
 SECRETS.local.md
+
+# Owner-supplied reference material: large video and screenshots, kept locally only
+logs/screenshots/

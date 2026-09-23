@@ -1,16 +1,18 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
 import Link from "next/link";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "gold" | "secondary" | "ghost" | "danger";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-flag text-ink-950 ring-1 ring-ink-950/10 hover:brightness-105 disabled:bg-line disabled:text-ink-500",
-  secondary: "bg-paper text-ink-950 ring-1 ring-line hover:bg-mist disabled:text-ink-500",
-  ghost: "text-ink-600 hover:bg-mist disabled:text-ink-500",
-  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
+  primary: "bg-flag text-white shadow-[0_6px_24px_-8px_var(--color-flag)] hover:bg-flag-bright disabled:bg-line disabled:text-ink-500 disabled:shadow-none",
+  gold: "bg-gold text-night hover:brightness-110 disabled:bg-line disabled:text-ink-500",
+  secondary: "bg-paper text-ink-950 ring-1 ring-line hover:bg-mist hover:ring-ink-500 disabled:text-ink-500",
+  ghost: "text-ink-600 hover:bg-mist hover:text-ink-950 disabled:text-ink-500",
+  danger: "bg-red-600 text-white hover:bg-red-500 disabled:bg-red-900 disabled:text-ink-500",
 };
-const SIZES = { sm: "h-9 px-3 text-sm", md: "h-11 px-4 text-sm", lg: "h-13 px-6 text-base" };
-const base = "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-950 disabled:cursor-not-allowed";
+const SIZES = { sm: "h-9 px-3 text-sm", md: "h-11 px-4 text-sm", lg: "h-13 px-7 text-base" };
+const base =
+  "display inline-flex items-center justify-center gap-2 rounded-xl tracking-wide transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flag-bright disabled:cursor-not-allowed";
 
 export function Button({
   variant = "secondary",
@@ -34,7 +36,16 @@ export function ButtonLink({
 export function Input({ className = "", ...props }: ComponentProps<"input">) {
   return (
     <input
-      className={`h-11 w-full rounded-xl border border-line bg-paper px-3 text-ink-950 placeholder:text-ink-500 focus:border-ink-950 focus:outline-none ${className}`}
+      className={`h-11 w-full rounded-xl border border-line bg-night/60 px-3 text-ink-950 placeholder:text-ink-500 focus:border-flag focus:outline-none ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function Select({ className = "", ...props }: ComponentProps<"select">) {
+  return (
+    <select
+      className={`h-11 w-full rounded-xl border border-line bg-night/60 px-3 text-ink-950 focus:border-flag focus:outline-none ${className}`}
       {...props}
     />
   );
@@ -45,15 +56,15 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
     <label className="flex flex-col gap-1.5">
       <span className="text-sm font-medium text-ink-800">{label}</span>
       {children}
-      {error ? <span className="text-sm text-red-700">{error}</span> : hint ? <span className="text-sm text-ink-500">{hint}</span> : null}
+      {error ? <span className="text-sm text-red-300">{error}</span> : hint ? <span className="text-sm text-ink-500">{hint}</span> : null}
     </label>
   );
 }
 
 export function Card({ title, children, className = "" }: { title?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-2xl border border-line bg-paper p-5 sm:p-6 ${className}`}>
-      {title ? <h2 className="mb-4 text-lg font-bold">{title}</h2> : null}
+    <section className={`rounded-2xl border border-line bg-paper/80 p-5 backdrop-blur-sm sm:p-6 ${className}`}>
+      {title ? <h2 className="display mb-4 text-xl">{title}</h2> : null}
       {children}
     </section>
   );
@@ -61,10 +72,10 @@ export function Card({ title, children, className = "" }: { title?: ReactNode; c
 
 export function Notice({ tone = "info", children }: { tone?: "info" | "warn" | "error" | "good"; children: ReactNode }) {
   const tones = {
-    info: "bg-mist text-ink-800 border-line",
-    warn: "bg-amber-50 text-amber-900 border-amber-200",
-    error: "bg-red-50 text-red-800 border-red-200",
-    good: "bg-emerald-50 text-emerald-900 border-emerald-200",
+    info: "bg-mist/70 text-ink-800 border-line",
+    warn: "bg-amber-400/10 text-amber-200 border-amber-400/30",
+    error: "bg-red-500/10 text-red-200 border-red-500/30",
+    good: "bg-emerald-400/10 text-emerald-200 border-emerald-400/30",
   };
   return (
     <p role={tone === "error" ? "alert" : undefined} className={`rounded-xl border px-4 py-3 text-sm ${tones[tone]}`}>
@@ -75,7 +86,7 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "warn" | "
 
 export function Row({ label, value, strong = false }: { label: ReactNode; value: ReactNode; strong?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-4 ${strong ? "text-base font-bold" : "text-sm text-ink-600"}`}>
+    <div className={`flex items-baseline justify-between gap-4 ${strong ? "text-base font-bold text-ink-950" : "text-sm text-ink-600"}`}>
       <span>{label}</span>
       <span className="tnum text-right">{value}</span>
     </div>
@@ -84,8 +95,8 @@ export function Row({ label, value, strong = false }: { label: ReactNode; value:
 
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`font-black uppercase italic tracking-tight ${className}`}>
-      Race<span className="rounded bg-flag px-1 text-ink-950">ground</span>
+    <span className={`display tracking-tight ${className}`}>
+      Race<span className="text-flag">ground</span>
     </span>
   );
 }
@@ -93,8 +104,42 @@ export function Wordmark({ className = "" }: { className?: string }) {
 export function Spinner({ label }: { label: string }) {
   return (
     <p className="flex items-center gap-2 text-sm text-ink-500">
-      <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-line border-t-ink-950" />
+      <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-line border-t-flag" />
       {label}
     </p>
   );
+}
+
+/** A short label on a card, as the reference badges its most popular experience. */
+export function Badge({ children, tone = "flag" }: { children: ReactNode; tone?: "flag" | "gold" | "quiet" }) {
+  const tones = {
+    flag: "bg-flag text-white",
+    gold: "bg-gold text-night",
+    quiet: "bg-mist text-ink-600 ring-1 ring-line",
+  };
+  return <span className={`display inline-block rounded-md px-2 py-1 text-xs tracking-wide ${tones[tone]}`}>{children}</span>;
+}
+
+/** The checkered flag strip the reference uses between sections. */
+export function Checkers({ className = "" }: { className?: string }) {
+  return <div aria-hidden className={`checkers w-full ${className}`} />;
+}
+
+/** A section heading in the reference's style: capitals, with part of it in crimson. */
+export function SectionTitle({ children, kicker, className = "" }: { children: ReactNode; kicker?: string; className?: string }) {
+  return (
+    <div className={`text-center ${className}`}>
+      {kicker ? <p className="display mb-3 text-sm tracking-[0.2em] text-flag">{kicker}</p> : null}
+      <h2 className="display text-3xl sm:text-4xl">{children}</h2>
+    </div>
+  );
+}
+
+/**
+ * The page container. The layout is full-bleed so the home page can run sections edge to edge,
+ * so every other page wraps its own content in this.
+ */
+export function PageShell({ children, width = "wide", className = "" }: { children: ReactNode; width?: "wide" | "narrow"; className?: string }) {
+  const max = width === "narrow" ? "max-w-2xl" : "max-w-5xl";
+  return <div className={`mx-auto w-full ${max} px-4 py-10 ${className}`}>{children}</div>;
 }

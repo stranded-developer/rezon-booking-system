@@ -22,16 +22,27 @@ const bookingDayLabel = () => {
 test("the home page shows what the back office says", async ({ page }) => {
   const f = loadFixture();
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Billiards, driving sims and VR");
-  // Rates come from the venue's own configuration, including this run's test type.
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/sim racing/i);
+
+  // Experiences are sold at a flat price for a fixed length (D65), straight from the database.
+  const quick = page.getByRole("article").filter({ hasText: "Quick Race" });
+  await expect(quick.getByRole("heading", { name: "Quick Race" })).toBeVisible();
+  await expect(quick).toContainText("30 min");
+  const double = page.getByRole("article").filter({ hasText: "Double Race" });
+  await expect(double).toContainText("60 min");
+  await expect(double).toContainText("Most popular");
+
+  // Anything without an experience is still shown at its hourly rate, including this run's own type.
+  await expect(page.getByRole("heading", { name: "Also by the hour" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Billiard Table" })).toBeVisible();
   await expect(page.getByText("$30.00/hr").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: f.resourceTypeName })).toBeVisible();
-  await expect(page.getByText(/Happy Hour: 10% off/)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Opening hours" })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "Hours" })).toBeVisible();
   await expect(page.getByText("10:00 am – 9:00 pm").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Silver" })).toBeVisible();
   await shot(page, "web-01-home");
+
   await page.getByRole("link", { name: "Book now" }).first().click();
   await expect(page.getByRole("heading", { name: "Book your time" })).toBeVisible();
 });

@@ -6,8 +6,8 @@ export const metadata: Metadata = { title: "Terms — Raceground" };
 
 export default function TermsPage() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-3xl font-black">Terms</h1>
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
+      <h1 className="display text-4xl">Terms</h1>
       <Notice tone="warn">Draft. The final wording is being prepared before launch.</Notice>
       <Card>
         <ul className="space-y-3 text-sm text-ink-600">

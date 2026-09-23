@@ -24,9 +24,82 @@ export interface PublicConfig {
     monthlyPriceCents: number;
     monthlyFreeMinutes: number;
     maxBalanceMinutes: number;
+    /** Listed on the membership page but not enforced by the system (D67). */
+    perks: string[];
     sellable: boolean;
   }[];
+  /** Named packages sold at a flat price (D65). */
+  experiences: Experience[];
+  /** What's on: the pop-up and the banner (D69). */
+  events: SiteEvent[];
 }
+
+export interface Experience {
+  id: string;
+  key: string;
+  name: string;
+  resourceTypeId: string;
+  tagline: string | null;
+  bullets: string[];
+  badges: string[];
+  minutes: number;
+  priceCents: number;
+  /** The cheapest price anyone could pay without asking for it. */
+  fromPriceCents: number;
+  promos: ExperiencePromo[];
+}
+
+export interface ExperiencePromo {
+  id: string;
+  name: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  priceCents: number;
+  /** Only applies when the customer asks for it, e.g. a student price. */
+  claimed: boolean;
+}
+
+export interface SiteEvent {
+  id: string;
+  title: string;
+  body: string | null;
+  detail: string | null;
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  asPopup: boolean;
+  asBanner: boolean;
+}
+
+export interface Tournament {
+  id: string;
+  name: string;
+  blurb: string | null;
+  startsAt: string;
+  venueDate: string;
+  venueTime: string;
+  spots: number;
+  spotsLeft: number;
+  entryFeeCents: number;
+  full: boolean;
+}
+
+export interface TournamentEntry {
+  ref: string;
+  status: "held" | "confirmed" | "cancelled" | "expired";
+  freeEntry: boolean;
+  totalCents: number | null;
+  gstCents: number | null;
+  explanation: string[];
+  holdExpiresAt: string | null;
+  customerName: string;
+  checkInCode: string;
+  tournament: { name: string; blurb: string | null; venueDate: string; venueTime: string; timeZone: string };
+}
+
+export type TournamentSignUpResult =
+  | { status: "confirmed"; entryId: string; ref: string; token: string; freeEntry: boolean }
+  | { status: "pending_payment"; entryId: string; ref: string; token: string; checkoutUrl: string; holdExpiresAt: string };
 
 export interface ResourceType {
   id: string;
@@ -43,6 +116,9 @@ export interface Availability {
   today: string;
   lastDate: string;
   sessionMinutes: number;
+  /** The length every start time is checked against: the experience's, or one session. */
+  requiredMinutes: number;
+  experience: { id: string; key: string; name: string; minutes: number } | null;
   resourceType: { id: string; key: string; name: string; minMinutes: number; baseRateCents: number };
   resources: { id: string; label: string }[];
   open: string | null;
@@ -63,6 +139,9 @@ export interface Slot {
 export interface Quote {
   resourceTypeId: string;
   resourceTypeName: string;
+  experience: { id: string; key: string; name: string; minutes: number; listPriceCents: number } | null;
+  /** Promotional prices the customer could still ask for at this start time (D66). */
+  claimablePromos: { id: string; name: string; priceCents: number }[];
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
@@ -89,6 +168,9 @@ export type HoldResult =
 export interface Booking {
   ref: string;
   status: "held" | "confirmed" | "arrived" | "completed" | "cancelled" | "expired" | "no_show";
+  /** What was bought: the experience's name if there was one, otherwise the kind of resource. */
+  what: string;
+  experience: { name: string; key: string } | null;
   resourceType: string;
   resource: string;
   startsAt: string;
@@ -155,6 +237,8 @@ export interface BookingSummary {
   id: string;
   ref: string;
   status: Booking["status"];
+  what: string;
+  experience: { name: string; key: string } | null;
   resourceType: string;
   resource: string;
   startsAt: string;

@@ -5,8 +5,8 @@ export const metadata: Metadata = { title: "Cancellations and refunds — Racegr
 
 export default function RefundPolicyPage() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-3xl font-black">Cancellations and refunds</h1>
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
+      <h1 className="display text-4xl">Cancellations and refunds</h1>
       <Card>
         <ul className="space-y-3 text-sm text-ink-600">
           <li>

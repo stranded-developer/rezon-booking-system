@@ -17,7 +17,9 @@ function bookingDate(): string {
  * Filling a field before that point "succeeds" but the value is wiped when React takes over.
  */
 async function appReady(page: Page) {
-  await expect(page.getByRole("link", { name: /Member log in|My account/ })).toBeVisible({ timeout: 20_000 });
+  // Scoped to the header: the footer has its own "Member log in" link, and that one is in the
+  // markup from the server, so it proves nothing about the browser having taken over.
+  await expect(page.getByRole("banner").getByRole("link", { name: /Member log in|My account/ }).first()).toBeVisible({ timeout: 20_000 });
 }
 
 /**

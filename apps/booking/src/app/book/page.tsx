@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BookingFlow } from "@/components/booking-flow";
+import { PageShell } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Book a table, sim or VR seat — Raceground",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function BookPage() {
-  return <BookingFlow />;
+  return (
+    <PageShell>
+      <BookingFlow />
+    </PageShell>
+  );
 }

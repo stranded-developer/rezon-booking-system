@@ -1,28 +1,154 @@
 @import "tailwindcss";
 
-/* Light public look (D59): the POS wordmark and lime flag accent on a light page. */
+/*
+ * The public site's racing look (D64, which supersedes D59's lighter look).
+ *
+ * The token names are the same ones the site already used — paper, mist, line, ink, flag — so every
+ * screen moved to the dark theme at once instead of each being restyled by hand. What changed is
+ * what they mean: `paper` is now a raised dark surface rather than white, and `flag` is the crimson
+ * the reference uses for its primary action rather than the POS's lime.
+ */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --color-ink-950: #0b0d10;
-  --color-ink-800: #1d222a;
-  --color-ink-600: #4a5461;
-  --color-ink-500: #6b7583;
-  --color-line: #e3e6ea;
-  --color-paper: #ffffff;
-  --color-mist: #f5f6f8;
-  --color-flag: #e8ff47;
+  --font-display: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Text, brightest first. */
+  --color-ink-950: #ffffff;
+  --color-ink-800: #e7e9f5;
+  --color-ink-600: #b0b4d0;
+  --color-ink-500: #8b90b2;
+
+  /* Surfaces. */
+  --color-night: #0a0a18;
+  --color-deep: #141334;
+  --color-paper: #15142f;
+  --color-mist: #1d1c40;
+  --color-line: #2c2b55;
+
+  /* Accents. */
+  --color-flag: #e01b4c;
+  --color-flag-bright: #f5315f;
+  --color-gold: #f5c542;
+
+  --radius-xl: 0.9rem;
+  --radius-2xl: 1.1rem;
 }
 
 html,
 body {
-  background: var(--color-mist);
+  background: var(--color-night);
   color: var(--color-ink-950);
 }
 
 body {
   -webkit-font-smoothing: antialiased;
+  /* A slow indigo wash behind the page, so flat sections still read as lit. */
+  background-image:
+    radial-gradient(70rem 40rem at 50% -10rem, #2a2765 0%, transparent 70%),
+    radial-gradient(50rem 30rem at 100% 30%, #1d1a4a 0%, transparent 65%);
+  background-attachment: fixed;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Headings in the reference are condensed, italic and set in capitals. */
+.display {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 0.95;
+}
+
+/* The checkered flag strip that separates sections. */
+.checkers {
+  height: 1.75rem;
+  background-image:
+    linear-gradient(45deg, var(--color-ink-950) 25%, transparent 25%, transparent 75%, var(--color-ink-950) 75%),
+    linear-gradient(45deg, var(--color-ink-950) 25%, transparent 25%, transparent 75%, var(--color-ink-950) 75%);
+  background-size: 1.75rem 1.75rem;
+  background-position:
+    0 0,
+    0.875rem 0.875rem;
+  background-color: var(--color-night);
+}
+
+/* A slim version for card edges and dividers. */
+.checkers-thin {
+  height: 0.5rem;
+  background-image:
+    linear-gradient(45deg, var(--color-flag) 25%, transparent 25%, transparent 75%, var(--color-flag) 75%),
+    linear-gradient(45deg, var(--color-flag) 25%, transparent 25%, transparent 75%, var(--color-flag) 75%);
+  background-size: 0.5rem 0.5rem;
+  background-position:
+    0 0,
+    0.25rem 0.25rem;
+}
+
+/*
+ * Sections rise into view as they are scrolled to. The starting state is only applied once the
+ * browser has taken over (`.js-reveal` is added by the observer), so with JavaScript off, or before
+ * hydration, everything is simply visible — content is never hidden by a script that might not run.
+ */
+.js-reveal {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+.js-reveal.is-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s ease-out,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-reveal,
+  .js-reveal.is-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The event pop-up. */
+@keyframes rg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-pop {
+  animation: rg-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade {
+  animation: rg-fade 0.25s ease-out both;
 }

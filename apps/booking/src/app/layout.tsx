@@ -1,44 +1,48 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import Link from "next/link";
+import { Barlow_Condensed, Inter } from "next/font/google";
+import { connection } from "next/server";
 import { AccountProvider } from "@/components/account-provider";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { EventBanner, EventPopup } from "@/components/site-events";
+import { api } from "@/lib/api";
+import type { PublicConfig } from "@/lib/types";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+/** Headings in the reference are condensed italic capitals (D64). */
+const display = Barlow_Condensed({ subsets: ["latin"], weight: ["600", "700"], style: ["normal", "italic"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "Raceground — book a table, sim or VR seat in Sydney",
-  description: "Book billiard tables, driving simulators and VR seats at Raceground in Sydney. Pay online, show your code at the counter.",
+  title: "Raceground — Sydney's sim racing, billiards and VR lounge",
+  description:
+    "Book a driving simulator, billiard table or VR seat at Raceground in Sydney. Quick Race, Double Race and Leaderboard Challenge, with member pricing and happy hour.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f5f6f8",
+  themeColor: "#0a0a18",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // The venue's details and what's on are edited in the back office, so this is read per request.
+  await connection();
+  let config: PublicConfig | null = null;
+  try {
+    config = await api<PublicConfig>("/public/config");
+  } catch {
+    config = null;
+  }
+  const events = config?.events ?? [];
+
   return (
-    <html lang="en-AU" className={inter.variable}>
+    <html lang="en-AU" className={`${inter.variable} ${display.variable}`}>
       <body className="flex min-h-dvh flex-col font-sans">
         <AccountProvider>
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
-        <footer className="border-t border-line bg-paper">
-          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-ink-500">
-            <p>© {new Date().getFullYear()} Raceground, Sydney</p>
-            <nav className="flex flex-wrap gap-4">
-              <Link href="/terms" className="hover:text-ink-950">
-                Terms
-              </Link>
-              <Link href="/refund-policy" className="hover:text-ink-950">
-                Cancellations &amp; refunds
-              </Link>
-              <Link href="/privacy" className="hover:text-ink-950">
-                Privacy
-              </Link>
-            </nav>
-          </div>
-        </footer>
+          <EventBanner events={events} />
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter venue={config?.venue ?? null} />
+          <EventPopup events={events} />
         </AccountProvider>
       </body>
     </html>
