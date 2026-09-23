@@ -54,6 +54,18 @@ Everything else is unchanged: the same member-or-referral rule, the same stale-q
 2. **Two test names described something the test did not do.** "books it for its own length" only ever asserted a refused stale total, and a token test doubled as a Stripe-missing test. Both renamed to say what they check.
 3. **The API compiled against stale generated types** until `@raceground/db` was rebuilt — the new tables existed in `database.types.ts` but not in `dist/`. Worth knowing for next time: after `gen:types`, build the package before trusting a typecheck.
 
+**Correction — the gate in this step's first commit was not actually green**
+
+The "Gate" line above was written from checks that had passed a few minutes earlier. The command that ran the gate and committed piped **each step through `tail`**, so every step reported `tail`'s exit code, which is always 0. The `&&` chain therefore never saw a failure and the commit went ahead over a **red** gate. Two checks were failing, and both were right to:
+
+1. **`01_schema_seed` failed on a used database.** The two launch-seed assertions added in step 8b selected *every* experience and promotional price, so the rows `experiences.integration.test.ts` leaves behind (`test_quick_…`, "Test Happy Hour") broke them. Scoped to the three launch keys. This is exactly the rule in CLAUDE.md — *tests must pass on a fresh and on a used local database* — and the new assertions broke it while the rest of the file obeyed it.
+
+2. **The password-reset browser test failed whenever it ran straight after the POS suite.** `appReady` waits for the header's account link, but the header lives in the **shared layout**: after a client-side navigation it is already hydrated while the form on the *new* page may not be. A value typed into a React-controlled input before it hydrates is silently wiped, so the form looked filled in and submitted nothing — and because the "we've sent a link" notice is set synchronously on submit, its absence meant the submit never happened, not that the email failed. Fills now retry until the value sticks, which is what actually waits for the form. Reproduced by running POS-then-booking, then confirmed fixed over three back-to-back runs.
+
+Both are fixed in the commit that follows this step's. The gate was then re-run through a script that checks each step's real exit code: **turbo 11/11 · pgTAP 456 · POS e2e 5 · booking e2e 5**.
+
+**The lesson worth keeping:** never pipe a gate step into anything. `set -o pipefail`, or capture to a file and check the status.
+
 **Not built yet**
 
 - **The back office has no screens** for experiences, promotional prices, tournaments or events. Until the next step they can only be changed in SQL, so the owner cannot yet create a tournament or an event.
