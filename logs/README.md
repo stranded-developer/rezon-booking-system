@@ -31,18 +31,18 @@ Everything that was planned, decided and built, one file per step so each can be
 | Members on the website: login, account, member pricing, join online (6c-3) | ✅ Built and verified |
 | Back office Bookings page (6c-4) | ✅ Built and verified |
 | Reports | ❌ Phase 7 |
-| **Phase 8 — public site rebuilt to the owner's reference** | 🚧 in progress |
+| **Phase 8 — public site rebuilt to the owner's reference** | ✅ complete |
 | Experiences: flat-price packages in the pricing engine (8a) | ✅ Built and verified |
 | Experiences, tournaments and events in the database (8b) | ✅ Built and verified |
 | Public API: experiences, promotions, tournaments, events (8c) | ✅ Built and verified |
 | The booking website's new look, home, events, tournaments (8d) | ✅ Built and verified |
 | The experience grid, booking panel and membership page (8e) | ✅ Built and verified |
-| Back office screens for all of the above (8f) | ❌ Next |
+| Back office screens for all of the above (8f) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 101 · API 213 · pgTAP 456 · e2e 18 (6 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
+**Test totals at the last step:** pricing 101 · API 233 · pgTAP 461 · e2e 19 (7 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
 
 ## Build steps (in the order they were done)
 
@@ -76,6 +76,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 26 | The API serves experiences, tournaments and events (8c) | [build/26-experiences-tournaments-api.md](build/26-experiences-tournaments-api.md) |
 | 27 | The booking site's new look, home page, events and tournaments (8d) | [build/27-booking-site-look.md](build/27-booking-site-look.md) |
 | 28 | The experience grid, the three-step booking panel, the membership page (8e) | [build/28-booking-panel-membership.md](build/28-booking-panel-membership.md) |
+| 29 | Back office: experiences, tournaments and what's on — **Phase 8 complete** | [build/29-back-office-experiences.md](build/29-back-office-experiences.md) |
 
 ## Decisions
 
@@ -104,7 +105,7 @@ Planned sub-steps, each gets its own `build/` file:
    - ✅ 6c-3 members on the website: accounts, member pricing and free play, account page, joining online → [build/18](build/18-booking-website-members.md)
    - ✅ 6c-4 back office Bookings page in the POS app (list, search, cancel with refund) → [build/19](build/19-back-office-bookings.md)
 
-## Phase 8 — the public site, rebuilt to the owner's reference
+## Phase 8 — the public site, rebuilt to the owner's reference ✅ complete
 
 The owner supplied `velocitysimlounge.com` as a reference (screenshots and three recordings in `logs/screenshots/`), plus a price list, membership promo prices, and notes on tournaments and event pop-ups. The reference is a **look and flow reference only**: every price, time, resource and rule stays ours. Decisions are in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md).
 
@@ -113,7 +114,7 @@ The owner supplied `velocitysimlounge.com` as a reference (screenshots and three
 3. ✅ **8c** API: config, availability, quotes and holds for experiences; tournaments; events → [build/26](build/26-experiences-tournaments-api.md)
 4. ✅ **8d** the booking website: new look, home page, events, tournaments, contact → [build/27](build/27-booking-site-look.md)
 5. ✅ **8e** the `/book` experience grid, the three-step booking panel with spots left, and the membership page → [build/28](build/28-booking-panel-membership.md)
-6. **8f** back office: screens for experiences, promotional prices, tournaments and events
+6. ✅ **8f** back office: screens for experiences, promotional prices, tournaments and events → [build/29](build/29-back-office-experiences.md)
 
 **Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
 - The venue now has **two happy hour windows** — 10:00–15:00 on the hourly rate for billiards, VR and walk-ins, and 12:00–15:00 on the simulator experiences. Both are editable; they need aligning.
