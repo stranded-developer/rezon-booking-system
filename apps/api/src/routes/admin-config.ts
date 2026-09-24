@@ -1,4 +1,6 @@
 import {
+  validateExperience,
+  validateExperiencePromos,
   validateHappyHours,
   validateRateBands,
   validateTier,
@@ -633,5 +635,415 @@ adminConfigRoutes.post(
     if (!deps.stripe) return c.json({ tier: data, stripeSyncPending: true });
     const billing = await migrateTierSubscriptions(deps, c.req.valid("param").id, c.get("operator").id);
     return c.json({ tier: data, stripeSyncPending: false, billing });
+  },
+);
+
+// ── Experiences and their promotional prices (D65, D66) ─────────────────────
+
+const Bullets = z.array(z.string().trim().min(1).max(120)).max(8);
+
+adminConfigRoutes.get("/experiences", async (c) => {
+  const { db } = c.get("deps");
+  const [experiences, promos] = await Promise.all([
+    db.from("experiences").select("*").order("sort"),
+    db.from("experience_promos").select("*").order("sort"),
+  ]);
+  if (experiences.error) throw mapDbError(experiences.error);
+  if (promos.error) throw mapDbError(promos.error);
+  return c.json({
+    experiences: experiences.data.map((e) => ({
+      ...e,
+      promos: promos.data
+        .filter((p) => p.experience_id === e.id)
+        .map((p) => ({ ...p, start_time: wallTime(p.start_time), end_time: wallTime(p.end_time) })),
+    })),
+  });
+});
+
+const ExperienceBody = z.object({
+  key: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9_]+$/, "Use lower-case letters, numbers and underscores"),
+  resourceTypeId: z.uuid(),
+  name: z.string().trim().min(1).max(60),
+  tagline: OptionalText(80),
+  bullets: Bullets.optional(),
+  badges: z.array(z.string().trim().min(1).max(30)).max(3).optional(),
+  minutes: z.number().int().min(1).max(24 * 60),
+  priceCents: Cents,
+  sort: z.number().int().min(0).max(1000).optional(),
+  reason: Reason,
+});
+
+/** The venue's session length is what a length has to be a whole number of (D63, D65). */
+async function sessionMinutesOf(db: AppEnv["Variables"]["deps"]["db"]) {
+  const { data, error } = await db.from("venue_settings").select("session_minutes").eq("id", 1).single();
+  if (error) throw mapDbError(error);
+  return data.session_minutes;
+}
+
+adminConfigRoutes.post("/experiences", validate("json", ExperienceBody), async (c) => {
+  const b = c.req.valid("json");
+  const { db } = c.get("deps");
+  rejectIssues(validateExperience({ name: b.name, minutes: b.minutes, priceCents: b.priceCents }, await sessionMinutesOf(db)));
+  const { data, error } = await auditHeaders(
+    db.from("experiences").insert({
+      key: b.key,
+      resource_type_id: b.resourceTypeId,
+      name: b.name,
+      tagline: b.tagline ?? null,
+      bullets: b.bullets ?? [],
+      badges: b.badges ?? [],
+      minutes: b.minutes,
+      price_cents: b.priceCents,
+      sort: b.sort ?? 100,
+    }),
+    c.get("operator").id,
+    b.reason,
+  )
+    .select("*")
+    .single();
+  if (error) throw mapDbError(error);
+  return c.json({ experience: data }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/experiences/:id",
+  validate("param", Id),
+  validate("json", ExperienceBody.partial().extend({ active: z.boolean().optional(), reason: Reason })),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason, ...b } = c.req.valid("json");
+    const { db } = c.get("deps");
+    const { data: current, error: readError } = await db.from("experiences").select("*").eq("id", id).maybeSingle();
+    if (readError) throw mapDbError(readError);
+    if (!current) throw new ApiError(404, "not_found", "Experience not found");
+
+    rejectIssues(
+      validateExperience(
+        { name: b.name ?? current.name, minutes: b.minutes ?? current.minutes, priceCents: b.priceCents ?? current.price_cents },
+        await sessionMinutesOf(db),
+      ),
+    );
+
+    const patch = {
+      ...(b.key !== undefined ? { key: b.key } : {}),
+      ...(b.resourceTypeId !== undefined ? { resource_type_id: b.resourceTypeId } : {}),
+      ...(b.name !== undefined ? { name: b.name } : {}),
+      ...(b.tagline !== undefined ? { tagline: b.tagline } : {}),
+      ...(b.bullets !== undefined ? { bullets: b.bullets } : {}),
+      ...(b.badges !== undefined ? { badges: b.badges } : {}),
+      ...(b.minutes !== undefined ? { minutes: b.minutes } : {}),
+      ...(b.priceCents !== undefined ? { price_cents: b.priceCents } : {}),
+      ...(b.sort !== undefined ? { sort: b.sort } : {}),
+      ...(b.active !== undefined ? { active: b.active } : {}),
+    };
+    if (Object.keys(patch).length === 0) throw new ApiError(422, "validation_failed", "Nothing to change");
+    const { data, error } = await auditHeaders(db.from("experiences").update(patch).eq("id", id), c.get("operator").id, reason).select("*").single();
+    if (error) throw mapDbError(error);
+    return c.json({ experience: data });
+  },
+);
+
+const PromoBody = z.object({
+  experienceId: z.uuid(),
+  name: z.string().trim().min(1).max(60),
+  daysOfWeek: Days,
+  startTime: WallTime,
+  endTime: WallTime,
+  priceCents: Cents,
+  claimed: z.boolean().optional(),
+  sort: z.number().int().min(0).max(1000).optional(),
+  reason: Reason,
+});
+
+adminConfigRoutes.post("/experience-promos", validate("json", PromoBody), async (c) => {
+  const b = c.req.valid("json");
+  const { db } = c.get("deps");
+  // Overlaps are allowed on purpose: the cheapest matching price wins (D66).
+  rejectIssues(
+    validateExperiencePromos([
+      {
+        id: "new",
+        name: b.name,
+        experienceId: b.experienceId,
+        daysOfWeek: b.daysOfWeek as IsoDayOfWeek[],
+        startTime: b.startTime,
+        endTime: b.endTime,
+        priceCents: b.priceCents,
+        claimed: b.claimed ?? false,
+      },
+    ]),
+  );
+  const { data, error } = await auditHeaders(
+    db.from("experience_promos").insert({
+      experience_id: b.experienceId,
+      name: b.name,
+      days_of_week: b.daysOfWeek,
+      start_time: b.startTime,
+      end_time: b.endTime,
+      price_cents: b.priceCents,
+      claimed: b.claimed ?? false,
+      sort: b.sort ?? 100,
+    }),
+    c.get("operator").id,
+    b.reason,
+  )
+    .select("*")
+    .single();
+  if (error) throw mapDbError(error);
+  return c.json({ promo: data }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/experience-promos/:id",
+  validate("param", Id),
+  validate("json", PromoBody.partial().extend({ active: z.boolean().optional(), reason: Reason })),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason, ...b } = c.req.valid("json");
+    const { db } = c.get("deps");
+    const { data: current, error: readError } = await db.from("experience_promos").select("*").eq("id", id).maybeSingle();
+    if (readError) throw mapDbError(readError);
+    if (!current) throw new ApiError(404, "not_found", "Promotional price not found");
+
+    rejectIssues(
+      validateExperiencePromos([
+        {
+          id,
+          name: b.name ?? current.name,
+          experienceId: current.experience_id,
+          daysOfWeek: (b.daysOfWeek ?? current.days_of_week) as IsoDayOfWeek[],
+          startTime: b.startTime ?? wallTime(current.start_time),
+          endTime: b.endTime ?? wallTime(current.end_time),
+          priceCents: b.priceCents ?? current.price_cents,
+          claimed: b.claimed ?? current.claimed,
+        },
+      ]),
+    );
+
+    const patch = {
+      ...(b.name !== undefined ? { name: b.name } : {}),
+      ...(b.daysOfWeek !== undefined ? { days_of_week: b.daysOfWeek } : {}),
+      ...(b.startTime !== undefined ? { start_time: b.startTime } : {}),
+      ...(b.endTime !== undefined ? { end_time: b.endTime } : {}),
+      ...(b.priceCents !== undefined ? { price_cents: b.priceCents } : {}),
+      ...(b.claimed !== undefined ? { claimed: b.claimed } : {}),
+      ...(b.sort !== undefined ? { sort: b.sort } : {}),
+      ...(b.active !== undefined ? { active: b.active } : {}),
+    };
+    if (Object.keys(patch).length === 0) throw new ApiError(422, "validation_failed", "Nothing to change");
+    const { data, error } = await auditHeaders(db.from("experience_promos").update(patch).eq("id", id), c.get("operator").id, reason).select("*").single();
+    if (error) throw mapDbError(error);
+    return c.json({ promo: data });
+  },
+);
+
+adminConfigRoutes.delete("/experience-promos/:id", validate("param", Id), validate("query", z.object({ reason: Reason })), async (c) => {
+  const { id } = c.req.valid("param");
+  const { data, error } = await auditHeaders(c.get("deps").db.from("experience_promos").delete().eq("id", id), c.get("operator").id, c.req.valid("query").reason)
+    .select("id");
+  if (error) throw mapDbError(error);
+  if (data.length === 0) throw new ApiError(404, "not_found", "Promotional price not found");
+  return c.json({ deleted: true });
+});
+
+// ── Tournaments (D68) ───────────────────────────────────────────────────────
+
+adminConfigRoutes.get("/tournaments", async (c) => {
+  const { db, clock } = c.get("deps");
+  const { data, error } = await db.from("tournaments").select("*").order("starts_at", { ascending: false });
+  if (error) throw mapDbError(error);
+  const ids = data.map((t) => t.id);
+  const taken = new Map<string, number>();
+  if (ids.length > 0) {
+    const { data: entries, error: entryError } = await db
+      .from("tournament_entries")
+      .select("tournament_id, status, hold_expires_at")
+      .in("tournament_id", ids)
+      .in("status", ["held", "confirmed"]);
+    if (entryError) throw mapDbError(entryError);
+    const now = clock.now();
+    for (const e of entries) {
+      if (e.status === "held" && !(e.hold_expires_at && new Date(e.hold_expires_at) > now)) continue;
+      taken.set(e.tournament_id, (taken.get(e.tournament_id) ?? 0) + 1);
+    }
+  }
+  return c.json({ tournaments: data.map((t) => ({ ...t, entries: taken.get(t.id) ?? 0, spots_left: Math.max(0, t.spots - (taken.get(t.id) ?? 0)) })) });
+});
+
+adminConfigRoutes.get("/tournaments/:id/entries", validate("param", Id), async (c) => {
+  const { data, error } = await c
+    .get("deps")
+    .db.from("tournament_entries")
+    .select("id, ref, status, free_entry, total_cents, created_at, customers!inner(name, email, phone)")
+    .eq("tournament_id", c.req.valid("param").id)
+    .order("created_at");
+  if (error) throw mapDbError(error);
+  return c.json({ entries: data });
+});
+
+const TournamentBody = z.object({
+  name: z.string().trim().min(1).max(80),
+  blurb: OptionalText(300),
+  startsAt: z.string().datetime({ offset: true }),
+  spots: z.number().int().min(1).max(500),
+  entryFeeCents: Cents,
+  published: z.boolean().optional(),
+  sort: z.number().int().min(0).max(1000).optional(),
+  reason: Reason,
+});
+
+adminConfigRoutes.post("/tournaments", validate("json", TournamentBody), async (c) => {
+  const b = c.req.valid("json");
+  const { data, error } = await auditHeaders(
+    c.get("deps").db.from("tournaments").insert({
+      name: b.name,
+      blurb: b.blurb ?? null,
+      starts_at: b.startsAt,
+      spots: b.spots,
+      entry_fee_cents: b.entryFeeCents,
+      published: b.published ?? false,
+      sort: b.sort ?? 100,
+    }),
+    c.get("operator").id,
+    b.reason,
+  )
+    .select("*")
+    .single();
+  if (error) throw mapDbError(error);
+  return c.json({ tournament: data }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/tournaments/:id",
+  validate("param", Id),
+  validate("json", TournamentBody.partial().extend({ reason: Reason })),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason, ...b } = c.req.valid("json");
+    const { db } = c.get("deps");
+
+    // Never leave people holding a spot that no longer exists.
+    if (b.spots !== undefined) {
+      const { count, error: countError } = await db
+        .from("tournament_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("tournament_id", id)
+        .in("status", ["held", "confirmed"]);
+      if (countError) throw mapDbError(countError);
+      if ((count ?? 0) > b.spots) {
+        throw new ApiError(409, "spots_below_entries", `${count} people are already signed up, so there must be at least ${count} spots`);
+      }
+    }
+
+    const patch = {
+      ...(b.name !== undefined ? { name: b.name } : {}),
+      ...(b.blurb !== undefined ? { blurb: b.blurb } : {}),
+      ...(b.startsAt !== undefined ? { starts_at: b.startsAt } : {}),
+      ...(b.spots !== undefined ? { spots: b.spots } : {}),
+      ...(b.entryFeeCents !== undefined ? { entry_fee_cents: b.entryFeeCents } : {}),
+      ...(b.published !== undefined ? { published: b.published } : {}),
+      ...(b.sort !== undefined ? { sort: b.sort } : {}),
+    };
+    if (Object.keys(patch).length === 0) throw new ApiError(422, "validation_failed", "Nothing to change");
+    const { data, error } = await auditHeaders(db.from("tournaments").update(patch).eq("id", id), c.get("operator").id, reason).select("*").single();
+    if (error) throw mapDbError(error);
+    return c.json({ tournament: data });
+  },
+);
+
+// ── Site events: the pop-up and the banner (D69) ─────────────────────────────
+
+adminConfigRoutes.get("/site-events", async (c) => {
+  const { data, error } = await c.get("deps").db.from("site_events").select("*").order("sort").order("created_at");
+  if (error) throw mapDbError(error);
+  return c.json({ events: data });
+});
+
+const EventBody = z
+  .object({
+    title: z.string().trim().min(1).max(80),
+    body: OptionalText(300),
+    detail: OptionalText(80),
+    ctaLabel: OptionalText(30),
+    ctaUrl: OptionalText(300),
+    showFrom: z.string().datetime({ offset: true }).nullable().optional(),
+    showUntil: z.string().datetime({ offset: true }).nullable().optional(),
+    asPopup: z.boolean().optional(),
+    asBanner: z.boolean().optional(),
+    sort: z.number().int().min(0).max(1000).optional(),
+    reason: Reason,
+  })
+  // The database enforces this too; saying it here gives a message the owner can act on.
+  .refine((v) => (v.ctaLabel ?? null) === null === ((v.ctaUrl ?? null) === null), "A button needs both a label and a link, or neither");
+
+adminConfigRoutes.post("/site-events", validate("json", EventBody), async (c) => {
+  const b = c.req.valid("json");
+  const { data, error } = await auditHeaders(
+    c.get("deps").db.from("site_events").insert({
+      title: b.title,
+      body: b.body ?? null,
+      detail: b.detail ?? null,
+      cta_label: b.ctaLabel ?? null,
+      cta_url: b.ctaUrl ?? null,
+      show_from: b.showFrom ?? null,
+      show_until: b.showUntil ?? null,
+      as_popup: b.asPopup ?? true,
+      as_banner: b.asBanner ?? true,
+      sort: b.sort ?? 100,
+    }),
+    c.get("operator").id,
+    b.reason,
+  )
+    .select("*")
+    .single();
+  if (error) throw mapDbError(error);
+  return c.json({ event: data }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/site-events/:id",
+  validate("param", Id),
+  validate(
+    "json",
+    z.object({
+      title: z.string().trim().min(1).max(80).optional(),
+      body: OptionalText(300),
+      detail: OptionalText(80),
+      ctaLabel: OptionalText(30),
+      ctaUrl: OptionalText(300),
+      showFrom: z.string().datetime({ offset: true }).nullable().optional(),
+      showUntil: z.string().datetime({ offset: true }).nullable().optional(),
+      asPopup: z.boolean().optional(),
+      asBanner: z.boolean().optional(),
+      active: z.boolean().optional(),
+      sort: z.number().int().min(0).max(1000).optional(),
+      reason: Reason,
+    }),
+  ),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason, ...b } = c.req.valid("json");
+    const patch = {
+      ...(b.title !== undefined ? { title: b.title } : {}),
+      ...(b.body !== undefined ? { body: b.body } : {}),
+      ...(b.detail !== undefined ? { detail: b.detail } : {}),
+      ...(b.ctaLabel !== undefined ? { cta_label: b.ctaLabel } : {}),
+      ...(b.ctaUrl !== undefined ? { cta_url: b.ctaUrl } : {}),
+      ...(b.showFrom !== undefined ? { show_from: b.showFrom } : {}),
+      ...(b.showUntil !== undefined ? { show_until: b.showUntil } : {}),
+      ...(b.asPopup !== undefined ? { as_popup: b.asPopup } : {}),
+      ...(b.asBanner !== undefined ? { as_banner: b.asBanner } : {}),
+      ...(b.active !== undefined ? { active: b.active } : {}),
+      ...(b.sort !== undefined ? { sort: b.sort } : {}),
+    };
+    if (Object.keys(patch).length === 0) throw new ApiError(422, "validation_failed", "Nothing to change");
+    const { data, error } = await auditHeaders(c.get("deps").db.from("site_events").update(patch).eq("id", id), c.get("operator").id, reason)
+      .select("*")
+      .single();
+    if (error) throw mapDbError(error);
+    return c.json({ event: data });
   },
 );

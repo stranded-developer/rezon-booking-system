@@ -1,7 +1,7 @@
 # Back Office (inside the POS app, superadmin only)
 
 **Every save** is validated by the API with the `packages/pricing` validators, then written together with an `audit_log` row (before/after):
-- **Config tables** (venue settings, opening hours, resource types, resources, rate bands, happy hours, tiers, tier prices, referral codes) are audited by a **database trigger in the same transaction**. The API sends the operator as `x-rg-actor` and an optional reason as `x-rg-reason-b64`. An update that changes nothing, or only bumps a referral code's use count, is not audited.
+- **Config tables** (venue settings, opening hours, resource types, resources, rate bands, happy hours, tiers, tier prices, referral codes, **experiences, experience promos, tournaments, site events**) are audited by a **database trigger in the same transaction**. The API sends the operator as `x-rg-actor` and an optional reason as `x-rg-reason-b64`. An update that changes nothing, or only bumps a referral code's use count, is not audited.
 - **Member, refund and price actions** are single-transaction database functions that write their own audit rows.
 
 The back office lives in the POS app under `/admin` and needs a superadmin operator. Retired rates and happy hours are hidden unless "Show retired" is on.
@@ -15,6 +15,9 @@ The back office lives in the POS app under `/admin` and needs a superadmin opera
 | **Resources** | Add/rename/deactivate resource types and resources. Per type: base hourly rate, minimum minutes. |
 | **Rate bands** | Optional day/time overrides per resource type. Overlaps are rejected. |
 | **Happy hours** | Name, resource types (or all), days, start/end, % off, on/off. Overlaps on shared types/days are rejected. |
+| **Experiences** (D65, D66) | A named package: short code, name, what it runs on, fixed length (a whole number of sessions), flat price, tagline, bullet points, badges, on/off. Per experience, any number of **promotional prices**: name, days, start/end, flat price, and whether the customer has to ask for it. **Overlaps are allowed on purpose** — the cheapest matching price wins — so nothing rejects them. |
+| **Tournaments** (D68) | Name, blurb, when it starts (venue time), spots, entry fee, publish/unpublish. Shows how many are signed up and how many spots are left, and lists who is in with their contact details. Spots cannot be cut below the number already signed up. |
+| **What's on** (D69) | The website's pop-up and banner: title, a highlight line, a description, a button (label and link, both or neither), the dates to show between, whether it appears as a pop-up, a banner or both, on/off. |
 | **Opening hours** | Per day: open/close or closed. |
 | **Booking rules** | Booking window days, online cutoff minutes, no-show hold, hold TTL, walk-in last-open minutes. |
 | **Membership tiers** | Name, discount %, monthly price, monthly free minutes, balance cap. Price change flow below. |

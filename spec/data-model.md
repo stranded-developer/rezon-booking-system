@@ -330,7 +330,7 @@ price_overrides
 | `tournament_attach_checkout`, `tournament_release_hold` | Store the Checkout session on an entry hold; release a hold now. |
 | `tournament_confirm(entry, p)` | Held → confirmed; the amount paid must equal the entry total; payment row; a repeat is `duplicate`; an expired hold raises `hold_expired`. |
 | `pos_refund_payment(payment, staff, amount, reason)` | Partial refund of a cash/card payment: never more than what's left, needs an open till, cash-out movement for cash, audited. Stripe payments are refunded through Stripe. |
-| trigger `audit_config_change` | On config tables (including `venue_photos`): writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
+| trigger `audit_config_change` | On config tables (including `venue_photos`, `experiences`, `experience_promos`, `tournaments`, `site_events`): writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
 | `register_pin_attempt(staff_id, success, max_attempts, lock_minutes)` | Under a row lock: refuses when locked, resets on success, counts failures, locks for `lock_minutes` on the Nth failure. Returns `(accepted, locked_until, just_locked, failed_count)`. |
 
 ## Platform

@@ -2,7 +2,7 @@
 --   An experience sets its own fixed length; the session rules do not apply to it.
 --   A tournament has a fixed number of spots, and holds waiting for payment count against them.
 begin;
-select plan(31);
+select plan(36);
 
 insert into auth.users (id, email, aud, role) values ('00000000-0000-0000-0000-00000000a301', 'exp@test.local', 'authenticated', 'authenticated');
 insert into public.staff (id, auth_user_id, display_name, role, pin_hash)
@@ -155,6 +155,52 @@ select lives_ok($$ select tournament_hold(pg_temp.enter('00000000-0000-0000-0000
   'the last spot can be taken');
 select throws_like($$ select tournament_hold(pg_temp.enter('00000000-0000-0000-0000-0000000ff301', 'e3@test.local')) $$,
   'RG:tournament_full:%', 'a full tournament turns people away');
+
+-- ── Every price change is traceable to who made it ──────────────────────────
+-- Experiences and their promotional prices ARE prices, and a tournament carries an entry fee,
+-- so the same audit trigger every other configuration table has must fire on these too.
+create function pg_temp.as_api(p_actor text, p_reason text default null) returns void language sql as $$
+  select set_config('request.headers',
+    json_build_object('x-rg-actor', p_actor, 'x-rg-reason-b64', encode(convert_to(p_reason, 'UTF8'), 'base64'))::text, true);
+$$;
+create function pg_temp.no_api() returns void language sql as $$ select set_config('request.headers', '', true); $$;
+
+-- Only look at audit rows written from here on: a used database already has many, including
+-- the ones the API integration tests write.
+create temp table t_audit_mark as select coalesce(max(id), 0) as id from public.audit_log;
+
+select pg_temp.no_api();
+update public.experiences set price_cents = 3600 where key = 'quick_race';
+select is(
+  (select count(*)::int from public.audit_log
+    where entity = 'experiences' and id > (select id from t_audit_mark)), 0,
+  'a write outside the API (a migration, the seed, psql) is not audited');
+
+select pg_temp.as_api('00000000-0000-0000-0000-00000000b301', 'Spring price review');
+update public.experiences set price_cents = 3900 where key = 'quick_race';
+select results_eq(
+  $$ select actor_staff_id, action, (before ->> 'price_cents')::int, (after ->> 'price_cents')::int, reason
+     from public.audit_log where entity = 'experiences' and action = 'experiences.update' order by id desc limit 1 $$,
+  $$ values ('00000000-0000-0000-0000-00000000b301'::uuid, 'experiences.update', 3600, 3900, 'Spring price review') $$,
+  'changing an experience price is audited with actor, before and after');
+
+update public.experience_promos set price_cents = 2700
+  where experience_id = (select id from public.experiences where key = 'quick_race') and name = 'Happy Hour';
+select is(
+  (select (after ->> 'price_cents')::int from public.audit_log
+    where entity = 'experience_promos' and action = 'experience_promos.update' order by id desc limit 1),
+  2700, 'changing a promotional price is audited');
+
+update public.tournaments set entry_fee_cents = 3000 where id = '00000000-0000-0000-0000-0000000ff301';
+select is(
+  (select (after ->> 'entry_fee_cents')::int from public.audit_log
+    where entity = 'tournaments' and action = 'tournaments.update' order by id desc limit 1),
+  3000, 'changing a tournament entry fee is audited');
+
+insert into public.site_events (title, detail) values ('pgTAP Event', 'Prize pool');
+select is(
+  (select after ->> 'title' from public.audit_log where entity = 'site_events' and action = 'site_events.insert' order by id desc limit 1),
+  'pgTAP Event', 'adding an event is audited');
 
 select * from finish();
 rollback;
