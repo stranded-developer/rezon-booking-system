@@ -125,12 +125,26 @@ export function Checkers({ className = "" }: { className?: string }) {
   return <div aria-hidden className={`checkers w-full ${className}`} />;
 }
 
-/** A section heading in the reference's style: capitals, with part of it in crimson. */
-export function SectionTitle({ children, kicker, className = "" }: { children: ReactNode; kicker?: string; className?: string }) {
+/**
+ * A section heading in the reference's style: capitals, with part of it in crimson.
+ * `level` is 1 where the section heading is the page's own title, so every page has one h1.
+ */
+export function SectionTitle({
+  children,
+  kicker,
+  level = 2,
+  className = "",
+}: {
+  children: ReactNode;
+  kicker?: string;
+  level?: 1 | 2;
+  className?: string;
+}) {
+  const Heading = level === 1 ? "h1" : "h2";
   return (
     <div className={`text-center ${className}`}>
       {kicker ? <p className="display mb-3 text-sm tracking-[0.2em] text-flag">{kicker}</p> : null}
-      <h2 className="display text-3xl sm:text-4xl">{children}</h2>
+      <Heading className="display text-3xl sm:text-4xl">{children}</Heading>
     </div>
   );
 }

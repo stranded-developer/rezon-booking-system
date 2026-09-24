@@ -53,7 +53,7 @@ test("a counter member signs up, gets their membership, books with the discount 
   // ── Sign up with the email the venue has (D56) ────────────────────────────
   await page.goto("/membership");
   await appReady(page);
-  await expect(page.getByRole("heading", { name: "Membership" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Become a member/i })).toBeVisible();
   await page.getByRole("link", { name: "Create an account" }).click();
   // The name is only used for people the venue has no record of; members keep the name on file.
   await expect(page.getByText("Already a member with us? We'll keep the name we have for you.")).toBeVisible();
@@ -61,7 +61,10 @@ test("a counter member signs up, gets their membership, books with the discount 
   await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
   await fillLive(page.getByLabel("Password"), f.password);
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByText(/We've sent a confirmation link/)).toBeVisible();
+  // Creating the account also sends the confirmation email, and Supabase does both before it
+  // answers, so this is a real round trip rather than a render — the default 5s is not enough
+  // when the machine is busy running the rest of the suite.
+  await expect(page.getByText(/We've sent a confirmation link/)).toBeVisible({ timeout: 30_000 });
 
   // Until the email is confirmed the login is refused, so nobody can claim someone else's membership.
   await page.goto("/login");
@@ -96,35 +99,45 @@ test("a counter member signs up, gets their membership, books with the discount 
 
   // ── Book with the member discount and free play ───────────────────────────
   await page.getByRole("link", { name: "Book now" }).click();
-  await page.getByRole("button", { name: f.resourceTypeName }).click();
-  await page.getByRole("button", { name: dayLabel(), exact: true }).click();
-  await page.getByRole("button", { name: /^4:00 pm$/ }).click();
-  await page.getByRole("button", { name: "1 hour", exact: true }).click();
-  await expect(page.getByText(`${f.counterMember.tierName} member · ${f.counterMember.discountBp / 100}% off`)).toBeVisible();
+  await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
+  const panel = page.getByRole("dialog");
+  await panel.getByRole("button", { name: new RegExp(`^${dayLabel()}`) }).click();
+  await panel.getByRole("button").filter({ hasText: "4:00 pm" }).click();
+  await panel.getByRole("button", { name: "1 hour", exact: true }).click();
+  await expect(panel.getByText(`${f.counterMember.tierName} member · ${f.counterMember.discountBp / 100}% off`)).toBeVisible();
   // Members never see the referral field: a membership and a code can't be combined.
-  await expect(page.getByLabel("Referral code")).toBeHidden();
+  await expect(panel.getByLabel("Referral code")).toBeHidden();
 
-  const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
-  // $30 for the hour on this booth, less the tier's own percentage (D67 can change it).
-  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-  const afterDiscount = (cents: number) => Math.round((cents * (10_000 - f.counterMember.discountBp)) / 10_000);
-  await expect(total).toHaveText(money(afterDiscount(30_00)));
   // D63: free play on a booking starts at a whole session — no 15-minute option here.
-  const freePlay = page.getByLabel("Use your free play?");
+  const freePlay = panel.getByLabel("Use your free play?");
   await expect(freePlay.locator('option[value="15"]')).toHaveCount(0);
   await expect(freePlay.locator("option").nth(1)).toHaveText("30 min");
+
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const afterDiscount = (cents: number) => Math.round((cents * (10_000 - f.counterMember.discountBp)) / 10_000);
+  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
+
+  // $30 for the hour on this booth, less the tier's own percentage (D67 can change it).
+  await panel.getByRole("button", { name: "Continue" }).click();
+  await expect(total).toHaveText(money(afterDiscount(30_00)));
+
+  // Half the hour paid for with free minutes.
+  await panel.getByRole("button", { name: "Details", exact: true }).click();
   await freePlay.selectOption("30");
-  await expect(total).toHaveText(money(afterDiscount(15_00))); // half the hour paid for with free minutes
+  await panel.getByRole("button", { name: "Continue" }).click();
+  await expect(total).toHaveText(money(afterDiscount(15_00)));
   await shot(page, "web-09-member-quote");
 
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: `Pay ${money(afterDiscount(15_00))}` }).click();
+  await panel.getByRole("checkbox").check();
+  await panel.getByRole("button", { name: `Pay ${money(afterDiscount(15_00))}` }).click();
   await page.waitForURL(/checkout\.stripe\.com|\/booking\//, { timeout: 60_000 });
   // Paying is covered by the Stripe test; here we only need the hold, so step back out of Checkout.
   await page.goto("/account");
 
   // The unpaid hold already took the free minutes, and they come back when it is released.
-  await expect(page.getByRole("heading", { name: "Free play history" })).toBeVisible();
+  // The account page waits for Supabase to restore the session before it asks the API for
+  // anything, so give it room on a busy machine.
+  await expect(page.getByRole("heading", { name: "Free play history" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("30 min").first()).toBeVisible();
   const { data: held } = await db.from("bookings").select("id, ref, status, free_minutes_used").eq("member_id", member!.id).eq("status", "held").single();
   expect(held!.free_minutes_used).toBe(30);

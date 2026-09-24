@@ -44,48 +44,53 @@ test("the home page shows what the back office says", async ({ page }) => {
   await shot(page, "web-01-home");
 
   await page.getByRole("link", { name: "Book now" }).first().click();
-  await expect(page.getByRole("heading", { name: "Book your time" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Choose your experience/i })).toBeVisible();
 });
 
-test("a guest books and cancels: timetable, referral code, free booking, QR, refund", async ({ page }) => {
+test("a guest books and cancels: the panel, spots left, a referral code, QR, refund", async ({ page }) => {
   const f = loadFixture();
   await page.goto("/book");
 
-  // 1. What and when: this run's own booth, two days out, the first free time, one session.
-  await page.getByRole("button", { name: f.resourceTypeName }).click();
-  await page.getByRole("button", { name: bookingDayLabel(), exact: true }).click();
-  const firstSlot = page.getByRole("button", { name: /^10:00 am$/ });
-  await expect(firstSlot).toBeEnabled();
+  // ── Step 1: date, then a time ─────────────────────────────────────────────
+  // This run's own booth is sold by the hour, so it sits under "Also by the hour".
+  await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
+  const panel = page.getByRole("dialog");
+  await expect(panel.getByRole("heading", { name: f.resourceTypeName, level: 2 })).toBeVisible();
+
+  await panel.getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  const firstSlot = panel.getByRole("button").filter({ hasText: "10:00 am" });
+  // D70: every start time says how many are free.
+  await expect(firstSlot).toContainText(/\d+ spots?/);
   await firstSlot.click();
+
+  // ── Step 2: how long, which one, and who you are ──────────────────────────
+  await expect(panel.getByRole("button", { name: "Details", exact: true })).toHaveAttribute("aria-current", "step");
   // D63: the shortest booking is one 30-minute session — half a session is a walk-in only.
-  const lengths = page.getByLabel("Or another length");
+  const lengths = panel.getByLabel("Or another length");
   await expect(lengths.locator("option").first()).toHaveText("30 min");
   await expect(lengths.locator('option[value="15"]')).toHaveCount(0);
   await lengths.selectOption({ label: "30 min" });
-  await expect(page.getByLabel(`Which ${f.resourceTypeName}?`)).toContainText("Any available");
+  await expect(panel.getByLabel(`Which ${f.resourceTypeName}?`)).toContainText("Any available");
 
-  // A quote appears before any details are given: $30/hr for 30 min, less any happy hour.
-  const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
-  await expect(total).toHaveText(/\$\d/);
-  const beforeCode = await total.textContent();
-
-  // 2. Details and a referral code.
-  await page.getByLabel("Name").fill(`E2E Web Guest ${f.run}`);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.customerEmail);
-  await page.getByLabel("Referral code").fill(f.usedUpCode);
-  await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByText("That code has already been fully used.")).toBeVisible();
-  await page.getByLabel("Referral code").fill(f.freeCode);
-  await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByText(new RegExp(`Code ${f.freeCode} applied`, "i"))).toBeVisible();
-  await expect(total).toHaveText("$0.00");
-  expect(beforeCode).not.toBe("$0.00");
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill(`E2E Web Guest ${f.run}`);
+  await panel.getByRole("textbox", { name: /^Email/ }).fill(f.customerEmail);
+  await panel.getByLabel("Referral code").fill(f.usedUpCode);
+  await panel.getByRole("button", { name: "Apply" }).click();
+  await expect(panel.getByText("That code has already been fully used.")).toBeVisible();
+  await panel.getByLabel("Referral code").fill(f.freeCode);
+  await panel.getByRole("button", { name: "Apply" }).click();
+  await expect(panel.getByText(new RegExp(`Code ${f.freeCode} applied`, "i"))).toBeVisible();
   await shot(page, "web-02-quote");
 
-  // 3. Confirm: nothing to pay, so no Stripe. The terms have to be accepted first.
-  const confirm = page.getByRole("button", { name: /Confirm booking/ });
+  // ── Step 3: the price, then confirm ───────────────────────────────────────
+  await panel.getByRole("button", { name: "Continue" }).click();
+  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
+  // $1,000 off makes this booking free, so no Stripe is involved.
+  await expect(total).toHaveText("$0.00");
+
+  const confirm = panel.getByRole("button", { name: /Confirm booking/ });
   await expect(confirm).toBeDisabled();
-  await page.getByRole("checkbox").check();
+  await panel.getByRole("checkbox").check();
   await expect(confirm).toBeEnabled();
   await confirm.click();
 
@@ -93,21 +98,21 @@ test("a guest books and cancels: timetable, referral code, free booking, QR, ref
   const ref = (await page.getByTestId("booking-ref").textContent())!.trim();
   expect(ref).toMatch(/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
   await expect(page.getByTestId("booking-qr")).toBeVisible();
-  await expect(page.getByText(f.resourceTypeName)).toBeVisible();
+  await expect(page.getByText(f.resourceTypeName).first()).toBeVisible();
   await shot(page, "web-03-confirmed");
   const bookingUrl = page.url();
 
-  // The time is no longer offered to anyone else.
+  // One booth of the two is now taken, so that time is offered once instead of twice.
   await page.goto("/book");
-  await page.getByRole("button", { name: f.resourceTypeName }).click();
-  await page.getByRole("button", { name: bookingDayLabel(), exact: true }).click();
-  await expect(page.getByRole("button", { name: /^10:00 am$/ })).toBeEnabled(); // the second booth is still free
+  await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
+  await page.getByRole("dialog").getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  await expect(page.getByRole("dialog").getByRole("button").filter({ hasText: "10:00 am" })).toContainText("1 spot");
 
   // The link only works with its own code.
   await page.goto(`/booking/${ref}?token=not-the-right-token-at-all`);
   await expect(page.getByRole("alert").filter({ hasText: /Booking not found/i })).toBeVisible();
 
-  // 4. Cancel with a refund preview.
+  // ── Cancel, with a refund preview ─────────────────────────────────────────
   await page.goto(bookingUrl);
   await page.getByRole("link", { name: "Cancel this booking" }).click();
   await expect(page.getByRole("heading", { name: `Cancel booking ${ref}` })).toBeVisible();
@@ -118,6 +123,35 @@ test("a guest books and cancels: timetable, referral code, free booking, QR, ref
 
   await page.goto(bookingUrl);
   await expect(page.getByText("This booking is cancelled")).toBeVisible();
+});
+
+test("an experience is booked for its own fixed length, at its flat price", async ({ page }) => {
+  await page.goto("/book");
+  // Quick Race is a named package: a fixed 30 minutes at a flat price (D65), so the panel
+  // never asks how long — the length is not the customer's to choose.
+  await page.getByRole("button", { name: "Book Quick Race" }).click();
+  const panel = page.getByRole("dialog");
+  await panel.getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();
+
+  await expect(panel.getByLabel("Or another length")).toHaveCount(0);
+  await expect(panel).toContainText("30 min");
+
+  // The student price has to be asked for; ticking it changes the total (D66).
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Experience Guest");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-experience@raceground.test");
+  await panel.getByRole("button", { name: "Continue" }).click();
+  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
+  const listPrice = await total.textContent();
+
+  await panel.getByRole("button", { name: "Details", exact: true }).click();
+  const student = panel.getByRole("checkbox", { name: /Student price/ });
+  if (await student.count()) {
+    await student.check();
+    await panel.getByRole("button", { name: "Continue" }).click();
+    await expect(total).not.toHaveText(listPrice!);
+  }
+  await shot(page, "web-14-experience");
 });
 
 test("the legal pages explain the rules", async ({ page }) => {

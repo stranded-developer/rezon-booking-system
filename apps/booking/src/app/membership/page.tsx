@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { MembershipView } from "@/components/membership-view";
-import { PageShell } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Membership — Raceground",
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
 export default function MembershipPage() {
   return (
     <Suspense>
-      <PageShell><MembershipView /></PageShell>
+      <MembershipView />
     </Suspense>
   );
 }

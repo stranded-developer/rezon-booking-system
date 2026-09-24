@@ -1,16 +1,19 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import { BookingFlow } from "@/components/booking-flow";
-import { PageShell } from "@/components/ui";
+import { BookView } from "@/components/book/book-view";
+import { PageShell, Spinner } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Book a table, sim or VR seat — Raceground",
-  description: "Pick a time, see the price including GST, and pay online.",
+  title: "Book a race, table or VR seat — Raceground",
+  description: "Pick an experience, choose a time and pay online. Every price includes GST.",
 };
 
 export default function BookPage() {
   return (
     <PageShell>
-      <BookingFlow />
+      <Suspense fallback={<Spinner label="Loading what's available…" />}>
+        <BookView />
+      </Suspense>
     </PageShell>
   );
 }

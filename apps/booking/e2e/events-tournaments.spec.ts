@@ -104,7 +104,7 @@ test("a guest signs up for a free tournament and gets an entry code", async ({ p
   await page.goto("/tournaments");
 
   // Only published tournaments are offered.
-  await expect(page.getByRole("heading", { name: freeName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: freeName })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("heading", { name: paidName })).toBeVisible();
   await expect(page.getByRole("heading", { name: `E2E Draft ${run}` })).toBeHidden();
 
@@ -130,13 +130,15 @@ test("a guest signs up for a free tournament and gets an entry code", async ({ p
   await expect(page.getByTestId("entry-qr")).toBeVisible();
   await shot(page, "web-12-entry");
 
-  // The spot is gone from the count, and the same person cannot take another.
+  // The spot is gone from the count.
   await page.goto("/tournaments");
+  await expect(page.getByRole("heading", { name: freeName })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("article").filter({ hasText: freeName })).toContainText("7 spots left");
 });
 
 test("a tournament with one spot fills up and says so", async ({ page }) => {
   await page.goto("/tournaments");
+  await expect(page.getByRole("heading", { name: soloName })).toBeVisible({ timeout: 20_000 });
   const solo = page.getByRole("article").filter({ hasText: soloName });
   await expect(solo).toContainText("1 spot left");
 
@@ -148,6 +150,7 @@ test("a tournament with one spot fills up and says so", async ({ page }) => {
   await page.waitForURL(/\/tournaments\/[A-Z0-9]{6}\?token=/);
 
   await page.goto("/tournaments");
+  await expect(page.getByRole("heading", { name: soloName })).toBeVisible({ timeout: 20_000 });
   const full = page.getByRole("article").filter({ hasText: soloName });
   await expect(full).toContainText("Full");
   await expect(full.getByRole("button", { name: "Sign up" })).toBeHidden();

@@ -29,23 +29,20 @@ values ('Happy Hour', null, '{1,2,3,4,5}', '10:00', '15:00', 1000);
 insert into public.membership_tiers
   (name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, sort, perks)
 values
+  -- `perks` lists ONLY what the system does not enforce. The discount, the monthly free play and
+  -- its roll-over are applied automatically and the site shows them from the tier's own numbers;
+  -- repeating them here would print each one twice.
   ('Silver', 1000, 48_00, 60, 600, 1, array[
-    'Monday to Friday',
-    '2 races a month',
-    '10% off every booking'
+    'Monday to Friday'
   ]),
   ('Gold', 2000, 78_00, 120, 1200, 2, array[
     'Monday to Sunday',
-    '4 races a month',
-    '20% off every booking',
     '2 free hours of billiards a month',
     '20% off food and drinks',
     'Early access to registrations and promos'
   ]),
   ('Diamond', 2000, 128_00, 240, 2400, 3, array[
     'Monday to Sunday',
-    '8 races a month',
-    '20% off every booking',
     '4 free hours of billiards a month',
     '20% off food and drinks',
     'Free entry to one monthly tournament',

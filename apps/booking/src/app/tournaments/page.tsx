@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function TournamentsPage() {
   return (
     <PageShell>
-      <SectionTitle kicker="Compete" className="mb-10">
+      <SectionTitle kicker="Compete" level={1} className="mb-10">
         Raceground <span className="text-flag">tournaments</span>
       </SectionTitle>
       <Suspense>

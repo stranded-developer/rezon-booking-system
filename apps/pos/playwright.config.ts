@@ -9,6 +9,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,
+  // Every assertion here waits on a real round trip — the Next server, the API and local Supabase.
+  // The 5s default is a render-speed budget, not a network one, and it made the suite flaky
+  // whenever the machine was busy.
+  expect: { timeout: 10_000 },
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
