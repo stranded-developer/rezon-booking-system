@@ -172,3 +172,25 @@ export async function finishOpenWork(ctx: TestContext, staffId: string) {
     });
   }
 }
+
+/**
+ * Give this test file its own opening hours, and put the venue's back afterwards.
+ *
+ * Integration test files run one at a time (`fileParallelism: false`), so this is safe. It keeps
+ * tests that are about booking and till *rules* working whatever hours the owner sets in the back
+ * office (D73) — the launch hours themselves are asserted in pgTAP `01_schema_seed`.
+ */
+export async function useOpeningHours(ctx: TestContext, open = "10:00", close = "21:00") {
+  const { data: original, error } = await ctx.db.from("opening_hours").select("*").order("day_of_week");
+  if (error) throw error;
+  const { error: setError } = await ctx.db
+    .from("opening_hours")
+    .upsert(
+      original.map((h) => ({ ...h, open_time: open, close_time: close, closed: false })),
+      { onConflict: "day_of_week" },
+    );
+  if (setError) throw setError;
+  return async () => {
+    await ctx.db.from("opening_hours").upsert(original, { onConflict: "day_of_week" });
+  };
+}

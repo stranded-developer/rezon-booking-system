@@ -12,6 +12,9 @@ export interface Fixture {
   password: string;
   cashier: { id: string; email: string; name: string; pin: string };
   owner: { id: string; email: string; name: string; pin: string };
+  /** This run's own resource type, at a rate no back-office change can move. */
+  resourceTypeId: string;
+  resourceTypeRateCents: number;
   resourceId: string;
   resourceLabel: string;
   memberToken: string;
@@ -54,3 +57,11 @@ export async function tierValues(name: string): Promise<{ id: string; name: stri
 }
 
 export const money = (cents: number) => `$${(cents / 100).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** A resource type's hourly rate, read from the database — the owner can change it (D74). */
+export async function resourceTypeRate(key: string): Promise<number> {
+  const db = localSupabase();
+  const { data, error } = await db.from("resource_types").select("base_rate_cents").eq("key", key).single();
+  if (error) throw error;
+  return data.base_rate_cents as number;
+}

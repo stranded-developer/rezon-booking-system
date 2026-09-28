@@ -64,16 +64,11 @@ test("a cashier runs the counter: sign in, PIN, till, walk-in, member close, rec
 
   const dialog = page.getByRole("dialog");
   const totalCents = dollars((await dialog.locator(".text-5xl").first().textContent()) ?? "");
-  // Closed straight away → 15-minute minimum on a $30/hr table, less the tier's own percentage.
-  // Inside weekday happy hour the rate is $27/hr, so 15 min is $6.75; outside it is $7.50.
-  // The percentage is read from the tier, not typed in, because the owner can change it (D67).
+  // Closed straight away → the 15-minute minimum on this run's own table, less the tier's own
+  // percentage. The table has no happy hour on it, so the answer is the same at any time of day;
+  // both numbers are read from the fixture and the tier rather than typed in.
   const afterTier = (cents: number) => Math.round((cents * (10_000 - gold.discountBp)) / 10_000);
-  const at = toLocal(Date.now(), "Australia/Sydney");
-  const weekdayHappyHour = at.isoDayOfWeek <= 5 && at.minuteOfDay >= 10 * 60 && at.minuteOfDay < 14 * 60 + 44;
-  const outsideHappyHour = at.isoDayOfWeek > 5 || at.minuteOfDay >= 15 * 60;
-  if (weekdayHappyHour) expect(totalCents).toBe(afterTier(675));
-  else if (outsideHappyHour) expect(totalCents).toBe(afterTier(750));
-  else expect(totalCents).toBeGreaterThan(0);
+  expect(totalCents).toBe(afterTier(Math.round(f.resourceTypeRateCents / 4)));
 
   await expect(dialog.getByRole("button", { name: /^Take .* by card$/ })).toBeEnabled();
   await dialog.getByRole("button", { name: "Cash", exact: true }).click();

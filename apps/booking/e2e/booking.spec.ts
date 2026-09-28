@@ -1,7 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loadFixture } from "./fixture";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
+
+/** "10:00" → "10:00 am", the way the site prints a venue wall-clock time. */
+function venueTime(time: string): string {
+  const [h = "0", m = "00"] = time.split(":");
+  const hour = Number(h) % 24;
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelve}:${m} ${hour < 12 ? "am" : "pm"}`;
+}
 
 /** Two days out in venue time: a full day of slots, and always more than 24 hours away (full refund). */
 function bookingVenueDate(): string {
@@ -10,6 +18,22 @@ function bookingVenueDate(): string {
   const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
   const at = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + 2));
   return at.toISOString().slice(0, 10);
+}
+
+/**
+ * Pick a day in the panel's calendar, stepping to the next month if the day is not on screen.
+ *
+ * The booking window can straddle a month end — on 28 September a day four days out is in
+ * October — and the calendar opens on the month containing today, exactly as a person would
+ * find it. This does what they would do: press the arrow.
+ */
+async function pickDay(panel: Locator, label: string) {
+  const day = panel.getByRole("button", { name: new RegExp(`^${label}`) });
+  for (let i = 0; i < 3; i++) {
+    if ((await day.count()) > 0 && (await day.first().isEnabled())) break;
+    await panel.getByRole("button", { name: "Next month" }).click();
+  }
+  await day.first().click();
 }
 
 const bookingDayLabel = () => {
@@ -32,14 +56,17 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(double).toContainText("60 min");
   await expect(double).toContainText("Most popular");
 
-  // Anything without an experience is still shown at its hourly rate, including this run's own type.
+  // Anything without an experience is still shown at its hourly rate, including this run's own
+  // type. The rate comes from the fixture, not from a number typed here: it is the owner's to
+  // change in the back office (D74).
   await expect(page.getByRole("heading", { name: "Also by the hour" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Billiard Table" })).toBeVisible();
-  await expect(page.getByText("$30.00/hr").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: f.resourceTypeName })).toBeVisible();
+  await expect(page.getByText(`$${(f.resourceTypeRateCents / 100).toFixed(2)}/hr`).first()).toBeVisible();
 
+  // The hours are the ones this suite set, shown the way the venue keeps them.
   await expect(page.getByRole("heading", { name: "Hours" })).toBeVisible();
-  await expect(page.getByText("10:00 am – 9:00 pm").first()).toBeVisible();
+  await expect(page.getByText(`${venueTime(f.openTime)} – ${venueTime(f.closeTime)}`).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Silver" })).toBeVisible();
   await shot(page, "web-01-home");
 
@@ -57,7 +84,7 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
   const panel = page.getByRole("dialog");
   await expect(panel.getByRole("heading", { name: f.resourceTypeName, level: 2 })).toBeVisible();
 
-  await panel.getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  await pickDay(panel, bookingDayLabel());
   const firstSlot = panel.getByRole("button").filter({ hasText: "10:00 am" });
   // D70: every start time says how many are free.
   await expect(firstSlot).toContainText(/\d+ spots?/);
@@ -105,7 +132,7 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
   // One booth of the two is now taken, so that time is offered once instead of twice.
   await page.goto("/book");
   await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
-  await page.getByRole("dialog").getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  await pickDay(page.getByRole("dialog"), bookingDayLabel());
   await expect(page.getByRole("dialog").getByRole("button").filter({ hasText: "10:00 am" })).toContainText("1 spot");
 
   // The link only works with its own code.
@@ -131,7 +158,7 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   // never asks how long — the length is not the customer's to choose.
   await page.getByRole("button", { name: "Book Quick Race" }).click();
   const panel = page.getByRole("dialog");
-  await panel.getByRole("button", { name: new RegExp(`^${bookingDayLabel()}`) }).click();
+  await pickDay(panel, bookingDayLabel());
   await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();
 
   await expect(panel.getByLabel("Or another length")).toHaveCount(0);

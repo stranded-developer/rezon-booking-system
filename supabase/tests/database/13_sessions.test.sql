@@ -3,6 +3,12 @@
 begin;
 select plan(16);
 
+-- These tests are about the booking and till rules, not about what hours the venue keeps.
+-- Setting the hours here — and rolling them back with the rest of the transaction — keeps them
+-- working whatever the owner sets in the back office (D73).
+update public.opening_hours set open_time = '10:00', close_time = '21:00', closed = false;
+
+
 insert into auth.users (id, email, aud, role) values ('00000000-0000-0000-0000-00000000a201', 'sess@test.local', 'authenticated', 'authenticated');
 insert into public.staff (id, auth_user_id, display_name, role, pin_hash)
 values ('00000000-0000-0000-0000-00000000b201', '00000000-0000-0000-0000-00000000a201', 'Sess', 'cashier', 'x');

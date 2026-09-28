@@ -2152,6 +2152,10 @@ export type Database = {
         Returns: undefined
       }
       tournament_confirm: { Args: { p: Json; p_entry: string }; Returns: Json }
+      tournament_counter_entry: {
+        Args: { p: Json; p_staff: string }
+        Returns: Json
+      }
       tournament_hold: {
         Args: { p: Json }
         Returns: {

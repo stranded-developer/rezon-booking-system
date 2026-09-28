@@ -46,7 +46,15 @@ export default async function globalSetup() {
   const cashier = await makeStaff("cashier", `E2E Cashier ${run}`, "1357");
   const owner = await makeStaff("superadmin", `E2E Owner ${run}`, "2468");
 
-  const { data: type } = await db.from("resource_types").select("id").eq("key", "billiard").single();
+  // Its own resource type at a known rate, with no rate bands on it. The till tests are about
+  // what the counter *does*, not about what the venue charges, so the owner can change every
+  // price and happy hour in the back office without a number in these tests moving (D74).
+  const { data: type, error: typeError } = await db
+    .from("resource_types")
+    .insert({ key: `e2e_pos_${run}`, name: `E2E POS Table ${run}`, base_rate_cents: 3000, min_minutes: 15, sort: 940 })
+    .select("id")
+    .single();
+  if (typeError) throw typeError;
   const resourceLabel = `E2E Table ${run}`;
   const { data: resource, error: resourceError } = await db
     .from("resources")
@@ -145,6 +153,8 @@ export default async function globalSetup() {
     password,
     cashier,
     owner,
+    resourceTypeId: type!.id,
+    resourceTypeRateCents: 3000,
     resourceId: resource!.id,
     resourceLabel,
     memberToken,

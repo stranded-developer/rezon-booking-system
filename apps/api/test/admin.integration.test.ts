@@ -16,6 +16,7 @@ let originalSettings: Record<string, unknown>;
 let originalHours: { day_of_week: number; open_time: string; close_time: string; closed: boolean }[];
 let originalTiers: { id: string; name: string; discount_bp: number; monthly_price_cents: number; monthly_free_minutes: number; max_balance_minutes: number; active: boolean }[];
 const createdResourceTypes: string[] = [];
+const createdHappyHours: string[] = [];
 
 async function admin(path: string, opts: { method?: string; body?: unknown; as?: "owner" | "cashier" } = {}) {
   const asCashier = opts.as === "cashier";
@@ -53,6 +54,7 @@ beforeAll(async () => {
 afterAll(async () => {
   ctx.clock.real();
   await finishOpenWork(ctx, owner.id);
+  if (createdHappyHours.length > 0) await ctx.db.from("happy_hours").update({ active: false }).in("id", createdHappyHours);
   await ctx.db
     .from("venue_settings")
     .update({ business_name: originalSettings.business_name as string | null, abn: originalSettings.abn as string | null, no_show_hold_minutes: originalSettings.no_show_hold_minutes as number })
@@ -179,11 +181,21 @@ describe("resources, rates and happy hours", () => {
     expect(await lastAudit("rate_bands", bandId)).toMatchObject({ action: "rate_bands.delete", reason: "Replaced", after: null });
   });
 
-  it("adds a weekend happy hour for the new type but refuses one overlapping the weekday happy hour", async () => {
+  it("adds happy hours for the new type but refuses one that overlaps another", async () => {
     const ok = await admin("/happy-hours", {
       body: { name: `Sunday session ${run}`, resourceTypeIds: [typeId], daysOfWeek: [7], startTime: "10:00", endTime: "12:00", discountBp: 2000 },
     });
     expect(ok.status, JSON.stringify(ok.json)).toBe(201);
+    createdHappyHours.push(ok.json.happyHour.id);
+
+    // The one being clashed with is created here rather than assumed: the venue no longer runs a
+    // percentage happy hour at all (D74), and this test is about the overlap rule, not the seed.
+    const weekday = await admin("/happy-hours", {
+      body: { name: `Weekday session ${run}`, resourceTypeIds: [typeId], daysOfWeek: [3], startTime: "10:00", endTime: "15:00", discountBp: 1000 },
+    });
+    expect(weekday.status, JSON.stringify(weekday.json)).toBe(201);
+    createdHappyHours.push(weekday.json.happyHour.id);
+
     const clash = await admin("/happy-hours", {
       body: { name: "Clash", resourceTypeIds: [typeId], daysOfWeek: [3], startTime: "11:00", endTime: "12:00", discountBp: 1500 },
     });

@@ -34,14 +34,14 @@ All values below are **editable in the back office**. None are hardcoded.
 | Setting | Launch value |
 |---|---|
 | Timezone | `Australia/Sydney` |
-| Opening hours | 10:00–21:00, every day |
-| Billiard tables | 2 × $30/hr incl. GST |
+| Opening hours | Mon–Thu 12:00–22:00 · Fri 12:00–24:00 · Sat 11:00–24:00 · Sun 11:00–22:00 (D73). Midnight is stored as `24:00`. |
+| Billiard tables | 2 × $25/hr incl. GST, $20/hr in happy hour |
 | Driving simulators | 6 × $60/hr incl. GST |
-| VR seats | 2 × $50/hr incl. GST |
+| VR seats | 2 × $50/hr incl. GST, $40/hr in happy hour |
 | Session | 30 min (D63). Booked online: one session minimum, then 15-min steps. Walk-in: from 15 min, then per minute |
 | Experiences (simulators, online) | Quick Race 30 min $35 · Leaderboard Challenge 30 min $35 · Double Race 60 min $58 (D65) |
 | Experience promotions | Happy Hour every day 12:00–15:00: $29 / $29 / $49 · Student, any time on request: $32 / $32 / $52. The cheapest match wins (D66) |
-| Happy hour (hourly rate) | Mon–Fri 10:00–15:00, 10% off. Prices billiards, VR and every walk-in |
+| Happy hour | **12:00–15:00, every day**, as a **flat price everywhere** (D74). Hourly types use a rate band; experiences use a promotional price. There is no percentage happy hour. |
 | Tiers | Silver 10% $48/mo · Gold 20% $78/mo · Diamond 20% $128/mo (incl. GST) |
 | Free play | Silver 2 sessions, Gold 4, Diamond 8 per month; rolls over, capped at ten months (600 / 1200 / 2400 min) |
 | Booking window | Rolling 7 days |

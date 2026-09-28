@@ -328,6 +328,7 @@ price_overrides
 | `expire_stale_tournament_holds(now)` | Marks `held` entries past `hold_expires_at` as `expired`. Returns the count. |
 | `tournament_hold(p)` | One transaction: sweep stale entry holds; tournament published and not started; member active or guest with email/phone; a member with free entries left is **confirmed immediately at $0** (allowance 0 at launch, so today nobody is); spots checked; insert (duplicate → `already_entered`, none left → `tournament_full`); audit. |
 | `tournament_attach_checkout`, `tournament_release_hold` | Store the Checkout session on an entry hold; release a hold now. |
+| `tournament_counter_entry(staff, p)` | One transaction: sweep stale holds; tournament exists and has not started; customer found or created; `free` takes nothing, cash/card needs an open shift; spots checked; entry `confirmed`; payment row; cash movement for cash; audited. The API recomputes the amount from the tournament's fee — the till only proposes. |
 | `tournament_confirm(entry, p)` | Held → confirmed; the amount paid must equal the entry total; payment row; a repeat is `duplicate`; an expired hold raises `hold_expired`. |
 | `pos_refund_payment(payment, staff, amount, reason)` | Partial refund of a cash/card payment: never more than what's left, needs an open till, cash-out movement for cash, audited. Stripe payments are refunded through Stripe. |
 | trigger `audit_config_change` | On config tables (including `venue_photos`, `experiences`, `experience_promos`, `tournaments`, `site_events`): writes `audit_log` in the same transaction for API writes, with actor and reason from request headers. |
@@ -359,10 +360,11 @@ rate_limits           key PK, window_start, hits   -- fixed-window counters shar
 | Table | Rows |
 |---|---|
 | `venue_settings` | timezone `Australia/Sydney`, defaults above |
-| `opening_hours` | days 1–7, 10:00–21:00 |
-| `resource_types` | billiard $30.00 / 15 min · sim $60.00 / 15 min · vr $50.00 / 15 min |
+| `opening_hours` | Mon–Thu 12:00–22:00 · Fri 12:00–24:00 · Sat 11:00–24:00 · Sun 11:00–22:00 (D73) |
+| `resource_types` | billiard $25.00 / 15 min · sim $60.00 / 15 min · vr $50.00 / 15 min |
 | `resources` | Table 1–2 · Sim 1–6 · VR 1–2 |
-| `happy_hours` | "Happy Hour", all types, days 1–5, 10:00–15:00, 1000 bp — prices **billiards, VR and every walk-in** |
+| `happy_hours` | none — the venue's happy hour is a **flat price**, not a percentage (D74) |
+| `rate_bands` | billiard $20.00/hr and VR $40.00/hr, every day 12:00–15:00 — the hourly side of happy hour |
 | `experiences` | Quick Race 30 min $35.00 · Leaderboard Challenge 30 min $35.00 · Double Race 60 min $58.00 (badged) — all on the simulators |
 | `experience_promos` | Happy Hour, every day 12:00–15:00: $29 / $29 / $49, automatic · Student, every day, all hours: $32 / $32 / $52, only on request |
 | `membership_tiers` | Silver 1000 bp $48.00 60 min cap 600 · Gold 2000 bp $78.00 120/1200 · Diamond 2000 bp $128.00 240/2400, each with a `perks` list and 0 free tournaments |

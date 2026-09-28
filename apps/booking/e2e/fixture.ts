@@ -9,10 +9,16 @@ const REPO_ROOT = resolve("../..");
 
 export interface Fixture {
   run: string;
+  /** The venue's real hours, put back by the teardown. */
+  originalHours: { day_of_week: number; open_time: string; close_time: string; closed: boolean }[];
+  /** The hours this suite runs under, so tests can say them rather than assume them. */
+  openTime: string;
+  closeTime: string;
   /** A resource type only this run books, so the timetable is predictable. */
   resourceTypeId: string;
   resourceTypeKey: string;
   resourceTypeName: string;
+  resourceTypeRateCents: number;
   resourceIds: string[];
   resourceLabels: string[];
   /** Fixed-amount code big enough to make a short booking free. */

@@ -72,6 +72,7 @@ export default function TournamentsPage() {
   const [editing, setEditing] = useState<Tournament | null>(null);
   const [adding, setAdding] = useState(false);
   const [viewing, setViewing] = useState<Tournament | null>(null);
+  const [addingTo, setAddingTo] = useState<Tournament | null>(null);
   const { api } = usePos();
   const action = useAction();
   const rows = tournaments.data?.tournaments ?? [];
@@ -98,9 +99,14 @@ export default function TournamentsPage() {
               <Td className="tnum">{t.spots_left === 0 ? <Badge tone="amber">Full</Badge> : t.spots_left}</Td>
               <Td>{t.published ? <Badge tone="green">Published</Badge> : <Badge tone="grey">Draft</Badge>}</Td>
               <Td>
-                <Button size="sm" variant="ghost" onClick={() => setViewing(t)}>
-                  Who&apos;s in
-                </Button>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => setViewing(t)}>
+                    Who&apos;s in
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={t.spots_left === 0} onClick={() => setAddingTo(t)}>
+                    Add someone
+                  </Button>
+                </div>
               </Td>
               <Td>
                 <div className="flex gap-1">
@@ -137,6 +143,16 @@ export default function TournamentsPage() {
         />
       )}
       {viewing ? <EntriesDialog tournament={viewing} onClose={() => setViewing(null)} /> : null}
+      {addingTo ? (
+        <CounterEntryDialog
+          tournament={addingTo}
+          onClose={() => setAddingTo(null)}
+          onSaved={() => {
+            setAddingTo(null);
+            tournaments.reload();
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -240,6 +256,124 @@ function EntriesDialog({ tournament, onClose }: { tournament: Tournament; onClos
           </tr>
         ))}
       </Table>
+    </Modal>
+  );
+}
+
+/**
+ * Adding someone at the counter (D75).
+ *
+ * The amount is worked out by the server from the tournament's own entry fee, so the till never
+ * decides what anything costs. Staff choose how it was paid, or that nothing was taken.
+ */
+function CounterEntryDialog({ tournament, onClose, onSaved }: { tournament: Tournament; onClose: () => void; onSaved: () => void }) {
+  const { api } = usePos();
+  const action = useAction();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<"cash" | "card_terminal" | "free">(tournament.entry_fee_cents === 0 ? "free" : "cash");
+  const [externalRef, setExternalRef] = useState("");
+  const [reason, setReason] = useState("");
+  const [done, setDone] = useState<{ ref: string; amountCents: number; spotsLeft: number } | null>(null);
+
+  const contactGiven = name.trim() !== "" && (email.trim() !== "" || phone.trim() !== "");
+
+  if (done) {
+    return (
+      <Modal title={`Added to ${tournament.name}`} onClose={onSaved}>
+        <div className="space-y-4">
+          <p className="text-lg">
+            <span className="font-semibold">{name.trim()}</span> is in.
+          </p>
+          <dl className="space-y-1 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-400">Entry code</dt>
+              <dd className="tnum font-semibold">{done.ref}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-400">Taken</dt>
+              <dd className="tnum">{done.amountCents === 0 ? "Nothing" : money(done.amountCents)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-400">Spots left</dt>
+              <dd className="tnum">{done.spotsLeft}</dd>
+            </div>
+          </dl>
+          <Button variant="primary" className="w-full" onClick={onSaved}>
+            Done
+          </Button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title={`Add someone to ${tournament.name}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink-400">
+          {tournament.spots_left} {tournament.spots_left === 1 ? "spot" : "spots"} left. Entry is{" "}
+          {tournament.entry_fee_cents === 0 ? "free" : money(tournament.entry_fee_cents)}; a member&apos;s discount is taken off automatically.
+        </p>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Email">
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Phone" hint="Either one is enough.">
+            <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
+        </div>
+        <Field label="How it was paid">
+          <select value={method} onChange={(e) => setMethod(e.target.value as typeof method)} className="h-11 rounded-lg bg-ink-900 px-3 ring-1 ring-ink-700">
+            <option value="cash">Cash</option>
+            <option value="card_terminal">Card terminal</option>
+            <option value="free">No charge</option>
+          </select>
+        </Field>
+        {method === "card_terminal" ? (
+          <Field label="Terminal reference (optional)">
+            <Input value={externalRef} onChange={(e) => setExternalRef(e.target.value)} />
+          </Field>
+        ) : null}
+        {method === "free" ? (
+          <Field label="Why no charge? (optional)">
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. prize winner" />
+          </Field>
+        ) : null}
+
+        <ErrorNote error={action.error} />
+        <p className="text-sm text-ink-400">
+          {method === "free"
+            ? "Nothing is taken and nothing goes on the till. The entry is still recorded and audited."
+            : "This goes on the open till and into today's takings, so a till has to be open."}
+        </p>
+        <Button
+          variant="primary"
+          className="w-full"
+          disabled={action.busy || !contactGiven}
+          onClick={() =>
+            void action.run(async () => {
+              const r = await api<{ ref: string; amountCents: number; spotsLeft: number }>("/pos/tournaments/counter-entry", {
+                body: {
+                  tournamentId: tournament.id,
+                  name: name.trim(),
+                  ...(email.trim() ? { email: email.trim() } : {}),
+                  ...(phone.trim() ? { phone: phone.trim() } : {}),
+                  method,
+                  ...(externalRef.trim() ? { externalRef: externalRef.trim() } : {}),
+                  ...(reason.trim() ? { reason: reason.trim() } : {}),
+                },
+              });
+              setDone({ ref: r.ref, amountCents: r.amountCents, spotsLeft: r.spotsLeft });
+            })
+          }
+        >
+          {method === "free" ? "Add with no charge" : "Take payment and add"}
+        </Button>
+      </div>
     </Modal>
   );
 }

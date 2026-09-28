@@ -1,23 +1,18 @@
 /**
  * A full POS day against local Supabase on a fixed clock: Wednesday 16 Jan 2030, Sydney (AEDT, +11).
- * Launch configuration assumed: billiard $30/hr, sim $60/hr, happy hour Mon–Fri 10:00–15:00 10%,
- * Gold 20%, 15-minute minimum, open 10:00–21:00. `pnpm db:reset` restores it.
+ *
+ * This file brings its own pricing world: its own resource types at $30/hr and $60/hr, its own
+ * happy hour (Mon–Fri 10:00–15:00, 10%) scoped to them, and its own opening hours. It is about
+ * what the till *does* — quotes, overrides, voids, shifts — not about what the venue charges, so
+ * the owner can change every price in the back office without a single number here moving.
+ * The launch prices themselves are asserted in pgTAP `01_schema_seed`.
  *
  * Tests in this file run in order and share state (one till, one day).
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hashQrToken } from "../src/services/lookup.js";
-import {
-  call,
-  cleanupTestData,
-  finishOpenWork,
-  makeStaff,
-  operatorToken,
-  testContext,
-  type TestContext,
-  type TestStaff,
-} from "./helpers.js";
+import { call, cleanupTestData, finishOpenWork, makeStaff, operatorToken, testContext, useOpeningHours, type TestContext, type TestStaff } from "./helpers.js";
 
 const at = (hhmm: string, day = "2030-01-16") => `${day}T${hhmm}:00+11:00`;
 
@@ -33,7 +28,7 @@ let lapsed: { id: string };
 let guestId: string;
 let fixedCode: string;
 let percentCode: string;
-const created = { resources: [] as string[] };
+const created = { resources: [] as string[], resourceTypes: [] as string[], happyHours: [] as string[] };
 /** Card payments taken on the till, tracked independently of the API to check the shift report. */
 let cardTotal = 0;
 
@@ -72,6 +67,9 @@ async function quote(sessionId: string, time: string, body: Record<string, unkno
   return pos(`/sessions/${sessionId}/quote`, { body });
 }
 
+/** Restores the venue's real opening hours once this file is done. */
+let restoreHours: () => Promise<void>;
+
 beforeAll(async () => {
   ctx = testContext();
   owner = await makeStaff(ctx, "superadmin", "2468", "pos-owner");
@@ -80,14 +78,40 @@ beforeAll(async () => {
   cashierOp = await operatorToken(ctx, cashier);
   ownerOp = await operatorToken(ctx, cashier, owner);
 
-  const { data: types } = await ctx.db.from("resource_types").select("id, key");
-  const typeId = (key: string) => types!.find((t) => t.key === key)!.id;
+  const { data: ownTypes, error: typeError } = await ctx.db
+    .from("resource_types")
+    .insert([
+      { key: `test_pos_tbl_${run}`, name: `POS Table ${run}`, base_rate_cents: 3000, min_minutes: 15, sort: 950 },
+      { key: `test_pos_sim_${run}`, name: `POS Sim ${run}`, base_rate_cents: 6000, min_minutes: 15, sort: 951 },
+    ])
+    .select("id, key");
+  if (typeError) throw typeError;
+  const typeId = (suffix: string) => ownTypes!.find((t) => t.key.startsWith(`test_pos_${suffix}`))!.id;
+  created.resourceTypes.push(...ownTypes!.map((t) => t.id));
+
+  // The happy hour these tests price against, scoped to this file's own types so it cannot
+  // change anyone else's quote (D74 removed the venue's percentage happy hour).
+  const { data: hh, error: hhError } = await ctx.db
+    .from("happy_hours")
+    .insert({
+      name: `POS HH ${run}`,
+      resource_type_ids: created.resourceTypes,
+      days_of_week: [1, 2, 3, 4, 5],
+      start_time: "10:00",
+      end_time: "15:00",
+      discount_bp: 1000,
+    })
+    .select("id")
+    .single();
+  if (hhError) throw hhError;
+  created.happyHours.push(hh.id);
+
   const { data: resources, error } = await ctx.db
     .from("resources")
     .insert([
-      { resource_type_id: typeId("billiard"), label: `API ${run} T1`, sort: 950 },
-      { resource_type_id: typeId("billiard"), label: `API ${run} T2`, sort: 951 },
-      { resource_type_id: typeId("billiard"), label: `API ${run} T3`, sort: 952 },
+      { resource_type_id: typeId("tbl"), label: `API ${run} T1`, sort: 950 },
+      { resource_type_id: typeId("tbl"), label: `API ${run} T2`, sort: 951 },
+      { resource_type_id: typeId("tbl"), label: `API ${run} T3`, sort: 952 },
       { resource_type_id: typeId("sim"), label: `API ${run} Sim`, sort: 953 },
     ])
     .select("id, label");
@@ -132,12 +156,16 @@ beforeAll(async () => {
     .select("code, discount_type");
   fixedCode = codes!.find((c) => c.discount_type === "fixed")!.code;
   percentCode = codes!.find((c) => c.discount_type === "percent")!.code;
+  restoreHours = await useOpeningHours(ctx);
 });
 
 afterAll(async () => {
+  await restoreHours();
   ctx.clock.real();
   await finishOpenWork(ctx, owner.id);
   await ctx.db.from("resources").update({ active: false }).in("id", created.resources);
+  await ctx.db.from("happy_hours").update({ active: false }).in("id", created.happyHours);
+  await ctx.db.from("resource_types").update({ active: false }).in("id", created.resourceTypes);
   await cleanupTestData(ctx);
 });
 
@@ -157,7 +185,12 @@ describe("access", () => {
     // not about nothing else existing.
     const keys = r.json.resourceTypes.map((t: { key: string }) => t.key);
     expect(keys.filter((k: string) => ["billiard", "sim", "vr"].includes(k))).toEqual(["billiard", "sim", "vr"]);
-    expect(r.json.happyHours[0]).toMatchObject({ start_time: "10:00", end_time: "15:00", discount_bp: 1000 });
+    // This file's own happy hour, served to the till with its times as HH:MM.
+    expect(r.json.happyHours.find((h: { name: string }) => h.name === `POS HH ${run}`)).toMatchObject({
+      start_time: "10:00",
+      end_time: "15:00",
+      discount_bp: 1000,
+    });
     expect(Array.isArray(r.json.rateBands)).toBe(true);
   });
 });
@@ -223,7 +256,7 @@ describe("walk-in with a member", () => {
     const quoteBody = q.json.quote;
     expect(quoteBody).toMatchObject({ mode: "walk_in", subtotalCents: 2850, discountCents: 570, totalCents: 2280, gstCents: 207, maxFreeMinutes: 60 });
     expect(quoteBody.explanation).toEqual([
-      "14:30–15:00  30 min @ $30.00/hr − Happy Hour 10% = $27.00/hr  $13.50",
+      `14:30–15:00  30 min @ $30.00/hr − POS HH ${run} 10% = $27.00/hr  $13.50`,
       "15:00–15:30  30 min @ $30.00/hr  $15.00",
       "Subtotal  $28.50",
       "Gold member 20%  −$5.70",

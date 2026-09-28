@@ -3,11 +3,18 @@
 
 insert into public.venue_settings (id) values (1);
 
-insert into public.opening_hours (day_of_week, open_time, close_time)
-select d, '10:00', '21:00' from generate_series(1, 7) as d;
+-- D73. Midnight is stored as 24:00, which Postgres reads as the following midnight.
+insert into public.opening_hours (day_of_week, open_time, close_time) values
+  (1, '12:00', '22:00'),
+  (2, '12:00', '22:00'),
+  (3, '12:00', '22:00'),
+  (4, '12:00', '22:00'),
+  (5, '12:00', '24:00'),
+  (6, '11:00', '24:00'),
+  (7, '11:00', '22:00');
 
 insert into public.resource_types (key, name, base_rate_cents, min_minutes, sort) values
-  ('billiard', 'Billiard Table', 3000, 15, 1),
+  ('billiard', 'Billiard Table', 2500, 15, 1),
   ('sim', 'Driving Simulator', 6000, 15, 2),
   ('vr', 'VR Seat', 5000, 15, 3);
 
@@ -21,8 +28,14 @@ from (values
 ) as v (type_key, label, sort)
 join public.resource_types rt on rt.key = v.type_key;
 
-insert into public.happy_hours (name, resource_type_ids, days_of_week, start_time, end_time, discount_bp)
-values ('Happy Hour', null, '{1,2,3,4,5}', '10:00', '15:00', 1000);
+-- D74: one happy hour, 12:00–15:00 every day, expressed as a flat price everywhere.
+-- On the hourly types that is a rate band; on the experiences it is a promotional price.
+-- There is deliberately no percentage happy hour: with a flat rate in the same window a
+-- percentage on top would discount twice.
+insert into public.rate_bands (resource_type_id, days_of_week, start_time, end_time, rate_cents)
+select rt.id, '{1,2,3,4,5,6,7}'::smallint[], '12:00', '15:00', v.rate
+from (values ('billiard', 2000), ('vr', 4000)) as v (type_key, rate)
+join public.resource_types rt on rt.key = v.type_key;
 
 -- Tiers (D67). Free play is in sessions: Silver 2, Gold 4, Diamond 8 a month (D63).
 -- `perks` are listed on the membership page but not enforced by the system.

@@ -15,10 +15,16 @@ export function formatMinutes(minutes: number): string {
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 export const dayName = (isoDayOfWeek: number) => DAY_NAMES[isoDayOfWeek - 1] ?? "";
 
-/** "10:00" → "10:00 am". Venue wall-clock times are shown as they are, never converted. */
+/**
+ * "10:00" → "10:00 am". Venue wall-clock times are shown as they are, never converted.
+ *
+ * A closing time of midnight is stored as "24:00", which is the *end* of the day. Read as an hour
+ * number it is past noon, so without this it would print as "12:00 pm" and a Saturday that runs
+ * 11 am to midnight would read as a one-hour day.
+ */
 export function formatWallTime(time: string): string {
   const [h = "0", m = "00"] = time.split(":");
-  const hour = Number(h);
+  const hour = Number(h) % 24;
   const suffix = hour < 12 ? "am" : "pm";
   const twelve = hour % 12 === 0 ? 12 : hour % 12;
   return `${twelve}:${m} ${suffix}`;

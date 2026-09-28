@@ -106,6 +106,8 @@ export interface ResourceType {
   key: string;
   name: string;
   baseRateCents: number;
+  /** The cheapest hourly rate anyone could pay, e.g. during happy hour (D74). */
+  fromRateCents: number;
   minMinutes: number;
   resources: { id: string; label: string }[];
 }

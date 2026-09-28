@@ -132,3 +132,51 @@ The owner chose not to have the system track these. Staff honour them at the cou
 **Decision:** the home page is rebuilt to the reference's shape — a hero with the venue's one-line intro and two buttons, an "eat / drink / race" style triptych built from the venue's photos, a four-step "how it works", a "what you can book" section that shows the real experiences and prices, membership, opening hours and how to find us, then a closing call to action. Every word and number still comes from the back office and the API.
 
 **Why:** the owner asked that "the landing page shows everything straight away, so the flow is clearer".
+
+---
+
+## D73 — New opening hours ✅ owner 2026-09-24
+
+**Decision:** the venue's launch hours become:
+
+| Day | Open |
+|---|---|
+| Monday – Thursday | 12:00 pm – 10:00 pm |
+| Friday | 12:00 pm – midnight |
+| Saturday | 11:00 am – midnight |
+| Sunday | 11:00 am – 10:00 pm |
+
+Replacing 10:00–21:00 every day. Still editable in the back office, like every other value.
+
+**Note:** midnight is stored as `24:00`, which Postgres reads as the following midnight, so a Friday booking can run to 11:59 pm. Nothing crosses into the next day.
+
+## D74 — One happy hour, 12:00–15:00, at flat prices ✅ owner 2026-09-24
+
+**The problem this solves:** the venue had ended up with two happy hours — a 10% discount 10:00–15:00 Mon–Fri on the hourly rate, and flat prices 12:00–15:00 every day on the experiences. That was flagged in D66 as needing the owner's decision.
+
+**Decision:** there is **one** happy hour — **12:00 to 15:00, every day** — and it is expressed as a **flat price everywhere**, never as a percentage.
+
+| What | Normal | Happy hour |
+|---|---|---|
+| Quick Race / Leaderboard Challenge (30 min) | $35.00 | $29.00 |
+| Double Race (1 hour) | $58.00 | $49.00 |
+| **Billiard table** | **$25.00/hr** (was $30.00) | **$20.00/hr** |
+| **VR seat** | $50.00/hr | **$40.00/hr** |
+
+- The experiences already used flat promotional prices, so they are unchanged.
+- The hourly types use **rate bands**, which already exist for exactly this: a different rate for particular days and times. No new machinery.
+- **The percentage happy hour is switched off.** With a flat rate band in the same window, a percentage on top would discount twice.
+
+**Simulators by the hour are unchanged at $60.** They are sold online as experiences; the hourly rate is only for a walk-in, and the owner did not ask for it to move. **Flagged** — say the word and it gets a happy-hour rate like the others.
+
+**The site now shows the cheapest hourly rate** on a card that has one, the same way an experience shows its "from" price.
+
+## D75 — Tournament entries can be added at the counter ✅ owner 2026-09-24
+
+**Decision:** staff can add someone to a tournament from the back office, and choose either:
+- **paid at the counter** — cash or the card terminal, recorded on the open shift and in the day's takings, exactly like a membership sold at the counter (D61); or
+- **no charge** — the person is entered with nothing taken, for a comp or an arrangement made another way.
+
+Both are audited. The spot counts against the tournament straight away, the same as one bought online.
+
+**Not built, and not asked for:** cancelling or refunding a tournament entry, and any display of the tournament's format — brackets, rounds, heats, results or a leaderboard.

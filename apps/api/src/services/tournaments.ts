@@ -333,3 +333,71 @@ export async function sendEntryConfirmation(deps: AppDeps, entryId: string, toke
     entityId: `${e.id}:confirmed`,
   });
 }
+
+// ── At the counter (D75) ─────────────────────────────────────────────────────
+
+export interface CounterEntryInput {
+  tournamentId: string;
+  customerId?: string | undefined;
+  name?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
+  /** "free" means nothing is taken; the other two are money the till holds. */
+  method: "cash" | "card_terminal" | "free";
+  externalRef?: string | undefined;
+  reason?: string | undefined;
+}
+
+/**
+ * Add someone to a tournament from the back office.
+ *
+ * The amount is **recomputed here from the tournament's own entry fee**, never taken from the
+ * request — the till proposes, the server decides, the same as every other money path. A member's
+ * percentage applies, so signing someone up at the counter costs them what it would online.
+ */
+export async function addEntryAtCounter(deps: AppDeps, operator: { id: string }, input: CounterEntryInput) {
+  const { data: tournament, error } = await deps.db
+    .from("tournaments")
+    .select("id, name, entry_fee_cents")
+    .eq("id", input.tournamentId)
+    .maybeSingle();
+  if (error) throw mapDbError(error);
+  if (!tournament) throw new ApiError(404, "not_found", "Tournament not found");
+
+  // A member's discount only applies to someone we can identify as a member.
+  let member: MemberSummary | null = null;
+  if (input.customerId) {
+    const { data, error: memberError } = await deps.db
+      .from("members")
+      .select("id, status, membership_tiers!members_tier_id_fkey(name, discount_bp)")
+      .eq("customer_id", input.customerId)
+      .in("status", ["active", "cancelling"])
+      .maybeSingle();
+    if (memberError) throw mapDbError(memberError);
+    if (data) {
+      const tier = data.membership_tiers as unknown as { name: string; discount_bp: number };
+      member = { discountBp: tier.discount_bp, tierName: tier.name } as MemberSummary;
+    }
+  }
+
+  const amountCents = input.method === "free" ? 0 : quoteEntry(tournament.entry_fee_cents, member).totalCents;
+
+  const { data, error: rpcError } = await deps.db.rpc("tournament_counter_entry", {
+    p_staff: operator.id,
+    p: {
+      tournamentId: tournament.id,
+      ...(input.customerId ? { customerId: input.customerId } : {}),
+      ...(input.name ? { name: input.name } : {}),
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.phone ? { phone: input.phone } : {}),
+      method: input.method,
+      amountCents,
+      ...(input.externalRef ? { externalRef: input.externalRef } : {}),
+      ...(input.reason ? { reason: input.reason } : {}),
+      cancelTokenHash: hashEntryToken(randomBytes(32).toString("base64url")),
+      now: deps.clock.now().toISOString(),
+    } as unknown as Json,
+  });
+  if (rpcError) throw mapDbError(rpcError);
+  return { ...(data as Record<string, unknown>), tournamentName: tournament.name };
+}

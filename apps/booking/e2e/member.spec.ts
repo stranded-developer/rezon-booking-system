@@ -38,6 +38,22 @@ async function fillLive(field: Locator, value: string) {
   }).toPass({ timeout: 20_000 });
 }
 
+/**
+ * Pick a day in the panel's calendar, stepping to the next month if the day is not on screen.
+ *
+ * The booking window can straddle a month end — on 28 September a day four days out is in
+ * October — and the calendar opens on the month containing today, exactly as a person would
+ * find it. This does what they would do: press the arrow.
+ */
+async function pickDay(panel: Locator, label: string) {
+  const day = panel.getByRole("button", { name: new RegExp(`^${label}`) });
+  for (let i = 0; i < 3; i++) {
+    if ((await day.count()) > 0 && (await day.first().isEnabled())) break;
+    await panel.getByRole("button", { name: "Next month" }).click();
+  }
+  await day.first().click();
+}
+
 const dayLabel = () => {
   const [y, m, d] = bookingDate().split("-").map(Number);
   return new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" })
@@ -101,7 +117,7 @@ test("a counter member signs up, gets their membership, books with the discount 
   await page.getByRole("link", { name: "Book now" }).click();
   await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
   const panel = page.getByRole("dialog");
-  await panel.getByRole("button", { name: new RegExp(`^${dayLabel()}`) }).click();
+  await pickDay(panel, dayLabel());
   await panel.getByRole("button").filter({ hasText: "4:00 pm" }).click();
   await panel.getByRole("button", { name: "1 hour", exact: true }).click();
   await expect(panel.getByText(`${f.counterMember.tierName} member · ${f.counterMember.discountBp / 100}% off`)).toBeVisible();

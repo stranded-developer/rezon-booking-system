@@ -229,6 +229,9 @@ function WhatYouCanBook({
                   <div key={type.id} className="rounded-xl border border-line p-4">
                     <h4 className="display text-lg">{type.name}</h4>
                     <p className="display tnum mt-1 text-2xl text-flag">{formatRate(type.baseRateCents)}</p>
+                    {type.fromRateCents < type.baseRateCents ? (
+                      <p className="tnum mt-1 text-sm text-gold">{formatRate(type.fromRateCents)} in happy hour</p>
+                    ) : null}
                     <p className="mt-1 text-sm text-ink-500">
                       {type.resources.length} available · from {config.sessionMinutes} min
                     </p>

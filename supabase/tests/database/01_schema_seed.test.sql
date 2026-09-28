@@ -1,6 +1,6 @@
 -- Schema presence, RLS coverage, and launch seed values.
 begin;
-select plan(19);
+select plan(20);
 
 select tables_are(
   'public',
@@ -33,16 +33,22 @@ select is((select timezone from venue_settings), 'Australia/Sydney', 'venue time
 select is((select booking_window_days from venue_settings), 7, 'booking window 7 days');
 select is((select online_cutoff_minutes from venue_settings), 30, 'online cutoff 30 min');
 
-select is(
-  (select count(*) from opening_hours where open_time = '10:00' and close_time = '21:00' and not closed),
-  7::bigint,
-  'open 10:00–21:00 all seven days'
+select results_eq(
+  $$ select day_of_week, open_time, close_time, closed from opening_hours order by day_of_week $$,
+  $$ values (1::smallint, '12:00'::time, '22:00'::time, false),
+            (2::smallint, '12:00'::time, '22:00'::time, false),
+            (3::smallint, '12:00'::time, '22:00'::time, false),
+            (4::smallint, '12:00'::time, '22:00'::time, false),
+            (5::smallint, '12:00'::time, '24:00'::time, false),
+            (6::smallint, '11:00'::time, '24:00'::time, false),
+            (7::smallint, '11:00'::time, '22:00'::time, false) $$,
+  'open noon to 10pm Mon–Thu, to midnight Fri, 11am–midnight Sat, 11am–10pm Sun (D73)'
 );
 
 select results_eq(
   $$ select key, base_rate_cents, min_minutes from resource_types where key in ('billiard', 'sim', 'vr') order by sort $$,
-  $$ values ('billiard', 3000, 15), ('sim', 6000, 15), ('vr', 5000, 15) $$,
-  'resource types and rates: $30 / $60 / $50 per hour, 15 min minimum'
+  $$ values ('billiard', 2500, 15), ('sim', 6000, 15), ('vr', 5000, 15) $$,
+  'resource types and rates: $25 / $60 / $50 per hour, 15 min minimum'
 );
 
 select results_eq(
@@ -53,10 +59,21 @@ select results_eq(
   '2 tables, 6 sims, 2 VR seats'
 );
 
+-- D74: one happy hour, 12:00–15:00 every day, as a flat price. On the hourly types that is a
+-- rate band; on the experiences it is a promotional price. There is deliberately no percentage
+-- happy hour, because a percentage on top of a flat rate in the same window would discount twice.
+select is(
+  (select count(*) from happy_hours where active), 0::bigint,
+  'no percentage happy hour: the venue prices happy hour as a flat amount'
+);
+
 select results_eq(
-  $$ select resource_type_ids is null, days_of_week, start_time, end_time, discount_bp from happy_hours where name = 'Happy Hour' $$,
-  $$ values (true, '{1,2,3,4,5}'::smallint[], '10:00'::time, '15:00'::time, 1000) $$,
-  'happy hour Mon–Fri 10:00–15:00, 10%, all types'
+  $$ select rt.key, rb.days_of_week, rb.start_time, rb.end_time, rb.rate_cents
+       from rate_bands rb join resource_types rt on rt.id = rb.resource_type_id
+      where rb.active order by rt.sort $$,
+  $$ values ('billiard', '{1,2,3,4,5,6,7}'::smallint[], '12:00'::time, '15:00'::time, 2000),
+            ('vr', '{1,2,3,4,5,6,7}'::smallint[], '12:00'::time, '15:00'::time, 4000) $$,
+  'happy hour 12:00–15:00 every day: billiards $20/hr, VR $40/hr'
 );
 
 select results_eq(

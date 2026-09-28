@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { findMemberByQr } from "../src/services/lookup.js";
-import { call, cleanupTestData, makeStaff, operatorToken, PASSWORD, signIn, testContext, type CallOptions, type TestContext, type TestStaff } from "./helpers.js";
+import { call, cleanupTestData, makeStaff, operatorToken, PASSWORD, signIn, testContext, useOpeningHours, type CallOptions, type TestContext, type TestStaff } from "./helpers.js";
 
 const at = (hhmm: string, day = "2030-03-04") => `${day}T${hhmm}:00+11:00`;
 const run = randomUUID().slice(0, 8);
@@ -47,6 +47,9 @@ async function makeUser(email: string, meta: Record<string, string> = {}) {
   return { id: data.user.id, jwt: await signIn(ctx, email) };
 }
 
+/** Restores the venue's real opening hours once this file is done. */
+let restoreHours: () => Promise<void>;
+
 beforeAll(async () => {
   ctx = testContext({ CRON_SECRET });
   ctx.clock.set(at("09:00"));
@@ -73,9 +76,11 @@ beforeAll(async () => {
 
   const { data: code } = await ctx.db.from("referral_codes").insert({ discount_type: "fixed", discount_value: 100_000, max_uses: 10 }).select("code").single();
   fixedCode = code!.code;
+  restoreHours = await useOpeningHours(ctx);
 }, 60_000);
 
 afterAll(async () => {
+  await restoreHours();
   ctx.clock.real();
   await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");
   await ctx.db.from("resources").update({ active: false }).in("id", resourceIds);

@@ -34,12 +34,16 @@ values ('00000000-0000-0000-0000-0000000dd001', (select id from resource_types w
 select is((select count(*) from audit_log where entity = 'resources' and entity_id = '00000000-0000-0000-0000-0000000dd001'), 0::bigint,
   'writes outside the API (migrations, seed, psql) are not audited');
 
+-- The rate it was on before is read rather than typed in: the launch price is the owner's to change.
+create temp table t_rate as select base_rate_cents from resource_types where key = 'billiard';
+grant select on t_rate to public;
+
 select pg_temp.as_api('00000000-0000-0000-0000-00000000b001', 'Rate rise — Sept');
 update resource_types set base_rate_cents = 3500 where key = 'billiard';
 select results_eq(
   $$ select actor_staff_id, action, (before ->> 'base_rate_cents')::int, (after ->> 'base_rate_cents')::int, reason
      from audit_log where entity = 'resource_types' and action = 'resource_types.update' order by id desc limit 1 $$,
-  $$ values ('00000000-0000-0000-0000-00000000b001'::uuid, 'resource_types.update', 3000, 3500, 'Rate rise — Sept') $$,
+  $$ select '00000000-0000-0000-0000-00000000b001'::uuid, 'resource_types.update', base_rate_cents, 3500, 'Rate rise — Sept' from t_rate $$,
   'an API update is audited with actor, before/after and a UTF-8 reason'
 );
 

@@ -94,14 +94,20 @@ export async function publicConfig(deps: AppDeps) {
     holdMinutes: settings.hold_ttl_minutes,
     noShowHoldMinutes: settings.no_show_hold_minutes,
     refundPolicy: { fullRefundHoursBefore: 24, halfRefundHoursBefore: 2 },
-    resourceTypes: types.data!.map((t) => ({
-      id: t.id,
-      key: t.key,
-      name: t.name,
-      baseRateCents: t.base_rate_cents,
-      minMinutes: t.min_minutes,
-      resources: resources.data!.filter((r) => r.resource_type_id === t.id).map((r) => ({ id: r.id, label: r.label })),
-    })),
+    resourceTypes: types.data!.map((t) => {
+      // The cheapest hourly rate anyone could pay, the same idea as an experience's "from" price:
+      // a rate band in a happy-hour window is what makes a billiard table $20 rather than $25.
+      const bandRates = bands.data!.filter((b) => b.resource_type_id === t.id).map((b) => b.rate_cents);
+      return {
+        id: t.id,
+        key: t.key,
+        name: t.name,
+        baseRateCents: t.base_rate_cents,
+        fromRateCents: Math.min(t.base_rate_cents, ...bandRates),
+        minMinutes: t.min_minutes,
+        resources: resources.data!.filter((r) => r.resource_type_id === t.id).map((r) => ({ id: r.id, label: r.label })),
+      };
+    }),
     openingHours: hours.data!.map((h) => ({ dayOfWeek: h.day_of_week, open: wallTime(h.open_time), close: wallTime(h.close_time), closed: h.closed })),
     happyHours: hhs.data!.map((h) => ({
       name: h.name,

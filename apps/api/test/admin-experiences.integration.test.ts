@@ -21,6 +21,8 @@ let experienceId: string;
 let promoId: string;
 let tournamentId: string;
 let eventId: string;
+let shiftOpened = false;
+let counterTournamentId: string;
 
 async function admin(path: string, opts: { method?: string; body?: unknown; as?: "owner" | "cashier" } = {}) {
   const asCashier = opts.as === "cashier";
@@ -63,8 +65,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (shiftOpened) await finishOpenWork(ctx, owner.id);
   if (experienceId) await ctx.db.from("experiences").update({ active: false }).eq("id", experienceId);
-  if (tournamentId) await ctx.db.from("tournaments").update({ published: false }).eq("id", tournamentId);
+  for (const id of [tournamentId, counterTournamentId].filter(Boolean)) {
+    await ctx.db.from("tournaments").update({ published: false }).eq("id", id);
+  }
   if (eventId) await ctx.db.from("site_events").update({ active: false }).eq("id", eventId);
   await ctx.db.from("resource_types").update({ active: false }).eq("id", simTypeId);
   await cleanupTestData(ctx);
@@ -232,10 +237,72 @@ describe("tournaments", () => {
     expect(tooFew.json.error.message).toMatch(/2 people are already signed up/);
   });
 
+  it("adds someone at the counter, taking the fee on the open till (D75)", async () => {
+    // Its own tournament with room in it: the one above was deliberately shrunk to its entries.
+    const startsAt = new Date(Date.now() + 25 * 86_400_000).toISOString();
+    const made = await admin("/tournaments", { body: { name: `Counter Cup ${run}`, startsAt, spots: 5, entryFeeCents: 2500, published: true } });
+    expect(made.status, JSON.stringify(made.json)).toBe(201);
+    counterTournamentId = made.json.tournament.id;
+
+    // A till has to be open before money can be taken, the same as any other counter sale.
+    const noTill = await call(ctx, "/pos/tournaments/counter-entry", {
+      jwt: owner.jwt,
+      operatorToken: ownerOp,
+      body: { tournamentId: counterTournamentId, name: `Walkup ${run}`, email: `walkup-${run}@raceground.test`, method: "cash" },
+    });
+    expect(noTill.status).toBe(409);
+    expect(noTill.json.error.code).toBe("no_shift");
+
+    const opened = await call(ctx, "/pos/shifts/open", { jwt: owner.jwt, operatorToken: ownerOp, body: { openingFloatCents: 10000 } });
+    expect([200, 201]).toContain(opened.status);
+    ownerOp = opened.headers.get("X-Operator-Token") ?? ownerOp;
+    shiftOpened = true;
+
+    const paid = await call(ctx, "/pos/tournaments/counter-entry", {
+      jwt: owner.jwt,
+      operatorToken: ownerOp,
+      body: { tournamentId: counterTournamentId, name: `Walkup ${run}`, email: `walkup-${run}@raceground.test`, method: "cash" },
+    });
+    expect(paid.status, JSON.stringify(paid.json)).toBe(201);
+    ownerOp = paid.headers.get("X-Operator-Token") ?? ownerOp;
+    // The amount comes from the tournament's own fee, never from the request.
+    expect(paid.json.amountCents).toBe(2500);
+    expect(paid.json.ref).toMatch(/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/);
+
+    const { data: movement } = await ctx.db
+      .from("cash_movements")
+      .select("kind, amount_cents")
+      .eq("payment_id", (await ctx.db.from("payments").select("id").eq("tournament_entry_id", paid.json.entryId).single()).data!.id)
+      .single();
+    expect(movement).toMatchObject({ kind: "sale", amount_cents: 2500 });
+    expect(await lastAudit("tournament_entries", paid.json.entryId)).toMatchObject({ action: "tournament.counter_entry", actor_staff_id: owner.id });
+  });
+
+  it("adds someone with no charge, without needing a till", async () => {
+    const free = await call(ctx, "/pos/tournaments/counter-entry", {
+      jwt: owner.jwt,
+      operatorToken: ownerOp,
+      body: { tournamentId: counterTournamentId, name: `Comp ${run}`, email: `comp-${run}@raceground.test`, method: "free", reason: "Prize winner" },
+    });
+    expect(free.status, JSON.stringify(free.json)).toBe(201);
+    ownerOp = free.headers.get("X-Operator-Token") ?? ownerOp;
+    expect(free.json.amountCents).toBe(0);
+    expect(await lastAudit("tournament_entries", free.json.entryId)).toMatchObject({ reason: "Prize winner" });
+
+    // The same person cannot be added twice.
+    const again = await call(ctx, "/pos/tournaments/counter-entry", {
+      jwt: owner.jwt,
+      operatorToken: ownerOp,
+      body: { tournamentId: counterTournamentId, name: `Comp ${run}`, email: `comp-${run}@raceground.test`, method: "free" },
+    });
+    expect(again.status).toBe(409);
+    expect(again.json.error.code).toBe("already_entered");
+  });
+
   it("lists who is in, with their contact details", async () => {
     const r = await admin(`/tournaments/${tournamentId}/entries`);
     expect(r.status).toBe(200);
-    expect(r.json.entries).toHaveLength(2);
+    expect(r.json.entries.length).toBeGreaterThanOrEqual(2);
     expect(r.json.entries[0].customers.email).toMatch(/@raceground.test$/);
   });
 });

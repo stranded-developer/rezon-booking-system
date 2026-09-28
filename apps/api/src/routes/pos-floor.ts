@@ -9,6 +9,7 @@ import { buildReceipt, closeSession, quoteClose } from "../services/charge.js";
 import { getFloor, todaysBookings } from "../services/floor.js";
 import { findMemberByQr, getMember, getReferral, searchMembers } from "../services/lookup.js";
 import { shiftReport } from "../services/shift-report.js";
+import { addEntryAtCounter } from "../services/tournaments.js";
 import { loadSettings, wallTime } from "../services/venue.js";
 import { validate } from "../validate.js";
 
@@ -254,6 +255,29 @@ posOpsRoutes.post(
   ),
   async (c) => {
     return c.json(await sellMembershipAtCounter(c.get("deps"), c.get("operator"), c.req.valid("json")), 201);
+  },
+);
+
+/** Adding someone to a tournament at the counter (D75). */
+posOpsRoutes.post(
+  "/tournaments/counter-entry",
+  validate(
+    "json",
+    z
+      .object({
+        tournamentId: z.uuid(),
+        customerId: z.uuid().optional(),
+        name: z.string().trim().min(1).max(80).optional(),
+        email: z.email().max(254).optional(),
+        phone: z.string().trim().max(20).optional(),
+        method: z.enum(["cash", "card_terminal", "free"]),
+        externalRef: z.string().trim().max(80).optional(),
+        reason: z.string().trim().max(300).optional(),
+      })
+      .refine((b) => b.customerId || (b.name && (b.email || b.phone)), "Give a name and an email or phone, or choose someone we already know"),
+  ),
+  async (c) => {
+    return c.json(await addEntryAtCounter(c.get("deps"), c.get("operator"), c.req.valid("json")), 201);
   },
 );
 

@@ -8,7 +8,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hashBookingToken } from "../src/services/bookings.js";
-import { call, testContext, type CallOptions, type TestContext } from "./helpers.js";
+import { call, testContext, useOpeningHours, type CallOptions, type TestContext } from "./helpers.js";
 
 const at = (hhmm: string, day = "2030-02-11") => `${day}T${hhmm}:00+11:00`;
 const run = randomUUID().slice(0, 8);
@@ -23,6 +23,7 @@ let noStripe: TestContext;
 let typeId: string;
 const resourceIds: string[] = [];
 let fixedCode: string;
+const happyHourIds: string[] = [];
 let tinyCode: string;
 
 const randomIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
@@ -90,6 +91,9 @@ const checkoutEvent = (type: string, booking: { id: string; ref: string; token: 
   },
 });
 
+/** Restores the venue's real opening hours once this file is done. */
+let restoreHours: () => Promise<void>;
+
 beforeAll(async () => {
   ctx = testContext({ STRIPE_SECRET_KEY: "sk_test_offline_never_called", STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET, CRON_SECRET });
   noStripe = testContext();
@@ -121,9 +125,12 @@ beforeAll(async () => {
   if (codeError) throw codeError;
   fixedCode = codes!.find((c) => c.discount_type === "fixed")!.code;
   tinyCode = codes!.find((c) => c.discount_type === "percent")!.code;
+  restoreHours = await useOpeningHours(ctx);
 });
 
 afterAll(async () => {
+  await restoreHours();
+  if (happyHourIds.length > 0) await ctx.db.from("happy_hours").update({ active: false }).in("id", happyHourIds);
   await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");
   await ctx.db.from("resources").update({ active: false }).in("id", resourceIds);
   await ctx.db.from("resource_types").update({ active: false }).eq("id", typeId);
@@ -193,6 +200,16 @@ describe("config and availability", () => {
 
 describe("quotes and referral codes", () => {
   it("prices a Saturday hour at the base rate and a weekday hour with happy hour", async () => {
+    // The happy hour belongs to this test, on this test's own resource type, so the quote does
+    // not depend on what the venue happens to run (D74 replaced the percentage one with flat rates).
+    const { data: hh, error } = await ctx.db
+      .from("happy_hours")
+      .insert({ name: `Test HH ${run}`, resource_type_ids: [typeId], days_of_week: [1, 2, 3, 4, 5], start_time: "10:00", end_time: "15:00", discount_bp: 1000 })
+      .select("id")
+      .single();
+    if (error) throw error;
+    happyHourIds.push(hh.id);
+
     const sat = await api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-16", startTime: "12:00", durationMinutes: 60 } });
     expect(sat.status, JSON.stringify(sat.json)).toBe(200);
     expect(sat.json.quote).toMatchObject({ totalCents: 4000, gstCents: 364, discountCents: 0, startsAt: "2030-02-16T01:00:00.000Z" });

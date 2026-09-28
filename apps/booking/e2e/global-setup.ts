@@ -6,6 +6,18 @@ export default async function globalSetup() {
   const db = localSupabase();
   const run = randomUUID().slice(0, 6);
 
+  // These tests are about the booking flow, not about what hours the venue keeps, so the suite
+  // sets its own and the teardown puts the venue's back (D73). The launch hours are asserted in
+  // pgTAP `01_schema_seed`.
+  const { data: originalHours, error: hoursError } = await db.from("opening_hours").select("*").order("day_of_week");
+  if (hoursError) throw hoursError;
+  const openTime = "10:00";
+  const closeTime = "21:00";
+  const { error: setHoursError } = await db
+    .from("opening_hours")
+    .upsert(originalHours.map((h) => ({ ...h, open_time: openTime, close_time: closeTime, closed: false })), { onConflict: "day_of_week" });
+  if (setHoursError) throw setHoursError;
+
   const key = `e2e_web_${run}`;
   const { data: type, error: typeError } = await db
     .from("resource_types")
@@ -67,9 +79,13 @@ export default async function globalSetup() {
 
   const fixture: Fixture = {
     run,
+    originalHours,
+    openTime,
+    closeTime,
     resourceTypeId: type.id,
     resourceTypeKey: key,
     resourceTypeName: `E2E Booth ${run}`,
+    resourceTypeRateCents: 3000,
     resourceIds: ordered.map((r) => r.id),
     resourceLabels: labels,
     freeCode,

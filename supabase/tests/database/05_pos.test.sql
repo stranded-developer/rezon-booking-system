@@ -2,6 +2,12 @@
 begin;
 select plan(65);
 
+-- These tests are about the booking and till rules, not about what hours the venue keeps.
+-- Setting the hours here — and rolling them back with the rest of the transaction — keeps them
+-- working whatever the owner sets in the back office (D73).
+update public.opening_hours set open_time = '10:00', close_time = '21:00', closed = false;
+
+
 -- ── Isolation from a used local database (all rolled back) ──────────────────
 update sessions set status = 'voided', closed_at = greatest(now(), opened_at), closed_by = opened_by,
   total_cents = 0, gst_cents = 0, pricing_snapshot = '{}', void_reason = 'pgtap isolation'

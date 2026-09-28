@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { loadFixture, tierValues } from "./fixture";
+import { loadFixture, localSupabase, money, resourceTypeRate, tierValues } from "./fixture";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -71,14 +71,30 @@ test("a superadmin uses the back office: referral codes, complimentary member, b
 
   // Rules: an overlapping happy hour is refused with a clear message.
   await page.getByRole("link", { name: "Rates & happy hours", exact: true }).click();
-  await expect(page.getByRole("cell", { name: "$30.00" }).first()).toBeVisible();
+  // The billiard rate is read from the database, not typed in: it is the owner's to change (D74).
+  await expect(page.getByRole("cell", { name: money(await resourceTypeRate("billiard")) }).first()).toBeVisible();
+
+  // The venue runs no percentage happy hour any more (D74), so this makes the one it clashes
+  // with. It is scoped to VR seats, not "Everything", so it cannot change what any other test in
+  // this suite is charged — and it is switched off again the moment the assertion is done.
+  await page.getByRole("button", { name: "Add happy hour" }).click();
+  const first = page.getByRole("dialog");
+  await first.getByLabel("Name").fill(`E2E base ${f.run}`);
+  await first.getByRole("button", { name: "VR Seat", exact: true }).click();
+  await first.getByRole("button", { name: "Add happy hour" }).click();
+  await expect(page.getByRole("cell", { name: `E2E base ${f.run}` })).toBeVisible();
+
   await page.getByRole("button", { name: "Add happy hour" }).click();
   const hh = page.getByRole("dialog");
   await hh.getByLabel("Name").fill("Clash test");
+  await hh.getByRole("button", { name: "VR Seat", exact: true }).click();
   await hh.getByRole("button", { name: "Add happy hour" }).click();
   await expect(hh.getByRole("alert")).toContainText("Overlaps happy hour");
   await shot(page, "admin-05-overlap-refused");
   await page.keyboard.press("Escape");
+
+  // Off again straight away: a live happy hour would change what the till tests are charged.
+  await localSupabase().from("happy_hours").update({ active: false }).eq("name", `E2E base ${f.run}`);
 
   // Venue: business name for receipts.
   await page.getByRole("link", { name: "Venue & hours", exact: true }).click();

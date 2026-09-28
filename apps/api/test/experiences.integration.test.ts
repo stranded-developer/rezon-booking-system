@@ -8,7 +8,7 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { call, testContext, type CallOptions, type TestContext } from "./helpers.js";
+import { call, testContext, useOpeningHours, type CallOptions, type TestContext } from "./helpers.js";
 
 const at = (hhmm: string, day = "2030-02-11") => `${day}T${hhmm}:00+11:00`;
 const run = randomUUID().slice(0, 8);
@@ -34,6 +34,9 @@ const doubleKey = `test_double_${run}`;
 /** Saturday, so the venue's own weekday happy hour can never interfere. */
 const SAT = "2030-02-16";
 const quote = (over: Record<string, unknown> = {}) => api("/public/quote", { body: { experienceKey: quickKey, date: SAT, startTime: "17:00", ...over } });
+
+/** Restores the venue's real opening hours once this file is done. */
+let restoreHours: () => Promise<void>;
 
 beforeAll(async () => {
   ctx = testContext();
@@ -101,9 +104,11 @@ beforeAll(async () => {
     .single();
   if (eventError) throw eventError;
   eventId = event.id;
+  restoreHours = await useOpeningHours(ctx);
 });
 
 afterAll(async () => {
+  await restoreHours();
   await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");
   await ctx.db.from("tournament_entries").update({ status: "expired" }).in("tournament_id", [tournamentId, freeTournamentId]).eq("status", "held");
   await ctx.db.from("experiences").update({ active: false }).in("id", [quickId, doubleId]);

@@ -116,6 +116,9 @@ export function BookView() {
               <article key={type.id} className="flex flex-col rounded-2xl border border-line bg-paper/70 p-6">
                 <h3 className="display text-xl">{type.name}</h3>
                 <p className="display tnum mt-2 text-3xl text-flag">{formatRate(type.baseRateCents)}</p>
+                {type.fromRateCents < type.baseRateCents ? (
+                  <p className="tnum mt-1 text-sm text-gold">{formatRate(type.fromRateCents)} in happy hour</p>
+                ) : null}
                 <p className="mt-1 flex-1 text-sm text-ink-500">
                   {type.resources.length} available · book from {formatMinutes(config.sessionMinutes)}, then 15 minutes at a time
                 </p>

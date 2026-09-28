@@ -2,7 +2,13 @@
 --   An experience sets its own fixed length; the session rules do not apply to it.
 --   A tournament has a fixed number of spots, and holds waiting for payment count against them.
 begin;
-select plan(36);
+select plan(42);
+
+-- These tests are about the booking and till rules, not about what hours the venue keeps.
+-- Setting the hours here — and rolling them back with the rest of the transaction — keeps them
+-- working whatever the owner sets in the back office (D73).
+update public.opening_hours set open_time = '10:00', close_time = '21:00', closed = false;
+
 
 insert into auth.users (id, email, aud, role) values ('00000000-0000-0000-0000-00000000a301', 'exp@test.local', 'authenticated', 'authenticated');
 insert into public.staff (id, auth_user_id, display_name, role, pin_hash)
@@ -201,6 +207,46 @@ insert into public.site_events (title, detail) values ('pgTAP Event', 'Prize poo
 select is(
   (select after ->> 'title' from public.audit_log where entity = 'site_events' and action = 'site_events.insert' order by id desc limit 1),
   'pgTAP Event', 'adding an event is audited');
+
+-- ── Adding someone at the counter (D75) ─────────────────────────────────────
+insert into public.shifts (staff_id, opening_float_cents) values ('00000000-0000-0000-0000-00000000b301', 10000);
+
+create function pg_temp.counter(p_tournament uuid, p_name text, p_email text, p_method text, p_amount int)
+returns jsonb language sql as $$
+  select public.tournament_counter_entry('00000000-0000-0000-0000-00000000b301', jsonb_build_object(
+    'tournamentId', p_tournament,
+    'now', '2030-01-16T08:00:00+11:00'::timestamptz,
+    'name', p_name, 'email', p_email,
+    'method', p_method, 'amountCents', p_amount,
+    'cancelTokenHash', md5(random()::text) || md5(random()::text)
+  ));
+$$;
+
+insert into public.tournaments (id, name, starts_at, spots, entry_fee_cents, published)
+values ('00000000-0000-0000-0000-0000000ff303', 'pgTAP Counter Cup', '2030-02-15T19:00:00+11:00', 2, 2500, true);
+
+select throws_like(
+  $$ select pg_temp.counter('00000000-0000-0000-0000-0000000ff303', 'Bad Method', 'bm@test.local', 'stripe', 2500) $$,
+  'RG:invalid:Choose cash, card or no charge', 'only money the till can hold, or no charge');
+select throws_like(
+  $$ select pg_temp.counter('00000000-0000-0000-0000-0000000ff303', 'Paid Free', 'pf@test.local', 'free', 2500) $$,
+  'RG:invalid:An entry with no charge is $0.00', 'no charge means nothing is taken');
+select throws_like(
+  $$ select pg_temp.counter('00000000-0000-0000-0000-0000000ff303', 'Zero Cash', 'zc@test.local', 'cash', 0) $$,
+  'RG:invalid:Enter the amount taken, or choose no charge', 'taking nothing in cash is not a sale');
+
+select is(
+  (pg_temp.counter('00000000-0000-0000-0000-0000000ff303', 'Counter One', 'c1@test.local', 'cash', 2500) ->> 'amountCents')::int,
+  2500, 'cash at the counter takes the entry fee');
+select is(
+  (select amount_cents from public.cash_movements
+    where payment_id = (select id from public.payments where tournament_entry_id =
+      (select id from public.tournament_entries where customer_id = (select id from public.customers where email = 'c1@test.local')))),
+  2500, 'the cash goes into the till');
+
+select is(
+  (pg_temp.counter('00000000-0000-0000-0000-0000000ff303', 'Counter Two', 'c2@test.local', 'free', 0) ->> 'spotsLeft')::int,
+  0, 'an entry with no charge still takes a spot');
 
 select * from finish();
 rollback;
