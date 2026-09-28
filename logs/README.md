@@ -40,7 +40,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Back office screens for all of the above (8f) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
-| Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The hosted database is **behind**: see [build/31](build/31-live-site-database-behind.md) for the commands to catch it up. |
+| Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **One migration is still to apply** (the tier perks) — see the follow-up in [build/31](build/31-live-site-database-behind.md). |
 
 **Test totals at the last step:** pricing 101 · API 233 · pgTAP 468 · e2e 19 (7 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
 
@@ -78,7 +78,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 28 | The experience grid, the three-step booking panel, the membership page (8e) | [build/28-booking-panel-membership.md](build/28-booking-panel-membership.md) |
 | 29 | Back office: experiences, tournaments and what's on | [build/29-back-office-experiences.md](build/29-back-office-experiences.md) |
 | 30 | New hours, one flat happy hour, tournament entries at the counter (8g) | [build/30-venue-values-counter-entry.md](build/30-venue-values-counter-entry.md) |
-| 31 | The live site was down: its database was on the old schema (8h) | [build/31-live-site-database-behind.md](build/31-live-site-database-behind.md) |
+| 31 | The live site was down: its database was on the old schema, and the tier perks came with it (8h) | [build/31-live-site-database-behind.md](build/31-live-site-database-behind.md) |
 
 ## Decisions
 
