@@ -42,7 +42,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase), go-live | ❌ Owner sets up the accounts; see [spec/deploy.md](../spec/deploy.md) |
 
-**Test totals at the last step:** pricing 101 · API 233 · pgTAP 461 · e2e 19 (7 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
+**Test totals at the last step:** pricing 101 · API 233 · pgTAP 468 · e2e 19 (7 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
 
 ## Build steps (in the order they were done)
 
@@ -76,7 +76,8 @@ Everything that was planned, decided and built, one file per step so each can be
 | 26 | The API serves experiences, tournaments and events (8c) | [build/26-experiences-tournaments-api.md](build/26-experiences-tournaments-api.md) |
 | 27 | The booking site's new look, home page, events and tournaments (8d) | [build/27-booking-site-look.md](build/27-booking-site-look.md) |
 | 28 | The experience grid, the three-step booking panel, the membership page (8e) | [build/28-booking-panel-membership.md](build/28-booking-panel-membership.md) |
-| 29 | Back office: experiences, tournaments and what's on — **Phase 8 complete** | [build/29-back-office-experiences.md](build/29-back-office-experiences.md) |
+| 29 | Back office: experiences, tournaments and what's on | [build/29-back-office-experiences.md](build/29-back-office-experiences.md) |
+| 30 | New hours, one flat happy hour, tournament entries at the counter (8g) | [build/30-venue-values-counter-entry.md](build/30-venue-values-counter-entry.md) |
 
 ## Decisions
 
@@ -116,9 +117,12 @@ The owner supplied `velocitysimlounge.com` as a reference (screenshots and three
 5. ✅ **8e** the `/book` experience grid, the three-step booking panel with spots left, and the membership page → [build/28](build/28-booking-panel-membership.md)
 6. ✅ **8f** back office: screens for experiences, promotional prices, tournaments and events → [build/29](build/29-back-office-experiences.md)
 
+7. ✅ **8g** the owner's venue values, and tournament entries at the counter → [build/30](build/30-venue-values-counter-entry.md)
+
 **Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
-- The venue now has **two happy hour windows** — 10:00–15:00 on the hourly rate for billiards, VR and walk-ins, and 12:00–15:00 on the simulator experiences. Both are editable; they need aligning.
 - **Free tournament entry** is built and set to 0 for every tier. The written brief describes it as a Diamond perk; the answer to the perks question did not include it.
+- **Simulators by the hour** have no happy-hour rate. They are sold online as experiences, which do; the hourly rate is only for a walk-in.
+- ~~Two happy hour windows~~ — settled by D74: one window, 12:00–15:00 every day, flat prices everywhere.
 
 ## Next step — Phase 7
 
