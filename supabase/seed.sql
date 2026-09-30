@@ -15,8 +15,7 @@ insert into public.opening_hours (day_of_week, open_time, close_time) values
 
 insert into public.resource_types (key, name, base_rate_cents, min_minutes, sort) values
   ('billiard', 'Billiard Table', 2500, 15, 1),
-  ('sim', 'Driving Simulator', 6000, 15, 2),
-  ('vr', 'VR Seat', 5000, 15, 3);
+  ('sim', 'Driving Simulator', 6000, 15, 2);
 
 insert into public.resources (resource_type_id, label, sort)
 select rt.id, v.label, v.sort
@@ -24,7 +23,8 @@ from (values
   ('billiard', 'Table 1', 1), ('billiard', 'Table 2', 2),
   ('sim', 'Sim 1', 1), ('sim', 'Sim 2', 2), ('sim', 'Sim 3', 3),
   ('sim', 'Sim 4', 4), ('sim', 'Sim 5', 5), ('sim', 'Sim 6', 6),
-  ('vr', 'VR 1', 1), ('vr', 'VR 2', 2)
+  -- D77: the two VR rigs are simulators at the same price, not a type of their own.
+  ('sim', 'VR Sim 1', 7), ('sim', 'VR Sim 2', 8)
 ) as v (type_key, label, sort)
 join public.resource_types rt on rt.key = v.type_key;
 
@@ -34,7 +34,7 @@ join public.resource_types rt on rt.key = v.type_key;
 -- percentage on top would discount twice.
 insert into public.rate_bands (resource_type_id, days_of_week, start_time, end_time, rate_cents)
 select rt.id, '{1,2,3,4,5,6,7}'::smallint[], '12:00', '15:00', v.rate
-from (values ('billiard', 2000), ('vr', 4000)) as v (type_key, rate)
+from (values ('billiard', 2000)) as v (type_key, rate)
 join public.resource_types rt on rt.key = v.type_key;
 
 -- Tiers (D67). Free play is in sessions: Silver 2, Gold 4, Diamond 8 a month (D63).
@@ -68,8 +68,9 @@ insert into public.tier_prices (tier_id, amount_cents)
 select id, monthly_price_cents from public.membership_tiers;
 
 -- ── Experiences and their promotional prices (D65, D66) ─────────────────────
--- Simulators are sold online as named packages at a flat price. Billiards and VR keep the
--- hourly rate, and every walk-in stays hourly.
+-- Simulators (VR rigs included, D77) are sold online as named packages at a flat price.
+-- Billiards keeps the hourly rate, and every walk-in stays hourly. Double Race is listed
+-- second (D78).
 
 insert into public.experiences (key, resource_type_id, name, tagline, bullets, badges, minutes, price_cents, sort)
 select v.key, rt.id, v.name, v.tagline, v.bullets, v.badges, v.minutes, v.price_cents, v.sort
@@ -83,12 +84,12 @@ from (values
     'Set your fastest lap against the board',
     'One 30-minute qualifying session',
     'Monthly prizes for the top three drivers'
-  ], array[]::text[], 30, 35_00, 2),
+  ], array[]::text[], 30, 35_00, 3),
   ('double_race', 'sim', 'Double Race', 'Dual session', array[
     'Two races, twice the fun',
     'A full hour on the simulator',
     'The best value on the grid'
-  ], array['Most popular', 'Save over 20%'], 60, 58_00, 3)
+  ], array['Most popular', 'Save over 20%'], 60, 58_00, 2)
 ) as v (key, type_key, name, tagline, bullets, badges, minutes, price_cents, sort)
 join public.resource_types rt on rt.key = v.type_key;
 
@@ -105,3 +106,8 @@ from (values
   ('double_race', 'Student', '{1,2,3,4,5,6,7}'::smallint[], '00:00'::time, '24:00'::time, 52_00, true, 2)
 ) as v (exp_key, name, days, start_time, end_time, price_cents, claimed, sort)
 join public.experiences e on e.key = v.exp_key;
+
+-- ── Games, tracks and cars a customer can ask for (D80) ─────────────────────
+-- The list itself lives in one function, shared with the migration that adds it for a venue
+-- that already exists. A starting point for the owner to edit in the back office.
+select private.seed_launch_games();

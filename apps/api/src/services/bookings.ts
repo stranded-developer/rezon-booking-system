@@ -12,7 +12,7 @@ import {
   type ExperiencePromo,
   type PriceResult,
 } from "@raceground/pricing";
-import type { Json } from "@raceground/db";
+import type { Db, Json } from "@raceground/db";
 import type { AppDeps } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { writeAudit } from "../lib/audit.js";
@@ -56,7 +56,7 @@ async function activeResources(deps: AppDeps, typeId: string) {
 export async function publicConfig(deps: AppDeps) {
   const { db, clock } = deps;
   const nowIso = clock.now().toISOString();
-  const [settings, types, resources, hours, hhs, tiers, bands, photos, experiences, events] = await Promise.all([
+  const [settings, types, resources, hours, hhs, tiers, bands, photos, experiences, events, games] = await Promise.all([
     loadSettings(db),
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("resources").select("id, label, resource_type_id, sort").eq("active", true).order("sort").order("label"),
@@ -73,6 +73,7 @@ export async function publicConfig(deps: AppDeps) {
       .or(`show_from.is.null,show_from.lte.${nowIso}`)
       .or(`show_until.is.null,show_until.gte.${nowIso}`)
       .order("sort"),
+    loadGames(db),
   ]);
   for (const r of [types, resources, hours, hhs, tiers, bands, experiences, events]) if (r.error) throw mapDbError(r.error);
   const promos = await loadPromos(db, experiences.data!.map((e) => e.id));
@@ -169,7 +170,55 @@ export async function publicConfig(deps: AppDeps) {
       asPopup: e.as_popup,
       asBanner: e.as_banner,
     })),
+    games,
   };
+}
+
+// ── Games, tracks and cars (D80) ─────────────────────────────────────────────
+export interface GameOption {
+  id: string;
+  name: string;
+  resourceTypeId: string;
+  tracks: { id: string; name: string }[];
+  cars: { id: string; name: string }[];
+}
+
+/** The active games with their active tracks and cars, in the venue's order. */
+async function loadGames(db: Db): Promise<GameOption[]> {
+  const [games, tracks, cars] = await Promise.all([
+    db.from("games").select("id, name, resource_type_id").eq("active", true).order("sort").order("name"),
+    db.from("game_tracks").select("id, game_id, name").eq("active", true).order("sort").order("name"),
+    db.from("game_cars").select("id, game_id, name").eq("active", true).order("sort").order("name"),
+  ]);
+  for (const r of [games, tracks, cars]) if (r.error) throw mapDbError(r.error);
+  return games.data!.map((g) => ({
+    id: g.id,
+    name: g.name,
+    resourceTypeId: g.resource_type_id,
+    tracks: tracks.data!.filter((t) => t.game_id === g.id).map((t) => ({ id: t.id, name: t.name })),
+    cars: cars.data!.filter((c) => c.game_id === g.id).map((c) => ({ id: c.id, name: c.name })),
+  }));
+}
+
+export interface SimSetupRequest {
+  gameId: string;
+  trackId?: string | undefined;
+  carId?: string | undefined;
+}
+
+/**
+ * Turn a pick into the names the booking keeps. The ids must belong together — the track and car
+ * from that game, the game for what is being booked — so a booking never says "Monaco in ACC".
+ */
+async function resolveSimSetup(deps: AppDeps, pick: SimSetupRequest, resourceTypeId: string) {
+  const games = await loadGames(deps.db);
+  const game = games.find((g) => g.id === pick.gameId && g.resourceTypeId === resourceTypeId);
+  if (!game) throw new ApiError(422, "validation_failed", "That game isn't available for this booking");
+  const track = pick.trackId ? game.tracks.find((t) => t.id === pick.trackId) : undefined;
+  if (pick.trackId && !track) throw new ApiError(422, "validation_failed", `That track isn't available in ${game.name}`);
+  const car = pick.carId ? game.cars.find((c) => c.id === pick.carId) : undefined;
+  if (pick.carId && !car) throw new ApiError(422, "validation_failed", `That car isn't available in ${game.name}`);
+  return { game: game.name, ...(track ? { track: track.name } : {}), ...(car ? { car: car.name } : {}) };
 }
 
 // ── Availability ─────────────────────────────────────────────────────────────
@@ -458,6 +507,7 @@ function claimableNow(promos: ExperiencePromo[], startAt: number, timeZone: stri
 // ── Hold → pay ───────────────────────────────────────────────────────────────
 export interface HoldRequest extends BookingRequest {
   resourceId?: string | undefined;
+  simSetup?: SimSetupRequest | undefined;
   customer?: { name: string; email?: string | undefined; phone?: string | undefined } | undefined;
   expectedTotalCents: number;
 }
@@ -482,6 +532,8 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
   const guest = member ? null : (req.customer ?? accountContact);
   if (!member && !guest) throw new ApiError(422, "validation_failed", "Your name and an email or phone number are required");
   if (quote.totalCents > 0) requireStripe(deps);
+
+  const simSetup = req.simSetup ? await resolveSimSetup(deps, req.simSetup, quote.resourceTypeId) : null;
 
   const resources = await activeResources(deps, quote.resourceTypeId);
   const candidates = req.resourceId ? resources.filter((r) => r.id === req.resourceId) : resources;
@@ -515,6 +567,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
         totalCents: quote.totalCents,
         gstCents: quote.gstCents,
         cancelTokenHash: hashBookingToken(token),
+        simSetup,
       } as unknown as Json,
     });
     if (!error) {
@@ -679,7 +732,18 @@ type BookingRow = {
   resources: { label: string; resource_types: { name: string; key: string } };
   customers: { name: string; email: string | null; phone: string | null };
   experiences: { name: string; key: string } | null;
+  sim_setup: SimSetup | null;
 };
+
+/** What the customer asked to drive, by name at the time of booking (D80). */
+export interface SimSetup {
+  game: string;
+  track?: string;
+  car?: string;
+}
+
+/** "Assetto Corsa Competizione · Monza · Ferrari 296 GT3" */
+export const simSetupText = (s: SimSetup) => [s.game, s.track, s.car].filter(Boolean).join(" · ");
 
 /** A booking link is valid only with its token; anything else looks like "not found". */
 async function bookingByLink(deps: AppDeps, ref: string, token: string): Promise<BookingRow> {
@@ -734,6 +798,7 @@ export async function describeBooking(deps: AppDeps, b: BookingRow) {
     experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
     resource: b.resources.label,
+    simSetup: b.sim_setup,
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
     venueDate: s.date,
@@ -898,8 +963,9 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
     ? `Paid: ${formatCents(b.total_cents)} (incl. GST ${formatCents(b.gst_cents ?? 0)})`
     : "Paid: $0.00";
   const free = b.free_minutes_used > 0 ? `\nFree play used: ${b.free_minutes_used} min` : "";
+  const setup = b.sim_setup ? `\nYour setup: ${simSetupText(b.sim_setup)}` : "";
   const link = token ? `\n\nView or cancel your booking: ${bookingLink(deps, b.ref, token)}` : "";
-  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)\n${paid}${free}\n\nShow your booking code at the counter when you arrive. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before, 50% from 24 to 2 hours before, no online cancellation within 2 hours.${link}\n\nRaceground`;
+  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nShow your booking code at the counter when you arrive. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before, 50% from 24 to 2 hours before, no online cancellation within 2 hours.${link}\n\nRaceground`;
   const ics = buildIcs({
     uid: `${b.id}@raceground`,
     start,
@@ -934,6 +1000,7 @@ function summarize(b: BookingRow, timeZone: string) {
     experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
     resource: b.resources.label,
+    simSetup: b.sim_setup,
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
     venueDate: s.date,

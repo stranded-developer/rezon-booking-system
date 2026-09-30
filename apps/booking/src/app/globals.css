@@ -1,37 +1,38 @@
 @import "tailwindcss";
 
 /*
- * The public site's racing look (D64, which supersedes D59's lighter look).
+ * The public site's look (D76, which replaces D64's colours and fonts; the layout is unchanged).
  *
- * The token names are the same ones the site already used — paper, mist, line, ink, flag — so every
- * screen moved to the dark theme at once instead of each being restyled by hand. What changed is
- * what they mean: `paper` is now a raised dark surface rather than white, and `flag` is the crimson
- * the reference uses for its primary action rather than the POS's lime.
+ * The token names are the ones the site was built on — paper, mist, line, ink, flag — so every
+ * screen changes at once rather than each being restyled by hand. `flag` is now the POS's volt
+ * lime on graphite, so the website and the till read as one brand, and nothing is borrowed from
+ * the reference's crimson-on-indigo any more. Lime is light, so text on it is `on-flag`, not white.
  */
 @theme {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
 
   /* Text, brightest first. */
-  --color-ink-950: #ffffff;
-  --color-ink-800: #e7e9f5;
-  --color-ink-600: #b0b4d0;
-  --color-ink-500: #8b90b2;
+  --color-ink-950: #f5f7fa;
+  --color-ink-800: #dde2e8;
+  --color-ink-600: #a4adb9;
+  --color-ink-500: #7c8694;
 
-  /* Surfaces. */
-  --color-night: #0a0a18;
-  --color-deep: #141334;
-  --color-paper: #15142f;
-  --color-mist: #1d1c40;
-  --color-line: #2c2b55;
+  /* Surfaces: graphite, neutral rather than tinted. */
+  --color-night: #0b0d10;
+  --color-deep: #12151a;
+  --color-paper: #161a20;
+  --color-mist: #1f242c;
+  --color-line: #2c333d;
 
   /* Accents. */
-  --color-flag: #e01b4c;
-  --color-flag-bright: #f5315f;
-  --color-gold: #f5c542;
+  --color-flag: #e8ff47;
+  --color-flag-bright: #f2ff8a;
+  --color-on-flag: #0b0d10;
+  --color-gold: #ffb347;
 
-  --radius-xl: 0.9rem;
-  --radius-2xl: 1.1rem;
+  --radius-xl: 0.6rem;
+  --radius-2xl: 0.85rem;
 }
 
 html,
@@ -42,10 +43,10 @@ body {
 
 body {
   -webkit-font-smoothing: antialiased;
-  /* A slow indigo wash behind the page, so flat sections still read as lit. */
+  /* A faint lime glow from the top, so flat sections still read as lit. */
   background-image:
-    radial-gradient(70rem 40rem at 50% -10rem, #2a2765 0%, transparent 70%),
-    radial-gradient(50rem 30rem at 100% 30%, #1d1a4a 0%, transparent 65%);
+    radial-gradient(70rem 36rem at 50% -12rem, rgb(232 255 71 / 0.09) 0%, transparent 70%),
+    radial-gradient(50rem 30rem at 100% 35%, rgb(56 189 248 / 0.05) 0%, transparent 65%);
   background-attachment: fixed;
 }
 
@@ -53,22 +54,21 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Headings in the reference are condensed, italic and set in capitals. */
+/* Headings: squared, upright capitals (D76). */
 .display {
   font-family: var(--font-display);
-  font-style: italic;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.005em;
-  line-height: 0.95;
+  letter-spacing: 0.01em;
+  line-height: 1;
 }
 
-/* The checkered flag strip that separates sections. */
+/* The checkered strip that separates sections: graphite on graphite, a texture rather than a flag. */
 .checkers {
   height: 1.75rem;
   background-image:
-    linear-gradient(45deg, var(--color-ink-950) 25%, transparent 25%, transparent 75%, var(--color-ink-950) 75%),
-    linear-gradient(45deg, var(--color-ink-950) 25%, transparent 25%, transparent 75%, var(--color-ink-950) 75%);
+    linear-gradient(45deg, var(--color-mist) 25%, transparent 25%, transparent 75%, var(--color-mist) 75%),
+    linear-gradient(45deg, var(--color-mist) 25%, transparent 25%, transparent 75%, var(--color-mist) 75%);
   background-size: 1.75rem 1.75rem;
   background-position:
     0 0,

@@ -124,7 +124,7 @@ export function MonthCalendar({
               onClick={() => onSelect(date)}
               className={`tnum grid h-10 place-items-center rounded-lg text-sm transition ${
                 selected
-                  ? "bg-flag font-bold text-white"
+                  ? "bg-flag font-bold text-on-flag"
                   : selectable
                     ? "bg-mist/60 text-ink-950 hover:bg-mist"
                     : "text-ink-500/40"

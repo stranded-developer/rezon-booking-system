@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { loadFixture } from "./fixture";
+import { loadFixture, localSupabase } from "./fixture";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
 
@@ -110,7 +110,7 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
   await shot(page, "web-02-quote");
 
   // ── Step 3: the price, then confirm ───────────────────────────────────────
-  await panel.getByRole("button", { name: "Continue" }).click();
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
   const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
   // $1,000 off makes this booking free, so no Stripe is involved.
   await expect(total).toHaveText("$0.00");
@@ -164,18 +164,63 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await expect(panel.getByLabel("Or another length")).toHaveCount(0);
   await expect(panel).toContainText("30 min");
 
+  // "Are you a member?" is asked first; a guest carries on without it (D79).
+  await expect(panel.getByRole("heading", { name: "Are you a member?" })).toBeVisible();
+  await panel.getByRole("button", { name: "No, continue as a guest" }).click();
+  await expect(panel.getByRole("heading", { name: "Are you a member?" })).toBeHidden();
+
+  // The VR rigs are simulators, offered alongside the others at the same price (D77).
+  await expect(panel.getByLabel("Which Driving Simulator?").locator("option", { hasText: "VR Sim" }).first()).toBeAttached();
+
+  // ── Pick your game, track and car (D80) ───────────────────────────────────
+  // Read from the database rather than typed in: the list is the owner's to change.
+  const db = localSupabase();
+  const { data: sim } = await db.from("resource_types").select("id").eq("key", "sim").single();
+  const { data: games } = await db.from("games").select("id, name, game_tracks(name), game_cars(name)").eq("resource_type_id", sim!.id).eq("active", true).order("sort");
+  const [game, other] = games as { name: string; game_tracks: { name: string }[]; game_cars: { name: string }[] }[];
+  const otherOnly = other!.game_tracks.map((t) => t.name).find((n) => !game!.game_tracks.some((t) => t.name === n))!;
+
+  await expect(panel.getByRole("combobox", { name: "Game" })).toHaveCount(0);
+  await panel.getByRole("checkbox", { name: /pick your game, track and car/ }).check();
+  await expect(panel.getByRole("combobox", { name: "Track" })).toBeDisabled();
+
+  // Searchable: typing part of the name narrows the list.
+  const gameBox = panel.getByRole("combobox", { name: "Game" });
+  // A word only this game's name has, typed in lower case: the search ignores case.
+  const word = game!.name.split(" ").find((w) => !other!.name.toLowerCase().includes(w.toLowerCase())) ?? game!.name;
+  await gameBox.fill(word.toLowerCase());
+  await expect(panel.getByRole("option", { name: other!.name, exact: true })).toHaveCount(0);
+  await panel.getByRole("option", { name: game!.name, exact: true }).click();
+  await expect(gameBox).toHaveValue(game!.name);
+
+  // Only that game's tracks are offered.
+  const trackBox = panel.getByRole("combobox", { name: "Track" });
+  await trackBox.click();
+  await expect(panel.getByRole("option", { name: game!.game_tracks[1]!.name, exact: true })).toBeVisible();
+  await expect(panel.getByRole("option", { name: otherOnly, exact: true })).toHaveCount(0);
+  await panel.getByRole("option", { name: game!.game_tracks[1]!.name, exact: true }).click();
+  const carBox = panel.getByRole("combobox", { name: "Car" });
+  await carBox.click();
+  await carBox.press("ArrowDown");
+  await carBox.press("Enter");
+  await expect(carBox).toHaveValue(game!.game_cars[0]!.name);
+  await shot(page, "web-14b-pick-game");
+
   // The student price has to be asked for; ticking it changes the total (D66).
   await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Experience Guest");
   await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-experience@raceground.test");
-  await panel.getByRole("button", { name: "Continue" }).click();
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
   const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
   const listPrice = await total.textContent();
+  await expect(panel.getByText("Your setup").locator("xpath=following-sibling::span")).toHaveText(
+    `${game!.name} · ${game!.game_tracks[1]!.name} · ${game!.game_cars[0]!.name}`,
+  );
 
   await panel.getByRole("button", { name: "Details", exact: true }).click();
   const student = panel.getByRole("checkbox", { name: /Student price/ });
   if (await student.count()) {
     await student.check();
-    await panel.getByRole("button", { name: "Continue" }).click();
+    await panel.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(total).not.toHaveText(listPrice!);
   }
   await shot(page, "web-14-experience");

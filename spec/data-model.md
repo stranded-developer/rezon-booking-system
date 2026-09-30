@@ -44,7 +44,7 @@ opening_hours
 
 ```
 resource_types
-  key            text unique     'billiard' | 'sim' | 'vr'
+  key            text unique     'billiard' | 'sim'   ('vr' exists switched off: its rigs became sims, D77)
   name           text            'Billiard Table'
   base_rate_cents int  check ≥ 0
   min_minutes    int   check > 0
@@ -74,7 +74,7 @@ Overlap rules for rate bands and happy hours are enforced by the API using `pack
 
 ### Experiences (D65, D66)
 
-An **experience** is a named package with a fixed length and a flat price, sold online instead of a length of time. Simulators are sold this way; billiards and VR keep the hourly rate, and **every walk-in stays hourly**.
+An **experience** is a named package with a fixed length and a flat price, sold online instead of a length of time. Simulators (VR rigs included, D77) are sold this way; billiards keeps the hourly rate, and **every walk-in stays hourly**.
 
 ```
 experiences
@@ -97,6 +97,24 @@ experience_promos                    -- flat promotional prices; the cheapest ma
   claimed        boolean           true = only applies if the customer asks for it
   sort, active
 ```
+
+### Games, tracks and cars (D80)
+
+What a customer can ask to drive when booking a simulator. **A preference for staff, never a price.** Edited in the back office; audited like every other configuration table.
+
+```
+games
+  resource_type_id → resource_types   what it is offered on (the simulators)
+  name             text                unique per resource type
+  sort, active
+
+game_tracks / game_cars                one list each per game
+  game_id  → games (on delete cascade)
+  name     text                        unique per game
+  sort, active
+```
+
+`private.seed_launch_games()` holds the launch list in one place: the migration calls it for a venue that already exists, `seed.sql` for a fresh install. It does nothing if the venue already has games.
 
 **Overlap is allowed on `experience_promos`, on purpose.** The cheapest matching price wins, so an overlap is how "the student price is not included in Happy Hour" is expressed. There is no validator rejecting it.
 
@@ -201,6 +219,8 @@ bookings
   cancel_token_hash text             -- for the email cancel link
   cancelled_at, cancelled_by_staff_id, cancel_reason, refund_cents
   experience_id    → experiences null -- set when sold as an experience (D65)
+  sim_setup        jsonb null        -- {game, track?, car?} by name at booking time (D80);
+                                     --   the API checks it against the lists, the hold stores it
 
   EXCLUDE USING gist (resource_id WITH =, period WITH &&)
     WHERE (status IN ('held','confirmed','arrived'))
@@ -361,11 +381,12 @@ rate_limits           key PK, window_start, hits   -- fixed-window counters shar
 |---|---|
 | `venue_settings` | timezone `Australia/Sydney`, defaults above |
 | `opening_hours` | Mon–Thu 12:00–22:00 · Fri 12:00–24:00 · Sat 11:00–24:00 · Sun 11:00–22:00 (D73) |
-| `resource_types` | billiard $25.00 / 15 min · sim $60.00 / 15 min · vr $50.00 / 15 min |
-| `resources` | Table 1–2 · Sim 1–6 · VR 1–2 |
+| `resource_types` | billiard $25.00 / 15 min · sim $60.00 / 15 min |
+| `resources` | Table 1–2 · Sim 1–6 · VR Sim 1–2 (simulators, D77) |
 | `happy_hours` | none — the venue's happy hour is a **flat price**, not a percentage (D74) |
-| `rate_bands` | billiard $20.00/hr and VR $40.00/hr, every day 12:00–15:00 — the hourly side of happy hour |
-| `experiences` | Quick Race 30 min $35.00 · Leaderboard Challenge 30 min $35.00 · Double Race 60 min $58.00 (badged) — all on the simulators |
+| `rate_bands` | billiard $20.00/hr, every day 12:00–15:00 — the hourly side of happy hour |
+| `experiences` | Quick Race 30 min $35.00 · Double Race 60 min $58.00 (badged) · Leaderboard Challenge 30 min $35.00 — all on the simulators, in that order (D78) |
+| `games` | Assetto Corsa Competizione · Assetto Corsa · F1 25, with tracks and cars (D80) |
 | `experience_promos` | Happy Hour, every day 12:00–15:00: $29 / $29 / $49, automatic · Student, every day, all hours: $32 / $32 / $52, only on request |
 | `membership_tiers` | Silver 1000 bp $48.00 60 min cap 600 · Gold 2000 bp $78.00 120/1200 · Diamond 2000 bp $128.00 240/2400, each with a `perks` list and 0 free tournaments |
 | `tournaments`, `site_events` | none — the owner creates these in the back office |

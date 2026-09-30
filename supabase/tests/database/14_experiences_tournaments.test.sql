@@ -47,7 +47,9 @@ create function pg_temp.book_exp(
 $$;
 
 -- ── The launch experiences and their prices ─────────────────────────────────
-select is((select count(*)::int from public.experiences where active), 3, 'three experiences are seeded');
+-- Scoped to the launch keys: a used database also holds other suites' own experiences.
+select is((select count(*)::int from public.experiences where active and key in ('quick_race', 'leaderboard_challenge', 'double_race')), 3,
+  'three experiences are seeded');
 select is((select price_cents from public.experiences where key = 'quick_race'), 3500, 'a Quick Race is $35.00');
 select is((select price_cents from public.experiences where key = 'double_race'), 5800, 'a Double Race is $58.00');
 select is((select minutes from public.experiences where key = 'double_race'), 60, 'a Double Race runs an hour');

@@ -61,7 +61,8 @@ const dayLabel = () => {
     .replace(/,/g, "");
 };
 
-test("a counter member signs up, gets their membership, books with the discount and free play, then cancels", async ({ page }) => {
+test("a counter member signs up, gets their membership, books with the discount and free play, then cancels", async ({ page: signUpPage, browser }) => {
+  let page = signUpPage;
   const f = loadFixture();
   const db = localSupabase();
   await clearInbox(f.counterMember.email);
@@ -113,12 +114,34 @@ test("a counter member signs up, gets their membership, books with the discount 
   const { data: member } = await db.from("members").select("id, qr_token_hash, qr_version").eq("member_no", f.counterMember.memberNo).single();
   expect(member!.qr_token_hash).not.toBeNull();
 
-  // ── Book with the member discount and free play ───────────────────────────
-  await page.getByRole("link", { name: "Book now" }).click();
+  // ── Start booking as a guest; "Are you a member?" → log in → back to it (D79) ──
+  // A fresh browser, so the member arrives logged out the way a returning customer would.
+  const guestContext = await browser.newContext();
+  page = await guestContext.newPage();
+  await page.goto("/book");
+  await appReady(page);
   await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
-  const panel = page.getByRole("dialog");
+  let panel = page.getByRole("dialog");
   await pickDay(panel, dayLabel());
   await panel.getByRole("button").filter({ hasText: "4:00 pm" }).click();
+  await expect(panel.getByRole("heading", { name: "Are you a member?" })).toBeVisible();
+  await shot(page, "web-08b-are-you-a-member");
+  await panel.getByRole("link", { name: "Yes, log in" }).click();
+
+  await page.waitForURL(/\/login\?next=/);
+  await appReady(page);
+  await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+  await fillLive(page.getByLabel("Password"), f.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+
+  // Straight back to the same booking, on Details, at the same day and time — now as a member.
+  await page.waitForURL(/\/book\?type=.*&date=.*&time=16:00/);
+  panel = page.getByRole("dialog");
+  await expect(panel.getByRole("button", { name: "Details", exact: true })).toHaveAttribute("aria-current", "step");
+  await expect(panel.getByRole("complementary")).toContainText("4:00 pm");
+  await expect(panel.getByRole("heading", { name: "Are you a member?" })).toBeHidden();
+
+  // ── Book with the member discount and free play ───────────────────────────
   await panel.getByRole("button", { name: "1 hour", exact: true }).click();
   await expect(panel.getByText(`${f.counterMember.tierName} member · ${f.counterMember.discountBp / 100}% off`)).toBeVisible();
   // Members never see the referral field: a membership and a code can't be combined.
@@ -134,13 +157,13 @@ test("a counter member signs up, gets their membership, books with the discount 
   const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
 
   // $30 for the hour on this booth, less the tier's own percentage (D67 can change it).
-  await panel.getByRole("button", { name: "Continue" }).click();
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(total).toHaveText(money(afterDiscount(30_00)));
 
   // Half the hour paid for with free minutes.
   await panel.getByRole("button", { name: "Details", exact: true }).click();
   await freePlay.selectOption("30");
-  await panel.getByRole("button", { name: "Continue" }).click();
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(total).toHaveText(money(afterDiscount(15_00)));
   await shot(page, "web-09-member-quote");
 
@@ -161,6 +184,7 @@ test("a counter member signs up, gets their membership, books with the discount 
   await db.rpc("booking_release_hold", { p_booking: held!.id });
   await page.reload();
   await expect(page.getByText("60 min").first()).toBeVisible();
+  await guestContext.close();
 });
 
 test("a member can ask for a new password", async ({ page }) => {

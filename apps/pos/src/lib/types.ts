@@ -172,4 +172,6 @@ export interface TodayBooking {
   phone: string | null;
   memberId: string | null;
   totalCents: number | null;
+  /** What the customer asked to drive (D80). */
+  simSetup: { game: string; track?: string; car?: string } | null;
 }

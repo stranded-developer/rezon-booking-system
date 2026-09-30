@@ -75,19 +75,19 @@ test("a superadmin uses the back office: referral codes, complimentary member, b
   await expect(page.getByRole("cell", { name: money(await resourceTypeRate("billiard")) }).first()).toBeVisible();
 
   // The venue runs no percentage happy hour any more (D74), so this makes the one it clashes
-  // with. It is scoped to VR seats, not "Everything", so it cannot change what any other test in
+  // with. It is scoped to the simulators, not "Everything", so it cannot change what any other test in
   // this suite is charged — and it is switched off again the moment the assertion is done.
   await page.getByRole("button", { name: "Add happy hour" }).click();
   const first = page.getByRole("dialog");
   await first.getByLabel("Name").fill(`E2E base ${f.run}`);
-  await first.getByRole("button", { name: "VR Seat", exact: true }).click();
+  await first.getByRole("button", { name: "Driving Simulator", exact: true }).click();
   await first.getByRole("button", { name: "Add happy hour" }).click();
   await expect(page.getByRole("cell", { name: `E2E base ${f.run}` })).toBeVisible();
 
   await page.getByRole("button", { name: "Add happy hour" }).click();
   const hh = page.getByRole("dialog");
   await hh.getByLabel("Name").fill("Clash test");
-  await hh.getByRole("button", { name: "VR Seat", exact: true }).click();
+  await hh.getByRole("button", { name: "Driving Simulator", exact: true }).click();
   await hh.getByRole("button", { name: "Add happy hour" }).click();
   await expect(hh.getByRole("alert")).toContainText("Overlaps happy hour");
   await shot(page, "admin-05-overlap-refused");

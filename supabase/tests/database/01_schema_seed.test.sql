@@ -10,7 +10,8 @@ select tables_are(
     'referral_codes', 'bookings', 'sessions', 'member_balance_ledger', 'referral_redemptions',
     'shifts', 'payments', 'refunds', 'cash_movements', 'price_overrides',
     'stripe_events', 'audit_log', 'email_log', 'rate_limits', 'venue_photos',
-    'experiences', 'experience_promos', 'tournaments', 'tournament_entries', 'site_events'
+    'experiences', 'experience_promos', 'tournaments', 'tournament_entries', 'site_events',
+    'games', 'game_tracks', 'game_cars'
   ],
   'public schema has exactly the spec tables'
 );
@@ -46,17 +47,17 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select key, base_rate_cents, min_minutes from resource_types where key in ('billiard', 'sim', 'vr') order by sort $$,
-  $$ values ('billiard', 2500, 15), ('sim', 6000, 15), ('vr', 5000, 15) $$,
-  'resource types and rates: $25 / $60 / $50 per hour, 15 min minimum'
+  $$ select key, base_rate_cents, min_minutes from resource_types where active and key in ('billiard', 'sim', 'vr') order by sort $$,
+  $$ values ('billiard', 2500, 15), ('sim', 6000, 15) $$,
+  'resource types and rates: $25 / $60 per hour, 15 min minimum; no separate VR type (D77)'
 );
 
 select results_eq(
   $$ select rt.key, count(*) from resources r join resource_types rt on rt.id = r.resource_type_id
-     where r.active and r.label ~ '^(Table|Sim|VR) [0-9]+$'
+     where r.active and r.label ~ '^(Table|Sim|VR Sim) [0-9]+$'
      group by rt.key, rt.sort order by rt.sort $$,
-  $$ values ('billiard', 2::bigint), ('sim', 6::bigint), ('vr', 2::bigint) $$,
-  '2 tables, 6 sims, 2 VR seats'
+  $$ values ('billiard', 2::bigint), ('sim', 8::bigint) $$,
+  '2 tables, 8 simulators (6 standard, 2 VR)'
 );
 
 -- D74: one happy hour, 12:00–15:00 every day, as a flat price. On the hourly types that is a
@@ -71,9 +72,8 @@ select results_eq(
   $$ select rt.key, rb.days_of_week, rb.start_time, rb.end_time, rb.rate_cents
        from rate_bands rb join resource_types rt on rt.id = rb.resource_type_id
       where rb.active order by rt.sort $$,
-  $$ values ('billiard', '{1,2,3,4,5,6,7}'::smallint[], '12:00'::time, '15:00'::time, 2000),
-            ('vr', '{1,2,3,4,5,6,7}'::smallint[], '12:00'::time, '15:00'::time, 4000) $$,
-  'happy hour 12:00–15:00 every day: billiards $20/hr, VR $40/hr'
+  $$ values ('billiard', '{1,2,3,4,5,6,7}'::smallint[], '12:00'::time, '15:00'::time, 2000) $$,
+  'happy hour 12:00–15:00 every day: billiards $20/hr'
 );
 
 select results_eq(
@@ -101,7 +101,7 @@ select function_privs_are('public', 'expire_stale_holds', array['timestamp with 
 select results_eq(
   $$ select key, minutes, price_cents from experiences
      where key in ('quick_race', 'leaderboard_challenge', 'double_race') order by sort $$,
-  $$ values ('quick_race', 30, 3500), ('leaderboard_challenge', 30, 3500), ('double_race', 60, 5800) $$,
+  $$ values ('quick_race', 30, 3500), ('double_race', 60, 5800), ('leaderboard_challenge', 30, 3500) $$,
   'experiences: Quick Race and Leaderboard Challenge $35 for 30 min, Double Race $58 for an hour'
 );
 
@@ -112,10 +112,10 @@ select results_eq(
      order by e.sort, p.sort $$,
   $$ values ('quick_race', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
             ('quick_race', 'Student', '00:00'::time, '24:00'::time, 3200, true),
-            ('leaderboard_challenge', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
-            ('leaderboard_challenge', 'Student', '00:00'::time, '24:00'::time, 3200, true),
             ('double_race', 'Happy Hour', '12:00'::time, '15:00'::time, 4900, false),
-            ('double_race', 'Student', '00:00'::time, '24:00'::time, 5200, true) $$,
+            ('double_race', 'Student', '00:00'::time, '24:00'::time, 5200, true),
+            ('leaderboard_challenge', 'Happy Hour', '12:00'::time, '15:00'::time, 2900, false),
+            ('leaderboard_challenge', 'Student', '00:00'::time, '24:00'::time, 3200, true) $$,
   'Happy Hour 12:00–15:00 automatically, the student price all hours but only on request'
 );
 

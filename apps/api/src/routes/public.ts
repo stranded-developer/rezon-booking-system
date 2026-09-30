@@ -104,7 +104,17 @@ bookingRoutes.post(
   "/hold",
   rateLimit("booking-hold", 10, 600),
   optionalAccount,
-  validate("json", Booking.extend({ resourceId: z.uuid().optional(), customer: Customer.optional(), expectedTotalCents: z.number().int().min(0), acceptTerms: z.literal(true) })),
+  validate(
+    "json",
+    Booking.extend({
+      resourceId: z.uuid().optional(),
+      customer: Customer.optional(),
+      // D80: what they'd like to drive. A preference for staff, never part of the price.
+      simSetup: z.object({ gameId: z.uuid(), trackId: z.uuid().optional(), carId: z.uuid().optional() }).optional(),
+      expectedTotalCents: z.number().int().min(0),
+      acceptTerms: z.literal(true),
+    }),
+  ),
   async (c) => {
     const deps = c.get("deps");
     const account = c.get("account");

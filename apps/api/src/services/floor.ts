@@ -162,7 +162,7 @@ export async function todaysBookings(deps: AppDeps, query?: string) {
   const { start, end } = await venueDay(deps);
   const { data, error } = await db
     .from("bookings")
-    .select("id, ref, status, period, member_id, total_cents, resources!inner(label), customers!inner(name, email, phone)")
+    .select("id, ref, status, period, member_id, total_cents, sim_setup, resources!inner(label), customers!inner(name, email, phone)")
     .not("status", "in", "(held,expired)")
     .overlaps("period", `[${start.toISOString()},${end.toISOString()})`);
   if (error) throw mapDbError(error);
@@ -183,6 +183,8 @@ export async function todaysBookings(deps: AppDeps, query?: string) {
         phone: c.phone,
         memberId: b.member_id,
         totalCents: b.total_cents,
+        // What they asked to drive (D80), so the rig can be set up before they arrive.
+        simSetup: b.sim_setup as { game: string; track?: string; car?: string } | null,
       };
     })
     .filter((b) => !q || [b.ref, b.customerName, b.email ?? "", b.phone ?? ""].some((v) => v.toLowerCase().includes(q)))

@@ -30,7 +30,7 @@ create temp table t_mark as select coalesce(max(id), 0) as id from audit_log;
 grant select on t_mark to public;
 select pg_temp.no_api();
 insert into resources (id, resource_type_id, label, sort)
-values ('00000000-0000-0000-0000-0000000dd001', (select id from resource_types where key = 'vr'), 'pgTAP VR X', 990);
+values ('00000000-0000-0000-0000-0000000dd001', (select id from resource_types where key = 'sim'), 'pgTAP Sim X', 990);
 select is((select count(*) from audit_log where entity = 'resources' and entity_id = '00000000-0000-0000-0000-0000000dd001'), 0::bigint,
   'writes outside the API (migrations, seed, psql) are not audited');
 

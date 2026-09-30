@@ -101,7 +101,7 @@ export function SiteHeader() {
               href={link.href}
               aria-current={isCurrent(link.href) ? "page" : undefined}
               className={`display shrink-0 rounded-lg px-3 py-1.5 text-xs tracking-wide transition ${
-                isCurrent(link.href) ? "bg-flag text-white" : "text-ink-600"
+                isCurrent(link.href) ? "bg-flag text-on-flag" : "text-ink-600"
               }`}
             >
               {link.label}

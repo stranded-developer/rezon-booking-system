@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/account-provider";
 import { MonthCalendar } from "@/components/book/month-calendar";
-import { Badge, Button, Field, Input, Notice, Row, Select, Spinner } from "@/components/ui";
+import { SearchSelect } from "@/components/search-select";
+import { Badge, Button, ButtonLink, Field, Input, Notice, Row, Select, Spinner } from "@/components/ui";
 import { ApiRequestError, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes, formatRate, formatVenueDate, formatWallTime } from "@/lib/format";
-import type { Availability, Experience, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, ResourceType, Slot } from "@/lib/types";
+import type { Availability, Experience, Game, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, ResourceType, Slot } from "@/lib/types";
 
 const STEP_MINUTES = 15;
 const ANY_RESOURCE = "any";
@@ -33,20 +34,44 @@ interface Customer {
   phone: string;
 }
 
+/** What they'd like to drive (D80). Only sent when the box is ticked and a game is chosen. */
+interface SimPick {
+  on: boolean;
+  gameId: string | null;
+  trackId: string | null;
+  carId: string | null;
+}
+
 /**
  * The booking panel (D71): Date → Details → Pay, over the page, as the reference does.
  *
  * Every rule underneath is the one that was already there — the same availability, the same quote,
  * the same hold, the same Stripe Checkout. What changed is the shape of the conversation.
  */
-export function BookingPanel({ config, target, onClose }: { config: PublicConfig; target: BookTarget; onClose: () => void }) {
+export function BookingPanel({
+  config,
+  target,
+  resumeAt = null,
+  onClose,
+}: {
+  config: PublicConfig;
+  target: BookTarget;
+  /** The day and time picked before the customer went to log in; the panel reopens on Details (D79). */
+  resumeAt?: { date: string; time: string } | null;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const { session, account, request } = useAccount();
   /** An active membership prices the booking; a lapsed one books as a guest (the API says so). */
   const member = account?.member?.eligible ? account.member : null;
 
-  const [step, setStep] = useState<Step>("date");
-  const [date, setDate] = useState<string | null>(null);
+  /** `target` is a fresh object each render; this string is what actually identifies it. */
+  const tKey = targetKey(target);
+
+  const [step, setStep] = useState<Step>(resumeAt ? "details" : "date");
+  /** Checked once, against the first times looked up for that day. */
+  const resumeRef = useRef(resumeAt);
+  const [date, setDate] = useState<string | null>(resumeAt?.date ?? null);
 
   /** Availability and its errors are keyed by what and which day, so the screen always matches. */
   const [availabilityState, setAvailabilityState] = useState<{ key: string; data: Availability } | null>(null);
@@ -54,13 +79,16 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
   /** Bumped to look the times up again after someone else takes a slot. */
   const [reloadSlots, setReloadSlots] = useState(0);
 
-  const [selection, setSelection] = useState<{ key: string; time: string } | null>(null);
+  const [selection, setSelection] = useState<{ key: string; time: string } | null>(resumeAt ? { key: `${tKey}|${resumeAt.date}`, time: resumeAt.time } : null);
   const [durationChoice, setDurationChoice] = useState<number | null>(null);
   const [resourceId, setResourceId] = useState<string>(ANY_RESOURCE);
   const [freeMinutesChoice, setFreeMinutesChoice] = useState<number | null>(null);
   const [claimedPromoIds, setClaimedPromoIds] = useState<string[]>([]);
 
   const [customer, setCustomer] = useState<Customer>({ name: "", email: "", phone: "" });
+  const [simPick, setSimPick] = useState<SimPick>({ on: false, gameId: null, trackId: null, carId: null });
+  /** "No, continue as a guest": kept here so going back to Details doesn't ask again. */
+  const [guest, setGuest] = useState(false);
   const [referralInput, setReferralInput] = useState("");
   const [referral, setReferral] = useState<{ code: string; label: string } | null>(null);
   const [referralError, setReferralError] = useState<string | null>(null);
@@ -76,8 +104,13 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
 
   const sessionMinutes = config.sessionMinutes;
   const isExperience = target.kind === "experience";
-  /** `target` is a fresh object each render; this string is what actually identifies it. */
-  const tKey = targetKey(target);
+  /** Games are offered for whatever is being booked — the simulators, at launch. */
+  const typeId = target.kind === "experience" ? target.experience.resourceTypeId : target.type.id;
+  const games = useMemo(() => (config.games ?? []).filter((g) => g.resourceTypeId === typeId), [config.games, typeId]);
+  const pickedGame = simPick.on ? (games.find((g) => g.id === simPick.gameId) ?? null) : null;
+  const setupLabel = pickedGame
+    ? [pickedGame.name, pickedGame.tracks.find((t) => t.id === simPick.trackId)?.name, pickedGame.cars.find((c) => c.id === simPick.carId)?.name].filter(Boolean).join(" · ")
+    : null;
 
   // Escape closes the panel, like any dialog.
   useEffect(() => {
@@ -97,7 +130,19 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
     const query = target.kind === "experience" ? `experience=${encodeURIComponent(target.experience.key)}` : `type=${encodeURIComponent(target.type.key)}`;
     const controller = new AbortController();
     request<Availability>(`/public/availability?${query}&date=${date}`, { signal: controller.signal })
-      .then((data) => setAvailabilityState({ key, data }))
+      .then((data) => {
+        setAvailabilityState({ key, data });
+        // A time picked before logging in may have gone in the meantime: back to the times, saying so.
+        const resumed = resumeRef.current;
+        if (resumed && key === `${tKey}|${resumed.date}`) {
+          resumeRef.current = null;
+          if (!data.slots.some((s) => s.time === resumed.time && s.availableResources > 0)) {
+            setSelection(null);
+            setStep("date");
+            setPayError(`${formatWallTime(resumed.time)} has just been taken. Please pick another time.`);
+          }
+        }
+      })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setSlotsError({ key, message: errorMessage(err) });
@@ -111,6 +156,14 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
   const loadingSlots = date !== null && !availability && !dayError;
   const startTime = selection?.key === dayKey ? selection.time : null;
   const slot: Slot | null = availability?.slots.find((s) => s.time === startTime) ?? null;
+
+  /** Log in, then come straight back to this booking at this day and time (D79). */
+  const loginHref = useMemo(() => {
+    const what = target.kind === "experience" ? `experience=${encodeURIComponent(target.experience.key)}` : `type=${encodeURIComponent(target.type.key)}`;
+    const when = date && startTime ? `&date=${date}&time=${startTime}` : "";
+    return `/login?next=${encodeURIComponent(`/book?${what}${when}`)}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tKey, date, startTime]);
 
   /** An experience runs for its own length; anything else starts at a session and steps by 15. */
   const durations = useMemo(() => {
@@ -213,6 +266,15 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
         body: {
           ...quoteRequest,
           ...(resourceId === ANY_RESOURCE ? {} : { resourceId }),
+          ...(pickedGame
+            ? {
+                simSetup: {
+                  gameId: pickedGame.id,
+                  ...(simPick.trackId ? { trackId: simPick.trackId } : {}),
+                  ...(simPick.carId ? { carId: simPick.carId } : {}),
+                },
+              }
+            : {}),
           ...(session
             ? {}
             : {
@@ -352,11 +414,17 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
                 resourceId={resourceId}
                 onResource={setResourceId}
                 member={member}
+                loginHref={loginHref}
+                guest={guest}
+                onGuest={() => setGuest(true)}
                 accountName={account?.customer.name ?? null}
                 memberNotice={memberNotice}
                 session={session !== null}
                 customer={customer}
                 onCustomer={setCustomer}
+                games={games}
+                simPick={simPick}
+                onSimPick={setSimPick}
                 freeMinutes={freeMinutes}
                 freeMinuteChoices={freeMinuteChoices}
                 onFreeMinutes={setFreeMinutesChoice}
@@ -385,6 +453,7 @@ export function BookingPanel({ config, target, onClose }: { config: PublicConfig
                 target={target}
                 date={date}
                 startTime={startTime}
+                setupLabel={setupLabel}
                 resourceLabel={resourceId === ANY_RESOURCE ? "Any available" : (freeResources.find((r) => r.id === resourceId)?.label ?? "")}
                 quote={quote}
                 quoting={quoting}
@@ -549,11 +618,17 @@ function DetailsStep({
   resourceId,
   onResource,
   member,
+  loginHref,
+  guest,
+  onGuest,
   accountName,
   memberNotice,
   session,
   customer,
   onCustomer,
+  games,
+  simPick,
+  onSimPick,
   freeMinutes,
   freeMinuteChoices,
   onFreeMinutes,
@@ -578,11 +653,17 @@ function DetailsStep({
   resourceId: string;
   onResource: (id: string) => void;
   member: NonNullable<NonNullable<ReturnType<typeof useAccount>["account"]>["member"]> | null;
+  loginHref: string;
+  guest: boolean;
+  onGuest: () => void;
   accountName: string | null;
   memberNotice: string | null;
   session: boolean;
   customer: Customer;
   onCustomer: (c: Customer) => void;
+  games: Game[];
+  simPick: SimPick;
+  onSimPick: (p: SimPick) => void;
   freeMinutes: number;
   freeMinuteChoices: number[];
   onFreeMinutes: (m: number) => void;
@@ -600,6 +681,24 @@ function DetailsStep({
   const isExperience = target.kind === "experience";
   return (
     <div className="space-y-5">
+      {/* Asked first, before anything is filled in, so a member doesn't type their details twice (D79). */}
+      {!session && !guest ? (
+        <section aria-labelledby="member-ask" className="rounded-xl border border-gold/40 bg-gold/10 p-4">
+          <h3 id="member-ask" className="display text-base text-gold">
+            Are you a member?
+          </h3>
+          <p className="mt-1 text-sm text-ink-600">Log in for your member price and free play. You&apos;ll come straight back to this booking.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <ButtonLink href={loginHref} variant="gold" size="sm">
+              Yes, log in
+            </ButtonLink>
+            <Button size="sm" onClick={onGuest}>
+              No, continue as a guest
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       {!isExperience && slot ? (
         <>
           <fieldset>
@@ -627,7 +726,7 @@ function DetailsStep({
             </p>
           </fieldset>
 
-          <Field label={`Which ${target.type.name}?`} hint="We'll pick one for you unless you have a favourite.">
+          <Field label={`Which ${target.type.name}?`} hint={pickHint(freeResources)}>
             <Select value={resourceId} onChange={(e) => onResource(e.target.value)}>
               <option value={ANY_RESOURCE}>Any available</option>
               {freeResources.map((r) => (
@@ -641,7 +740,7 @@ function DetailsStep({
       ) : null}
 
       {isExperience ? (
-        <Field label={`Which ${config.resourceTypes.find((t) => t.id === target.experience.resourceTypeId)?.name ?? "one"}?`} hint="We'll pick one for you unless you have a favourite.">
+        <Field label={`Which ${config.resourceTypes.find((t) => t.id === target.experience.resourceTypeId)?.name ?? "one"}?`} hint={pickHint(freeResources)}>
           <Select value={resourceId} onChange={(e) => onResource(e.target.value)}>
             <option value={ANY_RESOURCE}>Any available</option>
             {freeResources.map((r) => (
@@ -706,6 +805,8 @@ function DetailsStep({
         </fieldset>
       ) : null}
 
+      {games.length > 0 ? <SimPicker games={games} pick={simPick} onPick={onSimPick} /> : null}
+
       <div className={`grid gap-4 sm:grid-cols-2 ${session ? "hidden" : ""}`}>
         <div className="sm:col-span-2">
           <Field label="Name">
@@ -743,7 +844,7 @@ function DetailsStep({
         {!session ? (
           <p className="mt-2 text-sm text-ink-500">
             Members:{" "}
-            <Link href="/login?next=/book" className="underline">
+            <Link href={loginHref} className="underline">
               log in
             </Link>{" "}
             to use your discount and free play.
@@ -754,12 +855,64 @@ function DetailsStep({
   );
 }
 
+// ── Pick your game, track and car (D80) ──────────────────────────────────────
+function SimPicker({ games, pick, onPick }: { games: Game[]; pick: SimPick; onPick: (p: SimPick) => void }) {
+  const game = games.find((g) => g.id === pick.gameId) ?? null;
+  return (
+    <div className="rounded-xl border border-line p-4">
+      <label className="flex items-start gap-3 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 accent-[var(--color-flag)]"
+          checked={pick.on}
+          onChange={(e) => onPick({ ...pick, on: e.target.checked })}
+        />
+        <span>
+          <span className="font-medium text-ink-950">Would you like to pick your game, track and car?</span>
+          <span className="block text-xs text-ink-500">Optional. We&apos;ll have it set up for you when you arrive.</span>
+        </span>
+      </label>
+      {pick.on ? (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {/* Game names are long ("Assetto Corsa Competizione"): a full row of their own. */}
+          <div className="sm:col-span-2">
+            <SearchSelect
+            label="Game"
+            options={games}
+            value={pick.gameId}
+            // A track or car belongs to its game, so changing the game clears them.
+            onChange={(gameId) => onPick({ ...pick, gameId, trackId: null, carId: null })}
+            />
+          </div>
+          <SearchSelect
+            label="Track"
+            options={game?.tracks ?? []}
+            value={pick.trackId}
+            disabled={!game}
+            noneLabel={game ? "No preference" : "Pick a game first"}
+            onChange={(trackId) => onPick({ ...pick, trackId })}
+          />
+          <SearchSelect
+            label="Car"
+            options={game?.cars ?? []}
+            value={pick.carId}
+            disabled={!game}
+            noneLabel={game ? "No preference" : "Pick a game first"}
+            onChange={(carId) => onPick({ ...pick, carId })}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ── Step 3: what it costs, and pay ───────────────────────────────────────────
 function PayStep({
   config,
   target,
   date,
   startTime,
+  setupLabel,
   resourceLabel,
   quote,
   quoting,
@@ -777,6 +930,7 @@ function PayStep({
   target: BookTarget;
   date: string | null;
   startTime: string | null;
+  setupLabel: string | null;
   resourceLabel: string;
   quote: Quote | null;
   quoting: boolean;
@@ -800,6 +954,7 @@ function PayStep({
             <Row label={targetName(target)} value={resourceLabel} />
             <Row label="When" value={`${formatVenueDate(date!)}, ${formatWallTime(startTime!)}`} />
             <Row label="How long" value={formatMinutes(quote.durationMinutes)} />
+            {setupLabel ? <Row label="Your setup" value={setupLabel} /> : null}
           </div>
 
           <div className="rounded-xl bg-mist/60 p-4">
@@ -933,6 +1088,12 @@ function Summary({
       </p>
     </div>
   );
+}
+
+/** VR rigs are simulators at the same price (D77); the hint says so when one is on offer. */
+function pickHint(resources: { label: string }[]): string {
+  const vr = resources.some((r) => /\bVR\b/i.test(r.label));
+  return vr ? "We'll pick one for you unless you have a favourite. The VR rigs are the same price." : "We'll pick one for you unless you have a favourite.";
 }
 
 /** today + the booking window, as a venue date. */

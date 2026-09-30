@@ -9,6 +9,14 @@ import { Button, Card, Field, Input, Notice, Spinner } from "@/components/ui";
 const message = (err: unknown) => (err instanceof Error ? err.message : "Something went wrong. Please try again.");
 
 /** Where Supabase sends people back to after they click a link in an email. */
+/**
+ * Where to go after logging in. Only a path on this site: a `next` like `//elsewhere.com` or
+ * `https://…` would otherwise turn the login page into a way to send someone off-site.
+ */
+function safeNext(next: string | null): string {
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/account";
+}
+
 const siteUrl = () => (typeof window === "undefined" ? "" : window.location.origin);
 
 export function LoginForm() {
@@ -19,7 +27,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const next = search.get("next") ?? "/account";
+  const next = safeNext(search.get("next"));
 
   // Confirmation and password links sign people in on arrival; send them straight on.
   useEffect(() => {

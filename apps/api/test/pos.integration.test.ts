@@ -184,7 +184,7 @@ describe("access", () => {
     // and a killed browser run can leave one active. This is about the launch config being served,
     // not about nothing else existing.
     const keys = r.json.resourceTypes.map((t: { key: string }) => t.key);
-    expect(keys.filter((k: string) => ["billiard", "sim", "vr"].includes(k))).toEqual(["billiard", "sim", "vr"]);
+    expect(keys.filter((k: string) => ["billiard", "sim", "vr"].includes(k))).toEqual(["billiard", "sim"]);
     // This file's own happy hour, served to the till with its times as HH:MM.
     expect(r.json.happyHours.find((h: { name: string }) => h.name === `POS HH ${run}`)).toMatchObject({
       start_time: "10:00",

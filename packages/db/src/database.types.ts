@@ -86,6 +86,7 @@ export type Database = {
           referral_code_id: string | null
           refund_cents: number | null
           resource_id: string
+          sim_setup: Json | null
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
@@ -111,6 +112,7 @@ export type Database = {
           referral_code_id?: string | null
           refund_cents?: number | null
           resource_id: string
+          sim_setup?: Json | null
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
@@ -136,6 +138,7 @@ export type Database = {
           referral_code_id?: string | null
           refund_cents?: number | null
           resource_id?: string
+          sim_setup?: Json | null
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
@@ -433,6 +436,120 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "experiences_resource_type_id_fkey"
+            columns: ["resource_type_id"]
+            isOneToOne: false
+            referencedRelation: "resource_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_cars: {
+        Row: {
+          active: boolean
+          created_at: string
+          game_id: string
+          id: string
+          name: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          game_id: string
+          id?: string
+          name: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          game_id?: string
+          id?: string
+          name?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_cars_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_tracks: {
+        Row: {
+          active: boolean
+          created_at: string
+          game_id: string
+          id: string
+          name: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          game_id: string
+          id?: string
+          name: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          game_id?: string
+          id?: string
+          name?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_tracks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      games: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          resource_type_id: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          resource_type_id: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          resource_type_id?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_resource_type_id_fkey"
             columns: ["resource_type_id"]
             isOneToOne: false
             referencedRelation: "resource_types"
@@ -1831,6 +1948,7 @@ export type Database = {
           referral_code_id: string | null
           refund_cents: number | null
           resource_id: string
+          sim_setup: Json | null
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
@@ -2010,6 +2128,7 @@ export type Database = {
           referral_code_id: string | null
           refund_cents: number | null
           resource_id: string
+          sim_setup: Json | null
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null

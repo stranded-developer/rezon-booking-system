@@ -77,6 +77,9 @@ export function BookingsDialog({ now, onClose, onChanged }: { now: number; onClo
                     {b.resource} · {b.phone ?? b.email} · paid {money(b.totalCents)}
                     {b.memberId ? " · member" : ""}
                   </div>
+                  {b.simSetup ? (
+                    <div className="text-xs text-flag">Setup: {[b.simSetup.game, b.simSetup.track, b.simSetup.car].filter(Boolean).join(" · ")}</div>
+                  ) : null}
                 </div>
                 <span className={`text-xs font-semibold uppercase ${STATUS_STYLE[b.status] ?? ""}`}>{b.status.replace("_", " ")}</span>
                 {canArrive ? (

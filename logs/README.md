@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-09-23)
+## Current status (2026-09-30)
 
 | Area | State |
 |---|---|
@@ -38,11 +38,15 @@ Everything that was planned, decided and built, one file per step so each can be
 | The booking website's new look, home, events, tournaments (8d) | ✅ Built and verified |
 | The experience grid, booking panel and membership page (8e) | ✅ Built and verified |
 | Back office screens for all of the above (8f) | ✅ Built and verified |
+| Raceground's own colours and fonts (8i) | ✅ Built and verified — lime on graphite, Chakra Petch + Manrope |
+| VR rigs are simulators (8 in all); Double Race listed second (8j) | ✅ Built and verified |
+| "Are you a member?" at the top of Details, back to the booking after login (8k) | ✅ Built and verified |
+| Pick your game, track and car, with a back office screen (8l) | ✅ Built and verified — **starting list to confirm** |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
-| Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **One migration is still to apply** (the tier perks) — see the follow-up in [build/31](build/31-live-site-database-behind.md). |
+| Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8l, run `supabase db push` first** (the tier perks if still pending, VR as simulators, games) — the new API needs the games tables. See [build/35](build/35-game-track-car.md). |
 
-**Test totals at the last step:** pricing 101 · API 233 · pgTAP 468 · e2e 19 (7 POS + 12 booking site; 4 of them need `stripe listen` or the venue to be open).
+**Test totals at the last step:** pricing 101 · API 242 · pgTAP 482 · e2e 19 (7 POS + 12 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
 
 ## Build steps (in the order they were done)
 
@@ -79,6 +83,10 @@ Everything that was planned, decided and built, one file per step so each can be
 | 29 | Back office: experiences, tournaments and what's on | [build/29-back-office-experiences.md](build/29-back-office-experiences.md) |
 | 30 | New hours, one flat happy hour, tournament entries at the counter (8g) | [build/30-venue-values-counter-entry.md](build/30-venue-values-counter-entry.md) |
 | 31 | The live site was down: its database was on the old schema, and the tier perks came with it (8h) | [build/31-live-site-database-behind.md](build/31-live-site-database-behind.md) |
+| 32 | Raceground's own look: colours and fonts (8i) | [build/32-own-look.md](build/32-own-look.md) |
+| 33 | VR rigs are simulators; Double Race listed second (8j) | [build/33-vr-rigs-are-simulators.md](build/33-vr-rigs-are-simulators.md) |
+| 34 | "Are you a member?" at the top of Details (8k) | [build/34-are-you-a-member.md](build/34-are-you-a-member.md) |
+| 35 | Pick your game, track and car (8l) | [build/35-game-track-car.md](build/35-game-track-car.md) |
 
 ## Decisions
 
@@ -91,6 +99,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
+| [09 — 2026-09-30](decisions/09-2026-09-30-look-vr-member-prompt-games.md) | D76–D80: our own colours and fonts (**supersedes D64's look**), VR rigs are simulators at the same price, Double Race second, "Are you a member?" with a return to the booking, pick your game/track/car |
 | [08 — 2026-09-23](decisions/08-2026-09-23-public-site-experiences-tournaments.md) | D64–D72: dark racing look (**supersedes D59**), experiences at flat prices, flat promotional prices, new membership values and listed perks, tournaments, event pop-up and banner, spots left, three-step booking panel, new home page |
 
 ## Phase 6 — Booking website ✅ complete
@@ -119,11 +128,14 @@ The owner supplied `velocitysimlounge.com` as a reference (screenshots and three
 6. ✅ **8f** back office: screens for experiences, promotional prices, tournaments and events → [build/29](build/29-back-office-experiences.md)
 
 7. ✅ **8g** the owner's venue values, and tournament entries at the counter → [build/30](build/30-venue-values-counter-entry.md)
+8. ✅ **8i–8l** the owner's round of 2026-09-30: own look, VR as simulators, member prompt, game/track/car → [build/32](build/32-own-look.md)–[35](build/35-game-track-car.md)
 
 **Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
 - **Free tournament entry** is built and set to 0 for every tier. The written brief describes it as a Diamond perk; the answer to the perks question did not include it.
 - **Simulators by the hour** have no happy-hour rate. They are sold online as experiences, which do; the hourly rate is only for a walk-in.
 - ~~Two happy hour windows~~ — settled by D74: one window, 12:00–15:00 every day, flat prices everywhere.
+- **The game/track/car list** (D80) is a starting guess — Assetto Corsa Competizione, Assetto Corsa, F1 25. Confirm or edit in the back office.
+- **VR walk-ins** are now $60/hr like the other simulators, with no VR happy-hour rate (D77). Say if VR walk-ins should stay at $50.
 
 ## Next step — Phase 7
 

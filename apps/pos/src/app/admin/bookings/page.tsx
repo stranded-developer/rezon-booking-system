@@ -7,12 +7,17 @@ import { Button, ErrorNote, Field, Input, Modal, Row } from "@/components/ui";
 import { formatCents } from "@raceground/pricing";
 import { centsToInput, parseDollars } from "@/lib/format";
 
+/** "Assetto Corsa Competizione · Monza · Ferrari 296 GT3" (D80) */
+const setupText = (s: { game: string; track?: string; car?: string }) => [s.game, s.track, s.car].filter(Boolean).join(" · ");
+
 interface BookingRow {
   id: string;
   ref: string;
   status: string;
   resourceType: string;
   resource: string;
+  /** What the customer asked to drive (D80): staff set the rig up before they arrive. */
+  simSetup: { game: string; track?: string; car?: string } | null;
   venueDate: string;
   venueStartTime: string;
   venueEndTime: string;
@@ -121,6 +126,7 @@ export default function BookingsPage() {
               <Td>
                 <span className="block">{b.resourceType}</span>
                 <span className="text-xs text-ink-400">{b.resource}</span>
+                {b.simSetup ? <span className="block text-xs text-flag">{setupText(b.simSetup)}</span> : null}
               </Td>
               <Td>
                 <span className="block">{b.customer.name}</span>
@@ -178,6 +184,7 @@ function BookingDialog({ booking, onClose, onChanged }: { booking: BookingRow; o
       <div className="space-y-4">
         <div className="space-y-1">
           <Row label="What" value={`${booking.resourceType} · ${booking.resource}`} />
+          {booking.simSetup ? <Row label="Setup" value={setupText(booking.simSetup)} /> : null}
           <Row label="When" value={`${booking.venueDate}, ${booking.venueStartTime}–${booking.venueEndTime}`} />
           <Row label="Customer" value={booking.customer.name} />
           {booking.customer.email ? <Row label="Email" value={booking.customer.email} /> : null}

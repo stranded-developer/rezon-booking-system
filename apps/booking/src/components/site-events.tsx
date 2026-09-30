@@ -77,7 +77,7 @@ export function EventBanner({ events }: { events: SiteEvent[] }) {
         {event.ctaLabel && event.ctaUrl ? (
           <Link
             href={event.ctaUrl}
-            className="display shrink-0 rounded-lg bg-flag px-3 py-1.5 text-xs tracking-wide text-white transition hover:bg-flag-bright"
+            className="display shrink-0 rounded-lg bg-flag px-3 py-1.5 text-xs tracking-wide text-on-flag transition hover:bg-flag-bright"
           >
             {event.ctaLabel}
           </Link>
@@ -162,7 +162,7 @@ export function EventPopup({ events }: { events: SiteEvent[] }) {
             <Link
               href={event.ctaUrl}
               onClick={close}
-              className="display block w-full rounded-xl bg-flag px-6 py-3 text-base tracking-wide text-white transition hover:bg-flag-bright"
+              className="display block w-full rounded-xl bg-flag px-6 py-3 text-base tracking-wide text-on-flag transition hover:bg-flag-bright"
             >
               {event.ctaLabel}
             </Link>

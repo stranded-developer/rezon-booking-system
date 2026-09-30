@@ -25,6 +25,16 @@ export function BookView() {
   const [target, setTarget] = useState<BookTarget | null>(null);
   /** `?experience=<key>` opens the panel on arrival, so a "Book now" elsewhere lands on the right thing. */
   const wantedExperience = params.get("experience");
+  /** `?type=<key>` does the same for something booked by the hour. */
+  const wantedType = params.get("type");
+  /**
+   * `&date=…&time=…` puts the customer back where they were: a guest who says they are a member
+   * logs in and returns here with the day and time they had already picked (D79).
+   */
+  const resumeDate = params.get("date");
+  const resumeTime = params.get("time");
+  /** Only for the panel the URL opened: closing it and picking something else starts fresh. */
+  const [resumeAt, setResumeAt] = useState<{ date: string; time: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,13 +43,16 @@ export function BookView() {
         if (cancelled) return;
         setConfig(c);
         const experience = wantedExperience ? c.experiences.find((e) => e.key === wantedExperience) : undefined;
+        const type = wantedType ? c.resourceTypes.find((t) => t.key === wantedType) : undefined;
         if (experience) setTarget({ kind: "experience", experience });
+        else if (type) setTarget({ kind: "hourly", type });
+        if ((experience || type) && resumeDate && resumeTime) setResumeAt({ date: resumeDate, time: resumeTime });
       })
       .catch((err: unknown) => !cancelled && setError(errorMessage(err)));
     return () => {
       cancelled = true;
     };
-  }, [request, wantedExperience]);
+  }, [request, wantedExperience, wantedType, resumeDate, resumeTime]);
 
   if (error) return <Notice tone="error">{error}</Notice>;
   if (!config) return <Spinner label="Loading what's available…" />;
@@ -131,7 +144,17 @@ export function BookView() {
         </Reveal>
       ) : null}
 
-      {target ? <BookingPanel config={config} target={target} onClose={() => setTarget(null)} /> : null}
+      {target ? (
+        <BookingPanel
+          config={config}
+          target={target}
+          resumeAt={resumeAt}
+          onClose={() => {
+            setTarget(null);
+            setResumeAt(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

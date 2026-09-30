@@ -9,7 +9,7 @@ import {
   type RateBand,
   type ValidationIssue,
 } from "@raceground/pricing";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
@@ -1045,5 +1045,113 @@ adminConfigRoutes.patch(
       .single();
     if (error) throw mapDbError(error);
     return c.json({ event: data });
+  },
+);
+
+// ── Games, tracks and cars a customer can ask for (D80) ─────────────────────
+// A preference for staff, never a price. Tracks and cars are edited as a list per game: what is
+// sent is the whole list, in order. Bookings keep the names they were made with, so removing a
+// car here never changes what someone already booked.
+
+const Names = z.array(z.string().trim().min(1).max(80)).max(200);
+
+/** Same name twice (ignoring case) is kept once, first position wins. */
+const dedupe = (names: string[]) => names.filter((n, i) => names.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i);
+
+adminConfigRoutes.get("/games", async (c) => {
+  const { db } = c.get("deps");
+  const [games, tracks, cars] = await Promise.all([
+    db.from("games").select("*").order("sort").order("name"),
+    db.from("game_tracks").select("id, game_id, name, sort").order("sort").order("name"),
+    db.from("game_cars").select("id, game_id, name, sort").order("sort").order("name"),
+  ]);
+  for (const r of [games, tracks, cars]) if (r.error) throw mapDbError(r.error);
+  return c.json({
+    games: games.data!.map((g) => ({
+      ...g,
+      tracks: tracks.data!.filter((t) => t.game_id === g.id).map((t) => t.name),
+      cars: cars.data!.filter((x) => x.game_id === g.id).map((x) => x.name),
+    })),
+  });
+});
+
+/** Make a game's tracks or cars exactly `names`, in that order. */
+async function saveGameList(c: Context<AppEnv>, table: "game_tracks" | "game_cars", gameId: string, names: string[], reason: string | undefined) {
+  const { db } = c.get("deps");
+  const actor = c.get("operator").id;
+  const wanted = dedupe(names);
+  const { data: current, error } = await db.from(table).select("id, name, sort, active").eq("game_id", gameId);
+  if (error) throw mapDbError(error);
+
+  const gone = current.filter((row) => !wanted.includes(row.name)).map((row) => row.id);
+  if (gone.length > 0) {
+    const { error: e } = await auditHeaders(db.from(table).delete().in("id", gone), actor, reason);
+    if (e) throw mapDbError(e);
+  }
+  const fresh: { game_id: string; name: string; sort: number }[] = [];
+  for (const [i, name] of wanted.entries()) {
+    const row = current.find((r) => r.name === name);
+    if (!row) fresh.push({ game_id: gameId, name, sort: i + 1 });
+    else if (row.sort !== i + 1 || !row.active) {
+      const { error: e } = await auditHeaders(db.from(table).update({ sort: i + 1, active: true }).eq("id", row.id), actor, reason);
+      if (e) throw mapDbError(e);
+    }
+  }
+  if (fresh.length > 0) {
+    const { error: e } = await auditHeaders(db.from(table).insert(fresh), actor, reason);
+    if (e) throw mapDbError(e);
+  }
+}
+
+const GameBody = z.object({
+  resourceTypeId: z.uuid(),
+  name: z.string().trim().min(1).max(80),
+  sort: z.number().int().min(0).max(1000).optional(),
+  tracks: Names.optional(),
+  cars: Names.optional(),
+  reason: Reason,
+});
+
+adminConfigRoutes.post("/games", validate("json", GameBody), async (c) => {
+  const b = c.req.valid("json");
+  const { db } = c.get("deps");
+  const { data, error } = await auditHeaders(
+    db.from("games").insert({ resource_type_id: b.resourceTypeId, name: b.name, sort: b.sort ?? 100 }),
+    c.get("operator").id,
+    b.reason,
+  )
+    .select("*")
+    .single();
+  if (error) throw mapDbError(error);
+  if (b.tracks) await saveGameList(c, "game_tracks", data.id, b.tracks, b.reason);
+  if (b.cars) await saveGameList(c, "game_cars", data.id, b.cars, b.reason);
+  return c.json({ game: data }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/games/:id",
+  validate("param", Id),
+  validate("json", GameBody.omit({ resourceTypeId: true }).partial().extend({ active: z.boolean().optional(), reason: Reason })),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { reason, tracks, cars, ...b } = c.req.valid("json");
+    const { db } = c.get("deps");
+    const { data: current, error: readError } = await db.from("games").select("id").eq("id", id).maybeSingle();
+    if (readError) throw mapDbError(readError);
+    if (!current) throw new ApiError(404, "not_found", "Game not found");
+
+    const patch = {
+      ...(b.name !== undefined ? { name: b.name } : {}),
+      ...(b.sort !== undefined ? { sort: b.sort } : {}),
+      ...(b.active !== undefined ? { active: b.active } : {}),
+    };
+    if (Object.keys(patch).length === 0 && !tracks && !cars) throw new ApiError(422, "validation_failed", "Nothing to change");
+    if (Object.keys(patch).length > 0) {
+      const { error } = await auditHeaders(db.from("games").update(patch).eq("id", id), c.get("operator").id, reason);
+      if (error) throw mapDbError(error);
+    }
+    if (tracks) await saveGameList(c, "game_tracks", id, tracks, reason);
+    if (cars) await saveGameList(c, "game_cars", id, cars, reason);
+    return c.json({ ok: true });
   },
 );

@@ -4,7 +4,7 @@ import Link from "next/link";
 type Variant = "primary" | "gold" | "secondary" | "ghost" | "danger";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-flag text-white shadow-[0_6px_24px_-8px_var(--color-flag)] hover:bg-flag-bright disabled:bg-line disabled:text-ink-500 disabled:shadow-none",
+  primary: "bg-flag text-on-flag shadow-[0_6px_24px_-10px_var(--color-flag)] hover:bg-flag-bright disabled:bg-line disabled:text-ink-500 disabled:shadow-none",
   gold: "bg-gold text-night hover:brightness-110 disabled:bg-line disabled:text-ink-500",
   secondary: "bg-paper text-ink-950 ring-1 ring-line hover:bg-mist hover:ring-ink-500 disabled:text-ink-500",
   ghost: "text-ink-600 hover:bg-mist hover:text-ink-950 disabled:text-ink-500",
@@ -113,7 +113,7 @@ export function Spinner({ label }: { label: string }) {
 /** A short label on a card, as the reference badges its most popular experience. */
 export function Badge({ children, tone = "flag" }: { children: ReactNode; tone?: "flag" | "gold" | "quiet" }) {
   const tones = {
-    flag: "bg-flag text-white",
+    flag: "bg-flag text-on-flag",
     gold: "bg-gold text-night",
     quiet: "bg-mist text-ink-600 ring-1 ring-line",
   };
@@ -126,7 +126,7 @@ export function Checkers({ className = "" }: { className?: string }) {
 }
 
 /**
- * A section heading in the reference's style: capitals, with part of it in crimson.
+ * A section heading: capitals, with part of it in the accent colour.
  * `level` is 1 where the section heading is the page's own title, so every page has one h1.
  */
 export function SectionTitle({

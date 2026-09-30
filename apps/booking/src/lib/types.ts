@@ -32,6 +32,16 @@ export interface PublicConfig {
   experiences: Experience[];
   /** What's on: the pop-up and the banner (D69). */
   events: SiteEvent[];
+  /** Games a customer can ask for, with their tracks and cars (D80). Optional: an older API has none. */
+  games?: Game[];
+}
+
+export interface Game {
+  id: string;
+  name: string;
+  resourceTypeId: string;
+  tracks: { id: string; name: string }[];
+  cars: { id: string; name: string }[];
 }
 
 export interface Experience {
@@ -175,6 +185,8 @@ export interface Booking {
   experience: { name: string; key: string } | null;
   resourceType: string;
   resource: string;
+  /** What they asked to drive (D80). */
+  simSetup: { game: string; track?: string; car?: string } | null;
   startsAt: string;
   endsAt: string;
   venueDate: string;

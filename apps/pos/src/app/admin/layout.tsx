@@ -14,6 +14,7 @@ const NAV = [
   { href: "/admin/members", label: "Members" },
   { href: "/admin/referrals", label: "Referral codes" },
   { href: "/admin/experiences", label: "Experiences" },
+  { href: "/admin/games", label: "Games, tracks & cars" },
   { href: "/admin/pricing", label: "Rates & happy hours" },
   { href: "/admin/tiers", label: "Membership tiers" },
   { href: "/admin/tournaments", label: "Tournaments" },

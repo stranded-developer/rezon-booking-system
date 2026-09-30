@@ -106,13 +106,18 @@ Customers cancel through the signed link in their email.
 ## 7. Website implementation notes (Phase 6c)
 
 - **`apps/booking`** (Next.js App Router, port 3000) reads only the public API. It never holds a secret and never computes a charge: every price on screen comes from `POST /public/quote`, and the API re-prices at hold time.
-- **Light look** (D59) with the wordmark and flag accent; the whole site works at phone width.
+- **The look** (D76, replacing D64's colours and fonts, which replaced D59): volt lime on graphite — the POS's own colours — with Chakra Petch for headings and Manrope for text. The layout and flow are the reference's (D64, D71); only colour and type changed. The whole site works at phone width.
 - **Home page** renders per request (`connection()`), so a change in the back office shows immediately. Photos come from Supabase Storage and are resized by Next.
 - **Booking flow** on one page: type → day → start → length → (resource) → details → live quote → terms → pay. The chosen time, length and quote are keyed to the current choice, so a stale price can never be shown or paid.
 - **Errors the customer can hit** are handled: the price changed (shows the new total and asks again), the slot was taken (reloads the timetable), a used-up or unknown referral code, no email or phone given.
 - **After Stripe:** the success URL returns to `/booking/<ref>?token=…&paid=1`, which polls for up to a minute while the webhook confirms. The cancel URL returns with `&abandoned=1`, which releases the hold straight away.
 - **The booking page and cancel page need the link token**; without it, or with a wrong one, they say "Booking not found".
 - **Legal pages** are drafted below and finished in Phase 7.
+
+**The Details step of the booking panel (D79, D80)**
+- **"Are you a member?"** is asked first, before anything is filled in, to anyone not logged in. *Yes, log in* goes to `/login?next=/book?experience=<key>&date=<date>&time=<HH:MM>` (or `type=<key>` for something booked by the hour); after logging in the panel reopens **on Details at the same day and time**, now at member prices. If that time went in the meantime, it goes back to the times and says so. *No, continue as a guest* hides the question for the rest of the booking. The login page only follows a `next` that is a path on this site.
+- **Which simulator:** the VR rigs are listed with the others, and the hint says they are the same price (D77).
+- **"Would you like to pick your game, track and car?"** sits under "Any of these apply?" and above the name. Ticked, it shows three searchable dropdowns: Game, then Track and Car from that game only (empty until a game is chosen; changing the game clears them). All optional. The choice is shown on Pay as "Your setup", sent with the hold as ids, checked by the API and stored by name. It appears on the booking page, the confirmation email, the back office Bookings page and the till's Today's bookings. It never changes the price.
 
 **Member area (6c-3)**
 - Supabase Auth in the browser (email + password). The API is called with the member's token, and it decides everything: the site never assumes a discount.

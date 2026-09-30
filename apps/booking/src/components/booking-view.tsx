@@ -123,6 +123,7 @@ export function BookingView({
           <Row label="What" value={`${booking.resourceType} · ${booking.resource}`} />
           <Row label="When" value={`${booking.venueDate}, ${booking.venueStartTime}–${booking.venueEndTime}`} />
           <Row label="How long" value={formatMinutes(booking.durationMinutes)} />
+          {booking.simSetup ? <Row label="Your setup" value={[booking.simSetup.game, booking.simSetup.track, booking.simSetup.car].filter(Boolean).join(" · ")} /> : null}
           <Row label="Name" value={booking.customerName} />
           {booking.freeMinutesUsed > 0 ? <Row label="Free play used" value={`${booking.freeMinutesUsed} min`} /> : null}
           <Row label={paid > 0 ? "Paid" : "Total"} value={formatCents(paid)} strong />

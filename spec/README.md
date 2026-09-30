@@ -6,7 +6,7 @@
 
 ## What Raceground is
 
-A gaming venue in Sydney that rents time on billiard tables, driving simulators and VR seats. The platform has three parts:
+A gaming venue in Sydney that rents time on billiard tables and driving simulators (six standard rigs and two VR rigs). The platform has three parts:
 
 | App | Who uses it | URL (for now) |
 |---|---|---|
@@ -36,14 +36,14 @@ All values below are **editable in the back office**. None are hardcoded.
 | Timezone | `Australia/Sydney` |
 | Opening hours | Mon–Thu 12:00–22:00 · Fri 12:00–24:00 · Sat 11:00–24:00 · Sun 11:00–22:00 (D73). Midnight is stored as `24:00`. |
 | Billiard tables | 2 × $25/hr incl. GST, $20/hr in happy hour |
-| Driving simulators | 6 × $60/hr incl. GST |
-| VR seats | 2 × $50/hr incl. GST, $40/hr in happy hour |
+| Driving simulators | 8 × $60/hr incl. GST: Sim 1–6 and VR Sim 1–2. **The VR rigs are simulators at the same price**, not a type of their own (D77) |
 | Session | 30 min (D63). Booked online: one session minimum, then 15-min steps. Walk-in: from 15 min, then per minute |
-| Experiences (simulators, online) | Quick Race 30 min $35 · Leaderboard Challenge 30 min $35 · Double Race 60 min $58 (D65) |
+| Experiences (simulators, online) | Quick Race 30 min $35 · Double Race 60 min $58 · Leaderboard Challenge 30 min $35, listed in that order (D65, D78) |
 | Experience promotions | Happy Hour every day 12:00–15:00: $29 / $29 / $49 · Student, any time on request: $32 / $32 / $52. The cheapest match wins (D66) |
 | Happy hour | **12:00–15:00, every day**, as a **flat price everywhere** (D74). Hourly types use a rate band; experiences use a promotional price. There is no percentage happy hour. |
 | Tiers | Silver 10% $48/mo · Gold 20% $78/mo · Diamond 20% $128/mo (incl. GST) |
 | Free play | Silver 2 sessions, Gold 4, Diamond 8 per month; rolls over, capped at ten months (600 / 1200 / 2400 min) |
+| Games, tracks & cars | Assetto Corsa Competizione, Assetto Corsa, F1 25, each with its tracks and cars — a starting list for the owner to edit (D80) |
 | Booking window | Rolling 7 days |
 | Online booking cutoff | Must start ≥ 30 min from now |
 | No-show hold | 15 min after start |

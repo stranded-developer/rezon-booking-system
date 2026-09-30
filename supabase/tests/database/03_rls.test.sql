@@ -48,7 +48,7 @@ $$;
 
 -- ── Anonymous visitor (booking site) ────────────────────────────────────────
 set local role anon;
-select is((select count(*) from resource_types where key in ('billiard', 'sim', 'vr')), 3::bigint, 'anon reads resource types');
+select is((select count(*) from resource_types where key in ('billiard', 'sim')), 2::bigint, 'anon reads resource types');
 select is((select count(*) from opening_hours), 7::bigint, 'anon reads opening hours');
 select is((select count(*) from membership_tiers where name in ('Silver', 'Gold', 'Diamond')), 3::bigint, 'anon reads tiers');
 select throws_ok($$ select count(*) from customers $$, '42501', null, 'anon cannot read customers');

@@ -57,7 +57,7 @@ function Hero({ intro }: { intro: string | null }) {
     <section className="relative overflow-hidden">
       <div className="mx-auto w-full max-w-6xl px-4 py-16 text-center sm:py-24">
         <p className="display text-sm tracking-[0.3em] text-flag">Sydney</p>
-        <h1 className="display mx-auto mt-4 max-w-4xl text-5xl sm:text-7xl">
+        <h1 className="display mx-auto mt-4 max-w-5xl text-4xl sm:text-6xl">
           Sydney&apos;s <span className="text-flag">sim racing</span>, billiards and VR lounge
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-ink-600">
@@ -83,7 +83,7 @@ function Hero({ intro }: { intro: string | null }) {
 function Triptych({ photos }: { photos: PublicConfig["photos"] }) {
   const panels = [
     { word: "Race", tint: "from-flag/40" },
-    { word: "Play", tint: "from-indigo-500/40" },
+    { word: "Play", tint: "from-sky-500/35" },
     { word: "Hang out", tint: "from-gold/30" },
   ];
   return (
@@ -120,10 +120,10 @@ function HowItWorks() {
   const steps = [
     { n: 1, title: "Book online", body: "Pick what you want, a day and a time. Walk-ins are welcome, but booking is the only way to be sure of a spot." },
     { n: 2, title: "Turn up", body: "Show your booking code at the counter. We hold your spot for 15 minutes after the start time." },
-    { n: 3, title: "Play", body: "Race a simulator, rack up a frame on a billiard table, or put on a VR headset. Staff will get you started." },
+    { n: 3, title: "Play", body: "Race a simulator — standard or VR — or rack up a frame on a billiard table. Staff will get you started." },
     { n: 4, title: "Come back for less", body: "Members get a discount on every booking and free play minutes every month." },
   ];
-  const edges = ["border-t-flag", "border-t-gold", "border-t-indigo-400", "border-t-emerald-400"];
+  const edges = ["border-t-flag", "border-t-gold", "border-t-sky-400", "border-t-emerald-400"];
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16">
