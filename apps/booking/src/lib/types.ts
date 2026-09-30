@@ -12,6 +12,8 @@ export interface PublicConfig {
   onlineCutoffMinutes: number;
   holdMinutes: number;
   noShowHoldMinutes: number;
+  /** How early a guest should arrive; the session still runs on the booked time (D85). */
+  arriveEarlyMinutes: number;
   refundPolicy: { fullRefundHoursBefore: number; halfRefundHoursBefore: number };
   resourceTypes: ResourceType[];
   openingHours: { dayOfWeek: number; open: string; close: string; closed: boolean }[];
@@ -34,6 +36,15 @@ export interface PublicConfig {
   events: SiteEvent[];
   /** Games a customer can ask for, with their tracks and cars (D80). Optional: an older API has none. */
   games?: Game[];
+  /** The home page's image tiles (D87). Optional: an older API has none. */
+  tiles?: SiteTile[];
+}
+
+export interface SiteTile {
+  id: string;
+  section: "highlights" | "events" | "driving";
+  title: string;
+  imageUrl: string | null;
 }
 
 export interface Game {
@@ -45,6 +56,8 @@ export interface Game {
 }
 
 export interface Experience {
+  /** Each tier's flat price (D82). A tier missing here pays its percentage off the list price. */
+  memberPrices?: { tierId: string; priceCents: number }[];
   id: string;
   key: string;
   name: string;
@@ -187,6 +200,8 @@ export interface Booking {
   resource: string;
   /** What they asked to drive (D80). */
   simSetup: { game: string; track?: string; car?: string } | null;
+  /** The venue's session rules, for "Before you arrive" (D85). */
+  rules: { arriveEarlyMinutes: number; noShowHoldMinutes: number };
   startsAt: string;
   endsAt: string;
   venueDate: string;

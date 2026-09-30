@@ -290,21 +290,35 @@ export function priceExperience(input: PriceExperienceInput): PriceResult {
     if (!promo || p.priceCents < promo.priceCents) promo = p;
   }
 
-  const priceCents = promo ? promo.priceCents : experience.priceCents;
+  // D82: a member's price is a flat price of its own, and it never stacks with a promotion —
+  // it is one more candidate, and the cheapest still wins. Without a flat price for the tier, the
+  // tier's percentage off the list price stands in for it.
+  let chosen: AppliedExperience["promo"] = promo ? { id: promo.id, name: promo.name, priceCents: promo.priceCents } : null;
+  if (member) {
+    if (input.memberPriceCents !== undefined) assertInteger(input.memberPriceCents, "memberPriceCents", 0);
+    const memberPrice =
+      input.memberPriceCents ?? Number(roundHalfUp(BigInt(experience.priceCents) * (BP - BigInt(member.discountBp)), BP));
+    if (memberPrice <= (chosen?.priceCents ?? experience.priceCents)) {
+      chosen = { id: `member:${member.tierName}`, name: `${member.tierName} member price`, priceCents: memberPrice, member: true };
+    }
+  }
+
+  const priceCents = chosen ? chosen.priceCents : experience.priceCents;
   const applied: AppliedExperience = {
     id: experience.id,
     name: experience.name,
     minutes,
     listPriceCents: experience.priceCents,
     priceCents,
-    promo: promo ? { id: promo.id, name: promo.name, priceCents: promo.priceCents } : null,
+    promo: chosen,
   };
 
   // Free play covers its pro-rata share of the flat price; kept exact over `minutes`.
   const denominator = BigInt(minutes);
   const subtotalExact = BigInt(priceCents) * BigInt(paidMinutes);
   const subtotalCents = roundHalfUp(subtotalExact, denominator);
-  const { totalCents, discount } = applyDiscount(subtotalExact, denominator, subtotalCents, member, referral);
+  // The membership is already in the price above, so no percentage comes off it again (D82).
+  const { totalCents, discount } = applyDiscount(subtotalExact, denominator, subtotalCents, undefined, referral);
   const gstCents = roundHalfUp(totalCents, 11n);
 
   const drafts: { startIndex: number; count: number; free: boolean; numerator: bigint }[] = [];

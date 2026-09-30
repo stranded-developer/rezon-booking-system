@@ -38,10 +38,12 @@ All values below are **editable in the back office**. None are hardcoded.
 | Billiard tables | 2 × $25/hr incl. GST, $20/hr in happy hour |
 | Driving simulators | 8 × $60/hr incl. GST: Sim 1–6 and VR Sim 1–2. **The VR rigs are simulators at the same price**, not a type of their own (D77) |
 | Session | 30 min (D63). Booked online: one session minimum, then 15-min steps. Walk-in: from 15 min, then per minute |
-| Experiences (simulators, online) | Quick Race 30 min $35 · Double Race 60 min $58 · Leaderboard Challenge 30 min $35, listed in that order (D65, D78) |
+| Experiences (simulators, online) | **Single Session** 30 min $35 ("Quick Race, Time trial, Drift, and more.") · **Double Session** 60 min $58 ("Full Experience, Double Race, Drift, Free Roam, and more") · Leaderboard Challenge 30 min $35, in that order (D65, D78, D83) |
+| Member prices (experiences) | Silver $32 / $52 · Gold $28 / $46 · Diamond $28 / $46 (Single / Double). Flat, never stacked with a promotion: the cheapest single price wins (D82). Leaderboard Challenge: the tier's percentage |
 | Experience promotions | Happy Hour every day 12:00–15:00: $29 / $29 / $49 · Student, any time on request: $32 / $32 / $52. The cheapest match wins (D66) |
 | Happy hour | **12:00–15:00, every day**, as a **flat price everywhere** (D74). Hourly types use a rate band; experiences use a promotional price. There is no percentage happy hour. |
-| Tiers | Silver 10% $48/mo · Gold 20% $78/mo · Diamond 20% $128/mo (incl. GST) |
+| Tiers | Silver 10% $48/mo · Gold 20% $78/mo · Diamond 20% $128/mo (incl. GST). Perks worded as the membership poster (D84); Diamond gets one free tournament entry a month |
+| Arrive early | 15 minutes before the session; the session still runs on the booked time (D85) |
 | Free play | Silver 2 sessions, Gold 4, Diamond 8 per month; rolls over, capped at ten months (600 / 1200 / 2400 min) |
 | Games, tracks & cars | Assetto Corsa Competizione, Assetto Corsa, F1 25, each with its tracks and cars — a starting list for the owner to edit (D80) |
 | Booking window | Rolling 7 days |

@@ -75,7 +75,7 @@ select id, monthly_price_cents from public.membership_tiers;
 insert into public.experiences (key, resource_type_id, name, tagline, bullets, badges, minutes, price_cents, sort)
 select v.key, rt.id, v.name, v.tagline, v.bullets, v.badges, v.minutes, v.price_cents, v.sort
 from (values
-  ('quick_race', 'sim', 'Quick Race', 'Single session', array[
+  ('quick_race', 'sim', 'Single Session', 'Quick Race, Time trial, Drift, and more.', array[
     'Perfect for a first time behind the wheel',
     'One 30-minute session',
     'Race on your own or against your friends'
@@ -85,7 +85,7 @@ from (values
     'One 30-minute qualifying session',
     'Monthly prizes for the top three drivers'
   ], array[]::text[], 30, 35_00, 3),
-  ('double_race', 'sim', 'Double Race', 'Dual session', array[
+  ('double_race', 'sim', 'Double Session', 'Full Experience, Double Race, Drift, Free Roam, and more', array[
     'Two races, twice the fun',
     'A full hour on the simulator',
     'The best value on the grid'
@@ -111,3 +111,24 @@ join public.experiences e on e.key = v.exp_key;
 -- The list itself lives in one function, shared with the migration that adds it for a venue
 -- that already exists. A starting point for the owner to edit in the back office.
 select private.seed_launch_games();
+
+-- ── Member prices and the membership poster (D82, D84) ──────────────────────
+-- Shared with the migration that brings an existing venue to the same values.
+select private.seed_launch_member_prices();
+update public.membership_tiers set perks = array['Monday - Friday'] where name = 'Silver';
+update public.membership_tiers set perks = array[
+  'Monday - Sunday',
+  'Free 2 Hours Billiard Tables Every Month',
+  '20% Off for additional food and drinks',
+  'Early Access Registration / promos'
+] where name = 'Gold';
+update public.membership_tiers set perks = array[
+  'Monday - Sunday',
+  'Free 4 Hours Billiard Tables',
+  '20% off food & drinks',
+  'FREE ENTRY 1x MONTHLY TOURNAMENT',
+  'Live Watch Party access with exclusive seating',
+  'Early Access Registration / promos',
+  'Exclusive events for Diamond Members only',
+  'Birthday FREE 1 session play and Exclusive promo if you host your birthday with us'
+], monthly_free_tournaments = 1 where name = 'Diamond';

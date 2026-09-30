@@ -105,33 +105,64 @@ describe("priceExperience — promotional prices", () => {
 });
 
 describe("priceExperience — member, referral and free play", () => {
-  it("X10 applies the member percentage to the list price", () => {
-    // Gold 20% off a $35 Quick Race = $28.00, exactly the owner's member price.
+  it("X10 charges a member their tier's own flat price (D82)", () => {
     const r = priceExperience(
-      experience({ startAt: aest("2026-09-16T16:00"), member: { tierName: "Gold", discountBp: 2000 } }),
+      experience({ startAt: aest("2026-09-16T16:00"), member: gold, memberPriceCents: 28_00 }),
     );
-    expect(r.subtotalCents).toBe(35_00);
+    expect(r.subtotalCents).toBe(28_00);
     expect(r.totalCents).toBe(28_00);
-    expect(r.discount).toEqual({ kind: "member", label: "Gold member 20%", valueBp: 2000, amountCents: 700 });
+    // The membership is in the price itself, so nothing is taken off again.
+    expect(r.discount).toBeNull();
+    expect(r.experience?.promo).toEqual({ id: "member:Gold", name: "Gold member price", priceCents: 28_00, member: true });
   });
 
-  it("X11 rounds a member price half up", () => {
-    // Silver 10% off $35.00 is $31.50, not the $32 on the marketing list (D67).
+  it("X11 uses the poster's prices exactly, not a percentage of the list price", () => {
+    // Silver 10% of $35 would be $31.50; the poster says $32 (D82).
+    const r = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), member: silver, memberPriceCents: 32_00 }));
+    expect(r.totalCents).toBe(32_00);
+    // Gold 20% of $58 would be $46.40; the poster says $46.
+    const d = priceExperience(
+      experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, member: gold, memberPriceCents: 46_00 }),
+    );
+    expect(d.totalCents).toBe(46_00);
+  });
+
+  it("X11b falls back to the tier's percentage off the list price when the tier has no flat price", () => {
     const r = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), member: silver }));
     expect(r.totalCents).toBe(31_50);
-    // Gold 20% off the $58 Double Race is $46.40, not the listed $46.
-    const d = priceExperience(
-      experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, member: gold }),
-    );
-    expect(d.totalCents).toBe(46_40);
+    expect(r.discount).toBeNull();
+    expect(r.experience?.promo?.member).toBe(true);
   });
 
-  it("X12 stacks a membership on top of a Happy Hour price", () => {
-    const r = priceExperience(
-      experience({ startAt: aest("2026-09-16T13:00"), member: { tierName: "Gold", discountBp: 2000 } }),
+  it("X12 never stacks a member price on a promotion: the cheapest wins (D82)", () => {
+    const happyHour = aest("2026-09-16T13:00");
+    // Gold's $28 beats Happy Hour's $29 — and is not $29 less 20%.
+    const gold13 = priceExperience(experience({ startAt: happyHour, member: gold, memberPriceCents: 28_00 }));
+    expect(gold13.totalCents).toBe(28_00);
+    expect(gold13.experience?.promo?.name).toBe("Gold member price");
+    // Silver's $32 loses to Happy Hour's $29, which Silver then pays in full.
+    const silver13 = priceExperience(experience({ startAt: happyHour, member: silver, memberPriceCents: 32_00 }));
+    expect(silver13.totalCents).toBe(29_00);
+    expect(silver13.experience?.promo?.name).toBe("Happy Hour");
+    expect(silver13.discount).toBeNull();
+  });
+
+  it("X12b calls a tie for the member price, and the percentage never comes off a promotion", () => {
+    // Silver's $32 and the Student $32: the same money, shown as the member price.
+    const tie = priceExperience(
+      experience({ startAt: aest("2026-09-16T16:00"), member: silver, memberPriceCents: 32_00, claimedPromoIds: ["st-quick"] }),
     );
-    expect(r.subtotalCents).toBe(29_00);
-    expect(r.totalCents).toBe(23_20);
+    expect(tie.totalCents).toBe(32_00);
+    expect(tie.experience?.promo?.member).toBe(true);
+    // Before D82 this was $29 less 20% = $23.20.
+    const noStack = priceExperience(experience({ startAt: aest("2026-09-16T13:00"), member: gold }));
+    expect(noStack.totalCents).toBe(28_00);
+  });
+
+  it("X12c refuses a member price that is not whole cents", () => {
+    expect(() =>
+      priceExperience(experience({ startAt: aest("2026-09-16T16:00"), member: gold, memberPriceCents: 28.5 })),
+    ).toThrow(PricingError);
   });
 
   it("X13 spends free play pro rata on a flat price", () => {
@@ -217,16 +248,17 @@ describe("priceExperience — what the customer reads", () => {
         experience: doubleRace,
         promos: allPromos,
         member: { tierName: "Gold", discountBp: 2000 },
+        memberPriceCents: 46_00,
         freeMinutes: 30,
       }),
     );
+    // The member's $46 beats Happy Hour's $49, and says so; no discount line follows (D82).
     expect(r.explanation).toEqual([
-      "Double Race · 60 min · Happy Hour $49.00 (normally $58.00)",
+      "Double Race · 60 min · Gold member price $46.00 (normally $58.00)",
       "13:00–13:30  30 min free play (member balance)  $0.00",
-      "13:30–14:00  30 of 60 min  $24.50",
-      "Subtotal  $24.50",
-      "Gold member 20%  −$4.90",
-      "Total (incl. GST $1.78)  $19.60",
+      "13:30–14:00  30 of 60 min  $23.00",
+      "Subtotal  $23.00",
+      "Total (incl. GST $2.09)  $23.00",
     ]);
   });
 

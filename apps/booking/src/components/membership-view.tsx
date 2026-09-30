@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAccount } from "@/components/account-provider";
 import { Reveal } from "@/components/reveal";
 import { errorMessage } from "@/lib/api";
-import { formatCents, formatMinutes } from "@/lib/format";
+import { formatCents } from "@/lib/format";
 import type { Experience, PublicConfig } from "@/lib/types";
-import { Badge, Button, ButtonLink, Card, Checkers, Notice, SectionTitle, Spinner } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, Checkers, Notice, Spinner } from "@/components/ui";
 
 /** Joining online is account first (D60): the membership needs a login for the QR, balance and billing. */
 export function MembershipView() {
@@ -97,93 +97,41 @@ export function MembershipView() {
           </div>
         ) : null}
 
+        {/* The membership poster (D84): its layout, its words, and the venue's own numbers. */}
         <Reveal>
-          <SectionTitle kicker="Pick your level">
-            Choose your <span className="text-gold">membership tier</span>
-          </SectionTitle>
-          <p className="mx-auto mt-4 max-w-xl text-center text-sm text-ink-600">
-            Ready, set, go. Every tier takes a percentage off every booking and gives you free play each month. Cancel any time.
-          </p>
+          <h2 className="display text-5xl leading-none sm:text-6xl">
+            Membership
+            <span className="block font-light">Promo price</span>
+          </h2>
+          <div aria-hidden className="mt-4 h-1 w-24 rounded-full bg-gold" />
         </Reveal>
 
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {tiers.map((tier, i) => {
-            const sessions = Math.floor(tier.monthlyFreeMinutes / config.sessionMinutes);
-            const mostPopular = i === 1;
-            return (
-              <Reveal key={tier.id} delayMs={i * 90}>
-                <article
-                  className={`flex h-full flex-col overflow-hidden rounded-2xl border bg-paper/80 ${
-                    mostPopular ? "border-gold/60 shadow-[0_0_40px_-20px_var(--color-gold)]" : "border-line"
-                  }`}
-                >
-                  <div aria-hidden className="checkers-thin" />
-                  <div className="flex flex-1 flex-col p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <h3 className="display text-2xl text-gold">{tier.name}</h3>
-                      {mostPopular ? <Badge tone="gold">Most popular</Badge> : null}
-                    </div>
-                    <p className="display tnum mt-3 text-4xl">
-                      {formatCents(tier.monthlyPriceCents)}
-                      <span className="text-base text-ink-500">/mo</span>
-                    </p>
-
-                    {/* What the system actually enforces (D67). */}
-                    <ul className="mt-5 space-y-2 text-sm text-ink-600">
-                      <li className="flex gap-2">
-                        <span aria-hidden className="text-flag">
-                          ✓
-                        </span>
-                        <span className="text-ink-950">{tier.discountBp / 100}% off every booking</span>
-                      </li>
-                      <li className="flex gap-2">
-                        <span aria-hidden className="text-flag">
-                          ✓
-                        </span>
-                        {sessions > 0 ? `${sessions} free ${sessions === 1 ? "race" : "races"} a month` : `${formatMinutes(tier.monthlyFreeMinutes)} free play a month`}
-                      </li>
-                      <li className="flex gap-2">
-                        <span aria-hidden className="text-flag">
-                          ✓
-                        </span>
-                        Unused free play rolls over, up to {formatMinutes(tier.maxBalanceMinutes)}
-                      </li>
-                      {/* Listed, honoured by staff at the counter rather than enforced (D67). */}
-                      {tier.perks.map((perk) => (
-                        <li key={perk} className="flex gap-2">
-                          <span aria-hidden className="text-gold">
-                            ★
-                          </span>
-                          {perk}
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-6 flex-1" />
-                    {member?.eligible ? (
-                      <ButtonLink href="/account" className="w-full">
-                        Manage membership
-                      </ButtonLink>
-                    ) : tier.sellable ? (
-                      <Button variant={mostPopular ? "gold" : "primary"} className="w-full" disabled={busy !== null || !ready} onClick={() => void join(tier.id)}>
-                        {busy === tier.id ? "Taking you to payment…" : `Join ${tier.name}`}
-                      </Button>
-                    ) : (
-                      <p className="rounded-xl border border-line px-4 py-3 text-center text-sm text-ink-500">Ask at the counter to join this tier</p>
-                    )}
-                  </div>
-                </article>
-              </Reveal>
-            );
-          })}
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          {tiers.map((tier, i) => (
+            <Reveal key={tier.id} delayMs={i * 90}>
+              <TierCard
+                tier={tier}
+                config={config}
+                mostPopular={i === 1}
+                action={
+                  member?.eligible ? (
+                    <ButtonLink href="/account" className="w-full">
+                      Manage membership
+                    </ButtonLink>
+                  ) : tier.sellable ? (
+                    <Button variant={i === 1 ? "gold" : "primary"} className="w-full" disabled={busy !== null || !ready} onClick={() => void join(tier.id)}>
+                      {busy === tier.id ? "Taking you to payment…" : `Join ${tier.name}`}
+                    </Button>
+                  ) : (
+                    <p className="rounded-xl border border-line px-4 py-3 text-center text-sm text-ink-500">Ask at the counter to join this tier</p>
+                  )
+                }
+              />
+            </Reveal>
+          ))}
         </div>
-
-        <p className="mt-6 text-center text-xs text-ink-500">
-          Perks marked ★ are honoured by our staff at the counter. Everything else is applied automatically.
-        </p>
       </section>
 
-      <MemberPrices config={config} tiers={tiers} />
 
       <section className="mx-auto w-full max-w-3xl px-4 pb-16">
         <Reveal>
@@ -211,65 +159,97 @@ export function MembershipView() {
   );
 }
 
-/**
- * What each tier actually pays for the experiences.
- *
- * Worked out from the tier's own percentage and the experience's own price, so it is the price the
- * customer will really be charged — not a rounded figure typed into the page (D67).
- */
-function MemberPrices({ config, tiers }: { config: PublicConfig; tiers: PublicConfig["tiers"] }) {
-  const experiences: Experience[] = config.experiences;
-  if (experiences.length === 0 || tiers.length === 0) return null;
-  const memberPrice = (cents: number, discountBp: number) => Math.round((cents * (10_000 - discountBp)) / 10_000);
+/** Each tier's colour on the poster: silver, gold, and an icy blue for Diamond. */
+const TIER_COLOURS = ["#c9ced6", "#d9a441", "#8fd3f4"];
+
+/** "$48", "$19.50": whole dollars without cents, as the poster writes them. */
+const dollars = (cents: number) => (cents % 100 === 0 ? `$${cents / 100}` : formatCents(cents));
+
+function TierCard({ tier, config, mostPopular, action }: { tier: PublicConfig["tiers"][number]; config: PublicConfig; mostPopular: boolean; action: ReactNode }) {
+  const index = config.tiers.indexOf(tier);
+  const colour = TIER_COLOURS[Math.min(index, TIER_COLOURS.length - 1)]!;
+  const races = Math.floor(tier.monthlyFreeMinutes / config.sessionMinutes);
+  // The race price block shows what this tier really pays: the experiences with a flat member price (D82).
+  const racePrices = config.experiences
+    .map((exp) => ({ exp, price: exp.memberPrices?.find((m) => m.tierId === tier.id)?.priceCents }))
+    .filter((r): r is { exp: Experience; price: number } => r.price !== undefined);
 
   return (
-    <section className="bg-night/60 py-14">
-      <div className="mx-auto w-full max-w-4xl px-4">
-        <Reveal>
-          <SectionTitle kicker="What you'd pay">
-            Member <span className="text-flag">prices</span>
-          </SectionTitle>
-        </Reveal>
-        <Reveal className="mt-8 overflow-x-auto">
-          <table className="w-full min-w-md border-collapse text-sm">
-            <caption className="sr-only">What each membership tier pays for each experience</caption>
-            <thead>
-              <tr className="border-b border-line">
-                <th scope="col" className="display px-3 py-3 text-left text-ink-600">
-                  Experience
-                </th>
-                <th scope="col" className="display px-3 py-3 text-right text-ink-600">
-                  Normal
-                </th>
-                {tiers.map((tier) => (
-                  <th key={tier.id} scope="col" className="display px-3 py-3 text-right text-gold">
-                    {tier.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {experiences.map((exp) => (
-                <tr key={exp.id} className="border-b border-line/60">
-                  <th scope="row" className="px-3 py-3 text-left font-medium text-ink-950">
-                    {exp.name}
-                    <span className="block text-xs font-normal text-ink-500">{formatMinutes(exp.minutes)}</span>
-                  </th>
-                  <td className="tnum px-3 py-3 text-right text-ink-600">{formatCents(exp.priceCents)}</td>
-                  {tiers.map((tier) => (
-                    <td key={tier.id} className="tnum px-3 py-3 text-right text-ink-950">
-                      {formatCents(memberPrice(exp.priceCents, tier.discountBp))}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Reveal>
-        <p className="mt-4 text-center text-xs text-ink-500">
-          Member prices apply on top of any promotion, so during happy hour you pay less again.
-        </p>
-      </div>
-    </section>
+    <article
+      className="relative flex h-full flex-col rounded-2xl border-2 bg-night/80 px-6 pb-6 pt-10"
+      style={{ borderColor: colour, boxShadow: mostPopular ? `0 0 48px -20px ${colour}` : undefined }}
+    >
+      {/* The RG badge sits on the top edge, as on the poster. */}
+      <svg aria-hidden viewBox="0 0 64 72" className="absolute -top-8 left-1/2 h-16 w-14 -translate-x-1/2">
+        <polygon points="32,2 62,19 62,53 32,70 2,53 2,19" fill="var(--color-night)" stroke={colour} strokeWidth="3" />
+        <text x="32" y="43" textAnchor="middle" fontFamily="var(--font-display)" fontWeight="700" fontSize="20" fill={colour}>
+          RG
+        </text>
+      </svg>
+      {mostPopular ? (
+        <span className="absolute right-4 top-3">
+          <Badge tone="gold">Most popular</Badge>
+        </span>
+      ) : null}
+
+      <h3 className="display mt-2 text-center text-3xl">
+        <span className="font-bold">{tier.name}</span> <span className="font-light">Tier</span>
+      </h3>
+      <p className="tnum mt-2 text-center">
+        <span className="display text-5xl font-bold">{dollars(tier.monthlyPriceCents)}</span>
+        <span className="ml-2 font-[family-name:var(--font-display)] text-2xl font-light text-ink-600">/ Month</span>
+      </p>
+
+      <div aria-hidden className="my-5 h-px" style={{ background: colour }} />
+
+      <ul className="space-y-3 text-sm text-ink-800">
+        {races > 0 ? (
+          <li className="flex gap-3">
+            <span aria-hidden>–</span>
+            <span>
+              <strong className="text-base font-extrabold text-ink-950">
+                {races} {races === 1 ? "race" : "races"} per month
+              </strong>
+              <span className="block text-ink-600">(Only {dollars(Math.round(tier.monthlyPriceCents / races))} per race)</span>
+            </span>
+          </li>
+        ) : null}
+        {tier.perks.map((perk) => (
+          <li key={perk} className="flex gap-3">
+            <span aria-hidden>–</span>
+            {perk}
+          </li>
+        ))}
+        {tier.discountBp > 0 ? (
+          <li className="flex gap-3">
+            <span aria-hidden>–</span>
+            {tier.discountBp / 100}% off next bookings
+          </li>
+        ) : null}
+      </ul>
+
+      <div className="flex-1" />
+
+      {racePrices.length > 0 ? (
+        <div className="mt-6 border-t pt-4" style={{ borderColor: colour }}>
+          <p className="display text-xs tracking-[0.2em] text-ink-600">Race price</p>
+          <ul className="mt-2 divide-y divide-line">
+            {racePrices.map(({ exp, price }) => (
+              <li key={exp.id} className="flex items-center justify-between gap-3 py-3">
+                <span className="flex gap-3 text-sm text-ink-800">
+                  <span aria-hidden>–</span>
+                  <span>
+                    {exp.name} <span className="text-xs text-ink-500">({exp.minutes % 60 === 0 ? `${exp.minutes / 60} hour` : `${exp.minutes} mins`})</span>
+                  </span>
+                </span>
+                <span className="display tnum text-3xl font-bold">{dollars(price)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mt-6">{action}</div>
+    </article>
   );
 }

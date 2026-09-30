@@ -11,7 +11,7 @@ select tables_are(
     'shifts', 'payments', 'refunds', 'cash_movements', 'price_overrides',
     'stripe_events', 'audit_log', 'email_log', 'rate_limits', 'venue_photos',
     'experiences', 'experience_promos', 'tournaments', 'tournament_entries', 'site_events',
-    'games', 'game_tracks', 'game_cars'
+    'games', 'game_tracks', 'game_cars', 'experience_member_prices', 'site_tiles'
   ],
   'public schema has exactly the spec tables'
 );

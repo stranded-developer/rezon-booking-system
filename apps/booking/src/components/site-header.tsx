@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/tournaments", label: "Tournaments" },
   { href: "/membership", label: "Membership" },
   { href: "/contact", label: "Contact" },
+  { href: "/clothing", label: "Clothing" },
 ];
 
 /**

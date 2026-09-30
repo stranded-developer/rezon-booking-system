@@ -39,6 +39,15 @@ interface Experience {
   active: boolean;
   sort: number;
   promos: Promo[];
+  /** Each tier's flat price (D82); a tier missing here pays its percentage off the list price. */
+  member_prices: { tier_id: string; price_cents: number }[];
+}
+
+interface Tier {
+  id: string;
+  name: string;
+  discount_bp: number;
+  active: boolean;
 }
 
 interface ResourceType {
@@ -51,6 +60,8 @@ export default function ExperiencesPage() {
   const experiences = useApiData<{ experiences: Experience[] }>("/admin/experiences");
   const types = useApiData<{ resourceTypes: ResourceType[] }>("/admin/resource-types");
   const settings = useApiData<{ settings: { session_minutes: number } }>("/admin/settings");
+  const tiers = useApiData<{ tiers: Tier[] }>("/admin/tiers");
+  const [memberPricesFor, setMemberPricesFor] = useState<Experience | null>(null);
   const [editing, setEditing] = useState<Experience | null>(null);
   const [adding, setAdding] = useState(false);
   const [addingPromoFor, setAddingPromoFor] = useState<Experience | null>(null);
@@ -100,6 +111,9 @@ export default function ExperiencesPage() {
                 <Button size="sm" variant="ghost" onClick={() => setAddingPromoFor(exp)}>
                   Add price
                 </Button>
+                <Button size="sm" variant="ghost" onClick={() => setMemberPricesFor(exp)}>
+                  Member prices
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(exp)}>
                   Edit
                 </Button>
@@ -121,6 +135,17 @@ export default function ExperiencesPage() {
               </span>
               {exp.tagline ? <span className="text-ink-400">{exp.tagline}</span> : null}
             </div>
+            {/* D82: what each tier pays — a flat price, or the tier's percentage when none is set. */}
+            <p className="mb-4 text-sm text-ink-400">
+              Members:{" "}
+              {(tiers.data?.tiers ?? [])
+                .filter((t) => t.active)
+                .map((t) => {
+                  const flat = exp.member_prices.find((m) => m.tier_id === t.id);
+                  return `${t.name} ${flat ? money(flat.price_cents) : `${t.discount_bp / 100}% off`}`;
+                })
+                .join(" · ")}
+            </p>
 
             <Table head={["Promotional price", "Days", "Time", "Price", "How it applies", "", ""]} empty={exp.promos.length === 0}>
               {exp.promos.map((p) => (
@@ -161,7 +186,8 @@ export default function ExperiencesPage() {
             </Table>
             <p className="mt-3 text-sm text-ink-400">
               When more than one price matches, the <strong>cheapest</strong> one wins. That is what keeps a price the customer has to ask for — a student
-              price — from undercutting happy hour.
+              price — from undercutting happy hour. A member price is one more of these: it never comes off a promotional price, the cheaper of the two is
+              charged.
             </p>
           </Card>
         ))}
@@ -171,6 +197,18 @@ export default function ExperiencesPage() {
           </Card>
         ) : null}
       </div>
+
+      {memberPricesFor && tiers.data ? (
+        <MemberPricesDialog
+          experience={memberPricesFor}
+          tiers={tiers.data.tiers.filter((t) => t.active)}
+          onClose={() => setMemberPricesFor(null)}
+          onSaved={() => {
+            setMemberPricesFor(null);
+            experiences.reload();
+          }}
+        />
+      ) : null}
 
       {adding && types.data ? (
         <ExperienceDialog
@@ -395,6 +433,64 @@ function PromoDialog({ experience, onClose, onSaved }: { experience: Experience;
           }
         >
           Add price
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/** A tier's flat price for an experience (D82). Empty means the tier's percentage off the list price. */
+function MemberPricesDialog({ experience, tiers, onClose, onSaved }: { experience: Experience; tiers: Tier[]; onClose: () => void; onSaved: () => void }) {
+  const { api } = usePos();
+  const action = useAction();
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      tiers.map((t) => {
+        const flat = experience.member_prices.find((m) => m.tier_id === t.id);
+        return [t.id, flat ? centsToInput(flat.price_cents) : ""];
+      }),
+    ),
+  );
+  const [reason, setReason] = useState("");
+  const parsed = tiers.map((t) => ({ tierId: t.id, text: (values[t.id] ?? "").trim() }));
+  const valid = parsed.every((p) => p.text === "" || parseDollars(p.text) !== null);
+
+  return (
+    <Modal title={`Member prices — ${experience.name}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink-400">
+          What each tier pays for {experience.name} (normally {money(experience.price_cents)}). Leave one empty to use that tier&apos;s percentage off. A member
+          always pays the cheaper of this and any promotional price — never one on top of the other.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {tiers.map((t) => (
+            <Field key={t.id} label={t.name} hint={`else ${t.discount_bp / 100}% off`}>
+              <Input inputMode="decimal" value={values[t.id] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [t.id]: e.target.value }))} placeholder="—" />
+            </Field>
+          ))}
+        </div>
+        <Field label="Reason (optional)">
+          <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <ErrorNote error={action.error} />
+        <Button
+          variant="primary"
+          className="w-full"
+          disabled={action.busy || !valid}
+          onClick={() =>
+            void action.run(async () => {
+              await api(`/admin/experiences/${experience.id}/member-prices`, {
+                method: "PUT",
+                body: {
+                  prices: parsed.map((p) => ({ tierId: p.tierId, priceCents: p.text === "" ? null : parseDollars(p.text) })),
+                  ...(reason.trim() ? { reason: reason.trim() } : {}),
+                },
+              });
+              onSaved();
+            })
+          }
+        >
+          Save member prices
         </Button>
       </div>
     </Modal>

@@ -14,6 +14,7 @@ interface Settings {
   booking_window_days: number;
   online_cutoff_minutes: number;
   no_show_hold_minutes: number;
+  arrive_early_minutes: number;
   walkin_last_open_minutes: number;
   cash_variance_threshold_cents: number;
   balance_forfeit_days: number;
@@ -242,6 +243,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
     bookingWindowDays: String(settings.booking_window_days),
     onlineCutoffMinutes: String(settings.online_cutoff_minutes),
     noShowHoldMinutes: String(settings.no_show_hold_minutes),
+    arriveEarlyMinutes: String(settings.arrive_early_minutes),
     walkinLastOpenMinutes: String(settings.walkin_last_open_minutes),
     variance: centsToInput(settings.cash_variance_threshold_cents),
     balanceForfeitDays: String(settings.balance_forfeit_days),
@@ -251,7 +253,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
     setF((x) => ({ ...x, [k]: e.target.value }));
   };
   const int = (v: string) => (/^\d+$/.test(v) ? Number(v) : null);
-  const numbers = [f.bookingWindowDays, f.onlineCutoffMinutes, f.noShowHoldMinutes, f.walkinLastOpenMinutes, f.balanceForfeitDays, f.sessionMinutes].map(int);
+  const numbers = [f.bookingWindowDays, f.onlineCutoffMinutes, f.noShowHoldMinutes, f.walkinLastOpenMinutes, f.balanceForfeitDays, f.sessionMinutes, f.arriveEarlyMinutes].map(int);
   const sessionValid = numbers[5] !== null && numbers[5] >= 15 && numbers[5] % 15 === 0;
   const variance = parseDollars(f.variance);
 
@@ -279,6 +281,9 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
           <Field label="No-show hold (min)">
             <Input inputMode="numeric" value={f.noShowHoldMinutes} onChange={set("noShowHoldMinutes")} />
           </Field>
+          <Field label="Arrive early (min before start)" hint="Shown to guests. Sessions still run on the booked time.">
+            <Input inputMode="numeric" value={f.arriveEarlyMinutes} onChange={set("arriveEarlyMinutes")} />
+          </Field>
           <Field label="Last walk-in (min before close)">
             <Input inputMode="numeric" value={f.walkinLastOpenMinutes} onChange={set("walkinLastOpenMinutes")} />
           </Field>
@@ -305,6 +310,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
                   bookingWindowDays: numbers[0],
                   onlineCutoffMinutes: numbers[1],
                   noShowHoldMinutes: numbers[2],
+                  arriveEarlyMinutes: numbers[6],
                   walkinLastOpenMinutes: numbers[3],
                   balanceForfeitDays: numbers[4],
                   cashVarianceThresholdCents: variance,

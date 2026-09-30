@@ -17,6 +17,7 @@ import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
 import { migrateTierSubscriptions } from "../services/billing.js";
 import { wallTime } from "../services/venue.js";
+import { addTile, clearTileImage, listTiles, removeTile, setTileImage, TILE_SECTIONS, updateTile } from "../services/site-tiles.js";
 import { addPhoto, listPhotos, MAX_PHOTO_BYTES, MAX_PHOTOS, removePhoto, reorderPhotos, updatePhotoCaption } from "../services/venue-photos.js";
 import { validate } from "../validate.js";
 
@@ -69,6 +70,7 @@ const SettingsBody = z
     bookingWindowDays: z.number().int().min(0).max(60).optional(),
     onlineCutoffMinutes: z.number().int().min(0).max(1440).optional(),
     noShowHoldMinutes: z.number().int().min(0).max(120).optional(),
+    arriveEarlyMinutes: z.number().int().min(0).max(120).optional(),
     walkinLastOpenMinutes: z.number().int().min(0).max(240).optional(),
     cashVarianceThresholdCents: Cents.optional(),
     balanceForfeitDays: z.number().int().min(0).max(365).optional(),
@@ -109,6 +111,7 @@ adminConfigRoutes.patch("/settings", validate("json", SettingsBody), async (c) =
     ...(b.bookingWindowDays !== undefined ? { booking_window_days: b.bookingWindowDays } : {}),
     ...(b.onlineCutoffMinutes !== undefined ? { online_cutoff_minutes: b.onlineCutoffMinutes } : {}),
     ...(b.noShowHoldMinutes !== undefined ? { no_show_hold_minutes: b.noShowHoldMinutes } : {}),
+    ...(b.arriveEarlyMinutes !== undefined ? { arrive_early_minutes: b.arriveEarlyMinutes } : {}),
     ...(b.walkinLastOpenMinutes !== undefined ? { walkin_last_open_minutes: b.walkinLastOpenMinutes } : {}),
     ...(b.cashVarianceThresholdCents !== undefined ? { cash_variance_threshold_cents: b.cashVarianceThresholdCents } : {}),
     ...(b.balanceForfeitDays !== undefined ? { balance_forfeit_days: b.balanceForfeitDays } : {}),
@@ -166,6 +169,52 @@ adminConfigRoutes.put("/venue-photos/order", validate("json", z.object({ ids: z.
 
 adminConfigRoutes.delete("/venue-photos/:id", validate("param", Id), async (c) => {
   return c.json(await removePhoto(c.get("deps").db, c.get("operator").id, c.req.valid("param").id));
+});
+
+// ── Home page tiles (D87) ────────────────────────────────────────────────────
+const TileTitle = z.string().trim().min(1).max(60);
+
+adminConfigRoutes.get("/site-tiles", async (c) => c.json({ tiles: await listTiles(c.get("deps").db, { activeOnly: false }) }));
+
+adminConfigRoutes.post("/site-tiles", validate("json", z.object({ section: z.enum(TILE_SECTIONS), title: TileTitle, reason: Reason })), async (c) => {
+  const b = c.req.valid("json");
+  return c.json({ tile: await addTile(c.get("deps").db, c.get("operator").id, b.section, b.title, b.reason) }, 201);
+});
+
+adminConfigRoutes.patch(
+  "/site-tiles/:id",
+  validate("param", Id),
+  validate("json", z.object({ title: TileTitle.optional(), sort: z.number().int().min(0).max(1000).optional(), active: z.boolean().optional(), reason: Reason })),
+  async (c) => {
+    const { reason, ...patch } = c.req.valid("json");
+    return c.json({ tile: await updateTile(c.get("deps").db, c.get("operator").id, c.req.valid("param").id, patch, reason) });
+  },
+);
+
+adminConfigRoutes.delete("/site-tiles/:id", validate("param", Id), async (c) => {
+  return c.json(await removeTile(c.get("deps").db, c.get("operator").id, c.req.valid("param").id));
+});
+
+adminConfigRoutes.post(
+  "/site-tiles/:id/image",
+  validate("param", Id),
+  bodyLimit({
+    maxSize: MAX_PHOTO_BYTES + 64 * 1024,
+    onError: () => {
+      throw new ApiError(413, "validation_failed", "Images can be at most 5 MB");
+    },
+  }),
+  async (c) => {
+    const form = await c.req.parseBody().catch(() => {
+      throw new ApiError(422, "validation_failed", "Send the image as a form upload");
+    });
+    if (!(form.file instanceof File)) throw new ApiError(422, "validation_failed", "Choose an image to upload");
+    return c.json({ tile: await setTileImage(c.get("deps").db, c.get("operator").id, c.req.valid("param").id, form.file) });
+  },
+);
+
+adminConfigRoutes.delete("/site-tiles/:id/image", validate("param", Id), async (c) => {
+  return c.json({ tile: await clearTileImage(c.get("deps").db, c.get("operator").id, c.req.valid("param").id) });
 });
 
 // ── Opening hours ────────────────────────────────────────────────────────────
@@ -644,15 +693,18 @@ const Bullets = z.array(z.string().trim().min(1).max(120)).max(8);
 
 adminConfigRoutes.get("/experiences", async (c) => {
   const { db } = c.get("deps");
-  const [experiences, promos] = await Promise.all([
+  const [experiences, promos, memberPrices] = await Promise.all([
     db.from("experiences").select("*").order("sort"),
     db.from("experience_promos").select("*").order("sort"),
+    db.from("experience_member_prices").select("tier_id, experience_id, price_cents"),
   ]);
   if (experiences.error) throw mapDbError(experiences.error);
   if (promos.error) throw mapDbError(promos.error);
+  if (memberPrices.error) throw mapDbError(memberPrices.error);
   return c.json({
     experiences: experiences.data.map((e) => ({
       ...e,
+      member_prices: memberPrices.data.filter((m) => m.experience_id === e.id).map((m) => ({ tier_id: m.tier_id, price_cents: m.price_cents })),
       promos: promos.data
         .filter((p) => p.experience_id === e.id)
         .map((p) => ({ ...p, start_time: wallTime(p.start_time), end_time: wallTime(p.end_time) })),
@@ -743,6 +795,34 @@ adminConfigRoutes.patch(
     const { data, error } = await auditHeaders(db.from("experiences").update(patch).eq("id", id), c.get("operator").id, reason).select("*").single();
     if (error) throw mapDbError(error);
     return c.json({ experience: data });
+  },
+);
+
+/**
+ * A tier's flat price for an experience (D82). `null` removes it, and that tier then pays its
+ * percentage off the list price. Never combined with a promotional price: the cheapest wins.
+ */
+adminConfigRoutes.put(
+  "/experiences/:id/member-prices",
+  validate("param", Id),
+  validate("json", z.object({ prices: z.array(z.object({ tierId: z.uuid(), priceCents: Cents.nullable() })).max(20), reason: Reason })),
+  async (c) => {
+    const { id } = c.req.valid("param");
+    const { prices, reason } = c.req.valid("json");
+    const { db } = c.get("deps");
+    const actor = c.get("operator").id;
+    for (const p of prices) {
+      const { error } =
+        p.priceCents === null
+          ? await auditHeaders(db.from("experience_member_prices").delete().eq("experience_id", id).eq("tier_id", p.tierId), actor, reason)
+          : await auditHeaders(
+              db.from("experience_member_prices").upsert({ experience_id: id, tier_id: p.tierId, price_cents: p.priceCents }, { onConflict: "experience_id,tier_id" }),
+              actor,
+              reason,
+            );
+      if (error) throw mapDbError(error);
+    }
+    return c.json({ ok: true });
   },
 );
 

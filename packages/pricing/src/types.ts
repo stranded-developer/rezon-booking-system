@@ -132,6 +132,12 @@ export interface PriceExperienceInput {
   /** Ids of `claimed` promotions the customer has asked for. */
   claimedPromoIds?: string[];
   member?: MemberDiscount;
+  /**
+   * The member's tier's own flat price for this experience (D82). A member pays the cheapest of
+   * this and any promotion that applies — never one on top of the other. Without one, the tier's
+   * percentage off the list price stands in for it.
+   */
+  memberPriceCents?: number;
   referral?: ReferralDiscount;
   /** Requested free-play minutes from the member balance; covers a pro-rata share of the price. */
   freeMinutes?: number;
@@ -143,7 +149,8 @@ export interface AppliedExperience {
   minutes: number;
   /** The experience's own price, before any promotion. */
   listPriceCents: number;
-  /** The price actually used: the promotion's if one applied, otherwise the list price. */
+  /** The price actually used: the promotion's or member price if one applied, otherwise the list price. */
   priceCents: number;
-  promo: { id: string; name: string; priceCents: number } | null;
+  /** What set the price, if not the list price. `member` is true for the member's flat price (D82). */
+  promo: { id: string; name: string; priceCents: number; member?: boolean } | null;
 }

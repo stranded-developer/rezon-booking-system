@@ -9,6 +9,7 @@ export interface MemberSummary {
   email: string | null;
   phone: string | null;
   status: string;
+  tierId: string;
   tierName: string;
   discountBp: number;
   balanceMinutes: number;
@@ -17,7 +18,7 @@ export interface MemberSummary {
 }
 
 const MEMBER_SELECT =
-  "id, member_no, status, current_period_end, stripe_subscription_id, customers!inner(name, email, phone), membership_tiers!members_tier_id_fkey(name, discount_bp)" as const;
+  "id, member_no, status, current_period_end, stripe_subscription_id, customers!inner(name, email, phone), membership_tiers!members_tier_id_fkey(id, name, discount_bp)" as const;
 
 type MemberRow = {
   id: string;
@@ -26,7 +27,7 @@ type MemberRow = {
   current_period_end: string | null;
   stripe_subscription_id: string | null;
   customers: { name: string; email: string | null; phone: string | null };
-  membership_tiers: { name: string; discount_bp: number };
+  membership_tiers: { id: string; name: string; discount_bp: number };
 };
 
 /**
@@ -55,6 +56,7 @@ async function withBalances(db: Db, rows: MemberRow[], now: Date = new Date()): 
     email: r.customers.email,
     phone: r.customers.phone,
     status: r.status,
+    tierId: r.membership_tiers.id,
     tierName: r.membership_tiers.name,
     discountBp: r.membership_tiers.discount_bp,
     balanceMinutes: balance.get(r.id) ?? 0,

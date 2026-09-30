@@ -334,6 +334,48 @@ export type Database = {
         }
         Relationships: []
       }
+      experience_member_prices: {
+        Row: {
+          created_at: string
+          experience_id: string
+          id: string
+          price_cents: number
+          tier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          experience_id: string
+          id?: string
+          price_cents: number
+          tier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          experience_id?: string
+          id?: string
+          price_cents?: number
+          tier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_member_prices_experience_id_fkey"
+            columns: ["experience_id"]
+            isOneToOne: false
+            referencedRelation: "experiences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experience_member_prices_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "membership_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       experience_promos: {
         Row: {
           active: boolean
@@ -1515,6 +1557,39 @@ export type Database = {
         }
         Relationships: []
       }
+      site_tiles: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          image_path: string | null
+          section: string
+          sort: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          section: string
+          sort?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          image_path?: string | null
+          section?: string
+          sort?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           active: boolean
@@ -1772,6 +1847,7 @@ export type Database = {
         Row: {
           abn: string | null
           address: string | null
+          arrive_early_minutes: number
           balance_forfeit_days: number
           booking_window_days: number
           business_name: string | null
@@ -1793,6 +1869,7 @@ export type Database = {
         Insert: {
           abn?: string | null
           address?: string | null
+          arrive_early_minutes?: number
           balance_forfeit_days?: number
           booking_window_days?: number
           business_name?: string | null
@@ -1814,6 +1891,7 @@ export type Database = {
         Update: {
           abn?: string | null
           address?: string | null
+          arrive_early_minutes?: number
           balance_forfeit_days?: number
           booking_window_days?: number
           business_name?: string | null

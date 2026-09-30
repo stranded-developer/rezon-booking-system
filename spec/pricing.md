@@ -193,6 +193,7 @@ priceExperience({
   promos: ExperiencePromo[],
   claimedPromoIds?: string[],      // the `claimed` promotions the customer asked for
   member?: { tierName, discountBp },
+  memberPriceCents?: number,       // the member's tier's own flat price for this experience (D82)
   referral?: { code, type, value },
   freeMinutes?: number,
 })
@@ -213,15 +214,23 @@ ExperiencePromo = { id, name, experienceId, daysOfWeek, startTime, endTime, pric
    and — if `claimed` — listed in `claimedPromoIds`.
    The one with the LOWEST priceCents wins. Ties keep the first in the list.
 
-3. priceCents    = winning promotion's price, else experience.priceCents
+3. Member price (D82), only with `member`:
+     memberPrice = memberPriceCents ?? round_half_up(experience.priceCents × (10000 − discountBp) / 10000)
+   It is ONE MORE CANDIDATE, not a discount: it wins if it is ≤ the price from step 2 (or the
+   list price when no promotion matched). A tie goes to the member price.
+
+   priceCents    = the winner's price, else experience.priceCents
 
 4. subtotal (exact) = priceCents × paidMinutes / minutes      // free play is pro rata
 
-5–7. Identical to §3 steps 5–7: member % or referral, round once each, GST = total / 11.
+5–7. Identical to §3 steps 5–7, except a member's percentage is NEVER applied here — the
+     membership is already in the price (D82). A referral still applies for a guest.
      Segments are at most two — the free part and the paid part — allocated by largest remainder.
 ```
 
 **Why the cheapest promotion wins.** It makes "the student price is not included in Happy Hour" true without a rule for it: during Happy Hour the automatic $29 beats the claimed student $32, so the customer gets $29. It is also always the answer in the customer's favour, which is the only safe default for a price shown before payment.
+
+**Why a member price never stacks (D82).** The owner's poster sets each tier's price outright — Silver $32 / $52, Gold and Diamond $28 / $46 — as the member's cheapest rate. Taking a percentage off Happy Hour on top would undercut it ($29 − 20% = $23.20). So the member price competes with the promotions and the cheapest single price wins: Gold pays $28 in Happy Hour, Silver pays Happy Hour's $29 rather than their $32. Time booked by the hour (billiards) still takes the tier's percentage (§3).
 
 **Why the start instant decides.** An experience is one indivisible block sold at one price. A Double Race starting at 14:30 is a Happy Hour Double Race even though it runs past 15:00. Per-minute classification (§3) stays the rule for everything priced by the hour.
 
@@ -250,9 +259,12 @@ The same `PriceResult` as `priceSession`, with:
 | X8 | Student claimed at 13:00 | $29.00 — the cheapest wins |
 | X8b | The same, with the promotions reversed | $29.00 — the order they arrive in makes no difference |
 | X9 | A promotion for another experience | ignored |
-| X10 | Quick Race, Gold 20% | $28.00 |
-| X11 | Quick Race Silver 10%; Double Race Gold 20% | $31.50 and $46.40 (not the rounded marketing figures) |
-| X12 | Quick Race 13:00, Gold | $29.00 − 20% = $23.20 |
+| X10 | Single Session, Gold, member price $28 | $28.00, no discount line (D82) |
+| X11 | Silver $32; Double Session Gold $46 | $32.00 and $46.00 — the poster's prices, not $31.50 / $46.40 |
+| X11b | Silver, no flat price set | $31.50 — the tier's percentage stands in, still no discount line |
+| X12 | 13:00: Gold $28 vs Happy Hour $29; Silver $32 vs $29 | $28.00 and $29.00 — the cheapest wins, never stacked |
+| X12b | Silver $32 vs Student $32 claimed; Gold with no flat price at 13:00 | $32.00 shown as the member price; $28.00, not $23.20 |
+| X12c | A member price that isn't whole cents | throws |
 | X13 | Double Race, 30 free minutes | $29.00 — free play is pro rata |
 | X14 | Quick Race, 30 free minutes | $0.00, GST $0.00 |
 | X15 | Free minutes beyond the length | clamped to the length |

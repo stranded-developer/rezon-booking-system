@@ -49,10 +49,12 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/sim racing/i);
 
   // Experiences are sold at a flat price for a fixed length (D65), straight from the database.
-  const quick = page.getByRole("article").filter({ hasText: "Quick Race" });
-  await expect(quick.getByRole("heading", { name: "Quick Race" })).toBeVisible();
+  // Single Session and Double Session, with what each covers (D83).
+  const quick = page.getByRole("article").filter({ hasText: "Single Session" });
+  await expect(quick.getByRole("heading", { name: "Single Session" })).toBeVisible();
+  await expect(quick).toContainText("Quick Race, Time trial, Drift, and more.");
   await expect(quick).toContainText("30 min");
-  const double = page.getByRole("article").filter({ hasText: "Double Race" });
+  const double = page.getByRole("article").filter({ hasText: "Double Session" });
   await expect(double).toContainText("60 min");
   await expect(double).toContainText("Most popular");
 
@@ -70,8 +72,56 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Silver" })).toBeVisible();
   await shot(page, "web-01-home");
 
-  await page.getByRole("link", { name: "Book now" }).first().click();
+  // D87: the tile sections, from the back office, in their order under the hero.
+  const tiles = page.getByRole("region", { name: "What Raceground is" });
+  await expect(tiles.getByText("Race.", { exact: true })).toBeVisible();
+  await expect(tiles.getByRole("link", { name: /Simulators/ })).toHaveAttribute("href", "/book");
+  const events = page.getByRole("region", { name: "Book your event" });
+  // Every "Book your event" tile goes to Book now.
+  for (const link of await events.getByRole("link").all()) await expect(link).toHaveAttribute("href", "/book");
+  await expect(events.getByRole("link", { name: "VR Race" })).toBeVisible();
+  // "Types of driving" is shown only: no links.
+  const driving = page.getByRole("region", { name: "Types of driving" });
+  await expect(driving.getByText("GT3", { exact: true })).toBeVisible();
+  await expect(driving.getByRole("link")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Drivers, start your engines/i })).toHaveCount(0);
+
+  // D81: the bottom bar is there however far down the page is scrolled, and Explore lands on the
+  // types of driving.
+  const bar = page.getByRole("navigation", { name: "Quick links" });
+  await page.mouse.wheel(0, 4000);
+  await expect(bar.getByRole("link", { name: "Book now" })).toBeInViewport();
+  await expect(bar.getByRole("link", { name: "Events" })).toHaveAttribute("href", "/tournaments");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await bar.getByRole("link", { name: "Explore" }).click();
+  await expect(driving).toBeInViewport();
+  await shot(page, "web-01b-home-tiles");
+
+  await bar.getByRole("link", { name: "Book now" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /Choose your experience/i })).toBeVisible();
+});
+
+test("clothing is coming soon, and the membership page is the poster", async ({ page }) => {
+  await page.goto("/");
+  // D86: Clothing sits next to Contact in the top bar.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Clothing" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Clothing" })).toBeVisible();
+  await expect(page.getByText("Coming soon").first()).toBeVisible();
+
+  // D84: the membership poster, with the tiers' own numbers.
+  await page.goto("/membership");
+  await expect(page.getByRole("heading", { name: /Membership\s*Promo price/i })).toBeVisible();
+  const gold = page.getByRole("article").filter({ hasText: "Gold" });
+  await expect(gold).toContainText("Most popular");
+  await expect(gold.getByText("4 races per month")).toBeVisible();
+  await expect(gold).toContainText("(Only $19.50 per race)");
+  await expect(gold).toContainText("20% off next bookings");
+  // The race prices are the poster's flat member prices (D82), not a percentage of the list price.
+  await expect(gold).toContainText("Single Session");
+  await expect(gold).toContainText("$28");
+  await expect(page.getByRole("article").filter({ hasText: "Silver" })).toContainText("$32");
+  await expect(page.getByText("What you'd pay")).toHaveCount(0);
+  await shot(page, "web-15-membership-poster");
 });
 
 test("a guest books and cancels: the panel, spots left, a referral code, QR, refund", async ({ page }) => {
@@ -154,9 +204,9 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
 
 test("an experience is booked for its own fixed length, at its flat price", async ({ page }) => {
   await page.goto("/book");
-  // Quick Race is a named package: a fixed 30 minutes at a flat price (D65), so the panel
+  // Single Session is a named package: a fixed 30 minutes at a flat price (D65), so the panel
   // never asks how long — the length is not the customer's to choose.
-  await page.getByRole("button", { name: "Book Quick Race" }).click();
+  await page.getByRole("button", { name: "Book Single Session" }).click();
   const panel = page.getByRole("dialog");
   await pickDay(panel, bookingDayLabel());
   await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();
@@ -212,6 +262,9 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await panel.getByRole("button", { name: "Continue", exact: true }).click();
   const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
   const listPrice = await total.textContent();
+  // D85: the rules are there before paying.
+  await expect(panel.getByText("Before you arrive")).toBeVisible();
+  await expect(panel.getByText(/Arriving late does not extend it/)).toBeVisible();
   await expect(panel.getByText("Your setup").locator("xpath=following-sibling::span")).toHaveText(
     `${game!.name} · ${game!.game_tracks[1]!.name} · ${game!.game_cars[0]!.name}`,
   );

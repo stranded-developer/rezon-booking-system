@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { api, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes } from "@/lib/format";
 import type { Booking } from "@/lib/types";
+import { SessionRules } from "@/components/session-rules";
 import { ButtonLink, Card, Notice, Row, Spinner } from "@/components/ui";
 
 /** How long to wait for Stripe's webhook to confirm a booking after the customer paid. */
@@ -139,6 +140,8 @@ export function BookingView({
           </div>
         ) : null}
       </Card>
+
+      {confirmed ? <SessionRules arriveEarlyMinutes={booking.rules.arriveEarlyMinutes} noShowHoldMinutes={booking.rules.noShowHoldMinutes} /> : null}
 
       {confirmed ? (
         <Card title="Need to change it?">

@@ -80,10 +80,10 @@ select is(
   'quick_race', 'the booking records which experience was sold');
 
 select throws_like($$ select booking_hold(pg_temp.book_exp('quick_race', 60, 0, '2030-01-16T11:00:00+11:00')) $$,
-  'RG:invalid_time:Quick Race runs for 30 minutes',
+  'RG:invalid_time:Single Session runs for 30 minutes',
   'an experience cannot be booked for a different length');
 select throws_like($$ select booking_hold(pg_temp.book_exp('double_race', 30, 0, '2030-01-16T11:00:00+11:00')) $$,
-  'RG:invalid_time:Double Race runs for 60 minutes',
+  'RG:invalid_time:Double Session runs for 60 minutes',
   'a Double Race cannot be cut in half');
 select lives_ok($$ select booking_hold(pg_temp.book_exp('double_race', 60, 0, '2030-01-16T11:00:00+11:00')) $$,
   'a Double Race can be booked for its hour');
@@ -101,7 +101,7 @@ update public.experiences set active = true where key = 'leaderboard_challenge';
 
 -- Free play on an experience is whole sessions, not 15-minute steps.
 select throws_like($$ select booking_hold(pg_temp.book_exp('double_race', 60, 45, '2030-01-16T15:00:00+11:00')) $$,
-  'RG:invalid:Free play on Double Race is used 30 minutes at a time',
+  'RG:invalid:Free play on Double Session is used 30 minutes at a time',
   'free play on an experience comes a whole session at a time');
 select lives_ok($$ select booking_hold(pg_temp.book_exp('double_race', 60, 30, '2030-01-16T15:00:00+11:00')) $$,
   'half a Double Race can be covered by free play');
@@ -123,8 +123,8 @@ select lives_ok(
 -- ── Membership values (D67) ─────────────────────────────────────────────────
 select is((select monthly_price_cents from public.membership_tiers where name = 'Silver'), 4800, 'Silver is $48.00 a month');
 select is((select discount_bp from public.membership_tiers where name = 'Gold'), 2000, 'Gold takes 20% off');
-select is((select monthly_free_tournaments from public.membership_tiers where name = 'Diamond'), 0,
-  'free tournament entry is built but switched off');
+select is((select monthly_free_tournaments from public.membership_tiers where name = 'Diamond'), 1,
+  'Diamond gets one free tournament entry a month, as the membership poster says (D84)');
 select ok((select cardinality(perks) > 0 from public.membership_tiers where name = 'Diamond'),
   'a tier lists the perks staff honour by hand');
 

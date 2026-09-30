@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/account-provider";
 import { MonthCalendar } from "@/components/book/month-calendar";
 import { SearchSelect } from "@/components/search-select";
+import { SessionRules } from "@/components/session-rules";
 import { Badge, Button, ButtonLink, Field, Input, Notice, Row, Select, Spinner } from "@/components/ui";
 import { ApiRequestError, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes, formatRate, formatVenueDate, formatWallTime } from "@/lib/format";
@@ -755,9 +756,12 @@ function DetailsStep({
       {member ? (
         <div className="rounded-xl border border-gold/30 bg-gold/10 p-4">
           <p className="display text-gold">
-            {member.tier.name} member · {member.tier.discountBp / 100}% off
+            {/* D82: an experience has a flat member price; the percentage is for time booked by the hour. */}
+            {isExperience ? `${member.tier.name} member price` : `${member.tier.name} member · ${member.tier.discountBp / 100}% off`}
           </p>
-          <p className="mt-1 text-sm text-ink-600">Booking as {accountName}. Your discount is already in the price.</p>
+          <p className="mt-1 text-sm text-ink-600">
+            Booking as {accountName}. {isExperience ? "Your member price is already in the price." : "Your discount is already in the price."}
+          </p>
         </div>
       ) : session ? (
         <Notice>
@@ -973,13 +977,14 @@ function PayStep({
             <Notice tone="warn">The price changed to {formatCents(changedTotal)} while you were booking. Check it and press Pay again.</Notice>
           ) : null}
 
+          <SessionRules arriveEarlyMinutes={config.arriveEarlyMinutes} noShowHoldMinutes={config.noShowHoldMinutes} />
+
           <div className="rounded-xl border border-line p-4 text-sm text-ink-600">
             <p className="display text-ink-950">Cancellations</p>
             <p className="mt-1">
               Full refund if you cancel at least {config.refundPolicy.fullRefundHoursBefore} hours before the start, 50% between{" "}
               {config.refundPolicy.halfRefundHoursBefore} and {config.refundPolicy.fullRefundHoursBefore} hours before. Inside{" "}
-              {config.refundPolicy.halfRefundHoursBefore} hours you can&apos;t cancel online. We hold your spot {config.noShowHoldMinutes} minutes after the start
-              time.
+              {config.refundPolicy.halfRefundHoursBefore} hours you can&apos;t cancel online.
             </p>
           </div>
 

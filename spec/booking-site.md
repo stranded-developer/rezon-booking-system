@@ -114,6 +114,14 @@ Customers cancel through the signed link in their email.
 - **The booking page and cancel page need the link token**; without it, or with a wrong one, they say "Booking not found".
 - **Legal pages** are drafted below and finished in Phase 7.
 
+**Round of 2026-10-01 (D81–D87)**
+- **Bottom bar** on every page, fixed to the bottom of the screen: *Book now* → `/book`, *Events* → `/tournaments`, *Explore* → `/#explore` (Types of driving). Under the booking panel and pop-up; the page is padded so the footer is never hidden.
+- **Clothing** in the top bar after Contact → `/clothing`: a coming-soon banner and empty catalogue tiles until the collection is ready (D86).
+- **Home page**: under the hero, the 2×2 tile grid and an "8 Simulators · Explore" bar; then **Book your event** (every tile → `/book`) in place of the four how-it-works steps; then **Types of driving** (not links). All from `site_tiles` (D87).
+- **Membership page**: the owner's poster — "Membership / Promo price", each tier's card with the RG badge, "$48 / Month", the free races per month in heavy bold with the price per race, the poster's lines, "% off next bookings", and a **Race price** block with the tier's flat member prices. Gold keeps "Most popular". The old "What you'd pay" table is gone (D84).
+- **Before you arrive** (D85): arrive `arriveEarlyMinutes` early; the session starts and ends at the booked time and arriving late does not extend it; the spot is held `noShowHoldMinutes`. On Pay, the booking page, the terms and both emails.
+- Experiences show their member price as "Gold member price" on the booking (D82).
+
 **The Details step of the booking panel (D79, D80)**
 - **"Are you a member?"** is asked first, before anything is filled in, to anyone not logged in. *Yes, log in* goes to `/login?next=/book?experience=<key>&date=<date>&time=<HH:MM>` (or `type=<key>` for something booked by the hour); after logging in the panel reopens **on Details at the same day and time**, now at member prices. If that time went in the meantime, it goes back to the times and says so. *No, continue as a guest* hides the question for the rest of the booking. The login page only follows a `next` that is a path on this site.
 - **Which simulator:** the VR rigs are listed with the others, and the hint says they are the same price (D77).

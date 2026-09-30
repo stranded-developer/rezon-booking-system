@@ -1,8 +1,8 @@
-import Image from "next/image";
 import { connection } from "next/server";
 import { api } from "@/lib/api";
 import { dayName, formatCents, formatRate, formatWallTime } from "@/lib/format";
 import type { Experience, PublicConfig } from "@/lib/types";
+import { DrivingTiles, EventTiles, HighlightTiles } from "@/components/home-tiles";
 import { Reveal } from "@/components/reveal";
 import { Badge, ButtonLink, Checkers, Notice, SectionTitle } from "@/components/ui";
 
@@ -28,15 +28,19 @@ export default async function HomePage() {
     );
   }
 
-  const { venue, photos, resourceTypes, openingHours, experiences, tiers } = config;
+  const { venue, resourceTypes, openingHours, experiences, tiers } = config;
+  const tiles = config.tiles ?? [];
+  const simulators = resourceTypes.find((t) => t.key === "sim")?.resources.length ?? 0;
   const happyHourPromo = experiences.flatMap((e) => e.promos).find((p) => !p.claimed);
 
   return (
     <>
       <Hero intro={venue.intro} />
-      <Triptych photos={photos} />
+      {/* D87: the owner's tile layout, in place of the triptych and the four steps. */}
+      <HighlightTiles tiles={tiles.filter((t) => t.section === "highlights")} simulators={simulators} />
       <Checkers />
-      <HowItWorks />
+      <EventTiles tiles={tiles.filter((t) => t.section === "events")} />
+      <DrivingTiles tiles={tiles.filter((t) => t.section === "driving")} />
       <WhatYouCanBook config={config} experiences={experiences} resourceTypes={resourceTypes} />
       {happyHourPromo ? (
         <Reveal className="mx-auto w-full max-w-6xl px-4">
@@ -71,77 +75,6 @@ function Hero({ intro }: { intro: string | null }) {
             See membership
           </ButtonLink>
         </div>
-      </div>
-    </section>
-  );
-}
-
-/**
- * The reference's "eat / drink / race" triptych. The owner asked to ignore assets for now, so with
- * no photos uploaded these are drawn panels rather than empty frames — the section still reads.
- */
-function Triptych({ photos }: { photos: PublicConfig["photos"] }) {
-  const panels = [
-    { word: "Race", tint: "from-flag/40" },
-    { word: "Play", tint: "from-sky-500/35" },
-    { word: "Hang out", tint: "from-gold/30" },
-  ];
-  return (
-    <section aria-label="What Raceground is" className="mx-auto w-full max-w-6xl px-4 pb-16">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {panels.map((panel, i) => {
-          const photo = photos[i];
-          return (
-            <Reveal key={panel.word} delayMs={i * 90}>
-              <figure className="group relative h-56 overflow-hidden rounded-2xl border border-line bg-deep sm:h-72">
-                {photo ? (
-                  <Image
-                    src={photo.url}
-                    alt={photo.caption ?? "Raceground"}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 33vw"
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                ) : (
-                  <div aria-hidden className={`absolute inset-0 bg-gradient-to-br ${panel.tint} via-deep to-night`} />
-                )}
-                <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-night via-night/20 to-transparent" />
-                <figcaption className="display absolute inset-x-0 bottom-0 p-5 text-3xl">{panel.word}.</figcaption>
-              </figure>
-            </Reveal>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  const steps = [
-    { n: 1, title: "Book online", body: "Pick what you want, a day and a time. Walk-ins are welcome, but booking is the only way to be sure of a spot." },
-    { n: 2, title: "Turn up", body: "Show your booking code at the counter. We hold your spot for 15 minutes after the start time." },
-    { n: 3, title: "Play", body: "Race a simulator — standard or VR — or rack up a frame on a billiard table. Staff will get you started." },
-    { n: 4, title: "Come back for less", body: "Members get a discount on every booking and free play minutes every month." },
-  ];
-  const edges = ["border-t-flag", "border-t-gold", "border-t-sky-400", "border-t-emerald-400"];
-
-  return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <Reveal>
-        <SectionTitle kicker="New here?">
-          Drivers, <span className="text-flag">start your engines</span>
-        </SectionTitle>
-      </Reveal>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((step, i) => (
-          <Reveal key={step.n} delayMs={i * 90}>
-            <div className={`h-full rounded-2xl border border-line border-t-2 bg-paper/70 p-5 ${edges[i]}`}>
-              <span className="display grid size-9 place-items-center rounded-full border border-line text-base">{step.n}</span>
-              <h3 className="display mt-4 text-xl">{step.title}</h3>
-              <p className="mt-2 text-sm text-ink-600">{step.body}</p>
-            </div>
-          </Reveal>
-        ))}
       </div>
     </section>
   );

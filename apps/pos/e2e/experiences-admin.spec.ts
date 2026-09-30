@@ -78,6 +78,14 @@ test("a superadmin creates an experience, a promotional price, a tournament and 
   await expect(card).toContainText("60 min");
   await shot(page, "pos-20-experiences");
 
+  // ── A member price: a tier's own flat price, never on top of a promotion (D82) ──
+  await expect(card).toContainText("Gold 20% off");
+  await card.getByRole("button", { name: "Member prices" }).click();
+  const mpDialog = page.getByRole("dialog");
+  await mpDialog.getByRole("textbox", { name: "Gold" }).fill("25.00");
+  await mpDialog.getByRole("button", { name: "Save member prices" }).click();
+  await expect(card).toContainText("Gold $25.00");
+
   // ── A promotional price. Overlaps are allowed: the cheapest wins (D66) ────
   await card.getByRole("button", { name: "Add price" }).click();
   const promoDialog = page.getByRole("dialog");
@@ -157,4 +165,28 @@ test("a superadmin creates an experience, a promotional price, a tournament and 
   await expect(eventRow).toHaveCount(0);
   await page.getByRole("button", { name: "Show hidden" }).click();
   await expect(page.locator("tr").filter({ hasText: eventTitle })).toContainText("Off");
+});
+
+test("a superadmin adds a home page tile, gives it an image, and removes it (D87)", async ({ page }) => {
+  const title = `E2E Tile ${run}`;
+  await signInAsOwner(page);
+  await openAdmin(page, "Home page tiles");
+  await expect(page.getByRole("heading", { name: "Home page tiles" })).toBeVisible();
+
+  const driving = page.locator("section").filter({ hasText: "Types of driving" }).first();
+  await driving.getByRole("textbox", { name: "New Types of driving tile" }).fill(title);
+  await driving.getByRole("button", { name: "Add tile" }).click();
+  const row = driving.locator("li").filter({ has: page.locator(`input[value="${title}"]`) });
+  await expect(row).toContainText("No image");
+
+  // A real PNG, checked by its contents on the server.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+  await row.locator('input[type="file"]').setInputFiles({ name: "tile.png", mimeType: "image/png", buffer: png });
+  await expect(row.getByText("Change image")).toBeVisible();
+  await expect(row).not.toContainText("No image");
+  await shot(page, "pos-23-home-tiles");
+
+  page.once("dialog", (d) => void d.accept());
+  await row.getByRole("button", { name: "Delete" }).click();
+  await expect(driving.locator(`input[value="${title}"]`)).toHaveCount(0);
 });

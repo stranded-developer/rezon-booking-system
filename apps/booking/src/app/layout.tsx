@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Chakra_Petch, Manrope } from "next/font/google";
 import { connection } from "next/server";
 import { AccountProvider } from "@/components/account-provider";
+import { BottomBar } from "@/components/bottom-bar";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { EventBanner, EventPopup } from "@/components/site-events";
@@ -11,7 +12,7 @@ import "./globals.css";
 
 const body = Manrope({ subsets: ["latin"], variable: "--font-body" });
 /** Headings are squared, upright capitals — Raceground's own, not the reference's condensed italic (D76). */
-const heading = Chakra_Petch({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-heading" });
+const heading = Chakra_Petch({ subsets: ["latin"], weight: ["300", "400", "600", "700"], variable: "--font-heading" });
 
 export const metadata: Metadata = {
   title: "Raceground — Sydney's sim racing, billiards and VR lounge",
@@ -36,12 +37,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html lang="en-AU" className={`${body.variable} ${heading.variable}`}>
-      <body className="flex min-h-dvh flex-col font-sans">
+      {/* Padded by the bottom bar's height, so the footer is never hidden behind it (D81). */}
+      <body className="flex min-h-dvh flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] font-sans">
         <AccountProvider>
           <EventBanner events={events} />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter venue={config?.venue ?? null} />
+          <BottomBar />
           <EventPopup events={events} />
         </AccountProvider>
       </body>

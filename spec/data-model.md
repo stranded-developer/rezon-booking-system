@@ -98,6 +98,28 @@ experience_promos                    -- flat promotional prices; the cheapest ma
   sort, active
 ```
 
+### Member prices (D82)
+
+```
+experience_member_prices             -- a tier's flat price for an experience
+  experience_id → experiences (on delete cascade)
+  tier_id       → membership_tiers (on delete cascade)
+  price_cents   int check ≥ 0
+  unique (experience_id, tier_id)
+```
+Never combined with a promotional price: the member pays the cheapest single price (pricing.md §9.2). An experience with no row for a tier falls back to the tier's percentage off the list price. Public read (the membership page shows them), audited. The launch values live in `private.seed_launch_member_prices()`.
+
+### Home page tiles (D87)
+
+```
+site_tiles
+  section     text check in ('highlights', 'events', 'driving')
+  title       text
+  image_path  text null               -- in the `venue-photos` bucket, under tiles/
+  sort, active
+```
+Anyone reads what is on; only the API writes; audited. A tile without an image shows a placeholder.
+
 ### Games, tracks and cars (D80)
 
 What a customer can ask to drive when booking a simulator. **A preference for staff, never a price.** Edited in the back office; audited like every other configuration table.
@@ -148,7 +170,7 @@ membership_tiers
   monthly_free_minutes int check ≥ 0
   max_balance_minutes  int check ≥ 0
   perks                text[]            -- listed on the site, not enforced (D67)
-  monthly_free_tournaments int check ≥ 0 -- 0 at launch; the flow is built, the perk is off (D68)
+  monthly_free_tournaments int check ≥ 0 -- Diamond 1, the others 0 (D68, D84)
   stripe_product_id    text
   stripe_price_id      text               -- current price; old prices kept in tier_prices
   sort, active

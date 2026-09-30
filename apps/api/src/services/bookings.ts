@@ -20,6 +20,7 @@ import { buildIcs } from "../lib/ics.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
 import { loadExperience, loadPricingContext, loadPromos, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
+import { listTiles } from "./site-tiles.js";
 import { listPhotos } from "./venue-photos.js";
 
 const MINUTE_MS = 60_000;
@@ -75,6 +76,11 @@ export async function publicConfig(deps: AppDeps) {
       .order("sort"),
     loadGames(db),
   ]);
+  const [memberPrices, tiles] = await Promise.all([
+    db.from("experience_member_prices").select("experience_id, tier_id, price_cents"),
+    listTiles(db, { activeOnly: true }),
+  ]);
+  if (memberPrices.error) throw mapDbError(memberPrices.error);
   for (const r of [types, resources, hours, hhs, tiers, bands, experiences, events]) if (r.error) throw mapDbError(r.error);
   const promos = await loadPromos(db, experiences.data!.map((e) => e.id));
   return {
@@ -94,6 +100,7 @@ export async function publicConfig(deps: AppDeps) {
     onlineCutoffMinutes: settings.online_cutoff_minutes,
     holdMinutes: settings.hold_ttl_minutes,
     noShowHoldMinutes: settings.no_show_hold_minutes,
+    arriveEarlyMinutes: settings.arrive_early_minutes,
     refundPolicy: { fullRefundHoursBefore: 24, halfRefundHoursBefore: 2 },
     resourceTypes: types.data!.map((t) => {
       // The cheapest hourly rate anyone could pay, the same idea as an experience's "from" price:
@@ -149,6 +156,8 @@ export async function publicConfig(deps: AppDeps) {
         priceCents: e.price_cents,
         // What the card shows as "from": the cheapest price anyone could pay today.
         fromPriceCents: Math.min(e.price_cents, ...mine.filter((p) => !p.claimed).map((p) => p.priceCents)),
+        // Each tier's flat price (D82); a tier missing here pays its percentage off the list price.
+        memberPrices: memberPrices.data!.filter((m) => m.experience_id === e.id).map((m) => ({ tierId: m.tier_id, priceCents: m.price_cents })),
         promos: mine.map((p) => ({
           id: p.id,
           name: p.name,
@@ -171,6 +180,8 @@ export async function publicConfig(deps: AppDeps) {
       asBanner: e.as_banner,
     })),
     games,
+    // The home page's image tiles (D87), by section and in order.
+    tiles: tiles.map((t) => ({ id: t.id, section: t.section, title: t.title, imageUrl: t.imageUrl })),
   };
 }
 
@@ -431,6 +442,19 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     throw new ApiError(422, "insufficient_balance", "Not enough free-play minutes", { balanceMinutes: member.balanceMinutes });
   }
 
+  // D82: the member's tier's own flat price for this experience, if the venue has set one.
+  let memberPriceCents: number | undefined;
+  if (exp && member) {
+    const { data, error } = await deps.db
+      .from("experience_member_prices")
+      .select("price_cents")
+      .eq("experience_id", exp.experience.id)
+      .eq("tier_id", member.tierId)
+      .maybeSingle();
+    if (error) throw mapDbError(error);
+    memberPriceCents = data?.price_cents;
+  }
+
   let pricing: PriceResult;
   try {
     if (exp) {
@@ -441,6 +465,7 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
         promos: exp.promos,
         claimedPromoIds: req.claimedPromoIds ?? [],
         ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
+        ...(memberPriceCents !== undefined ? { memberPriceCents } : {}),
         ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
       });
     } else {
@@ -815,6 +840,8 @@ export async function describeBooking(deps: AppDeps, b: BookingRow) {
     cancelledAt: b.cancelled_at,
     refundCents: b.refund_cents,
     checkInCode: `rg:b:${b.ref}`,
+    // The session rules the customer is shown with the booking (D85).
+    rules: { arriveEarlyMinutes: settings.arrive_early_minutes, noShowHoldMinutes: settings.no_show_hold_minutes },
     cancellation: quote && {
       allowed: quote.allowed,
       rule: quote.rule ?? null,
@@ -965,7 +992,7 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
   const free = b.free_minutes_used > 0 ? `\nFree play used: ${b.free_minutes_used} min` : "";
   const setup = b.sim_setup ? `\nYour setup: ${simSetupText(b.sim_setup)}` : "";
   const link = token ? `\n\nView or cancel your booking: ${bookingLink(deps, b.ref, token)}` : "";
-  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nShow your booking code at the counter when you arrive. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before, 50% from 24 to 2 hours before, no online cancellation within 2 hours.${link}\n\nRaceground`;
+  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session starts and ends at the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before, 50% from 24 to 2 hours before, no online cancellation within 2 hours.${link}\n\nRaceground`;
   const ics = buildIcs({
     uid: `${b.id}@raceground`,
     start,
@@ -1086,7 +1113,7 @@ export async function sendDayBeforeReminders(deps: AppDeps) {
       template: "booking_reminder",
       to: b.customers.email,
       subject: `See you tomorrow at Raceground: ${s.time}`,
-      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nShow your booking code at the counter. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start, 50% up to 2 hours before.\n\nRaceground`,
+      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start, 50% up to 2 hours before.\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:reminder`,
     });
