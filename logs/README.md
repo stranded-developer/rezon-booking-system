@@ -46,7 +46,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8l, run `supabase db push` first** (the tier perks if still pending, VR as simulators, games) — the new API needs the games tables. See [build/35](build/35-game-track-car.md). |
 
-**Test totals at the last step:** pricing 101 · API 242 · pgTAP 482 · e2e 19 (7 POS + 12 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
+**Test totals at the last step:** pricing 101 · API 244 · pgTAP 482 · e2e 19 (7 POS + 12 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
 
 ## Build steps (in the order they were done)
 

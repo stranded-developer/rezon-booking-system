@@ -23,7 +23,7 @@
 1. **API, 9 new tests** (`games.integration.test.ts`, own rig, experience and games): the config lists only active games/tracks/cars in order, against the right resource type; a hold with game + track + car stores the names and shows them; **renaming a car afterwards does not change the booking**; a game alone; nothing picked stores nothing; a track or car from another game, a switched-off game or track, and a game for another resource type are all refused; **a refused pick leaves no booking behind**; the back office replaces lists in order, de-duplicates, keeps the surviving row's id, audits with who and why; adding and switching off a game removes it from the site.
 2. **pgTAP, 14 new tests** (`15_games.test.sql`): the launch list exists with tracks and cars, running it twice adds nothing, the VR rigs are simulators, anon reads only what is on and cannot write, a signed-in customer cannot edit, a change is audited with actor and reason, the hold stores an object and ignores anything else.
 3. **Browser:** the experience test ticks the box, **searches by typing**, checks the other game is filtered out, checks **only that game's tracks are offered**, picks a car by keyboard, and sees "Your setup: Game · Track · Car" on Pay. Screenshot checked: the game name was cut off in a three-column row, so Game got its own row.
-4. **Gate:** turbo **11/11** · pgTAP **482** · POS e2e **6** (+1 Stripe skipped) · booking e2e **10** (+2 Stripe skipped).
+4. **Gate** (fresh database, then again on the used one): turbo **11/11** (pricing 101, API 244) · pgTAP **482** · POS e2e **6** (+1 Stripe skipped) · booking e2e **10** (+2 Stripe skipped).
 
 **Issues found and fixed**
 
