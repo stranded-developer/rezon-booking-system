@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Chakra_Petch, Manrope } from "next/font/google";
+import { Manrope, Unbounded } from "next/font/google";
 import { connection } from "next/server";
 import { AccountProvider } from "@/components/account-provider";
 import { BottomBar } from "@/components/bottom-bar";
@@ -11,17 +11,17 @@ import type { PublicConfig } from "@/lib/types";
 import "./globals.css";
 
 const body = Manrope({ subsets: ["latin"], variable: "--font-body" });
-/** Headings are squared, upright capitals — Raceground's own, not the reference's condensed italic (D76). */
-const heading = Chakra_Petch({ subsets: ["latin"], weight: ["300", "400", "600", "700"], variable: "--font-heading" });
+/** Headings are the mockup's heavy, rounded capitals (D88). Variable, so every weight is there. */
+const heading = Unbounded({ subsets: ["latin"], variable: "--font-heading" });
 
 export const metadata: Metadata = {
-  title: "Raceground — Sydney's sim racing, billiards and VR lounge",
+  title: "Racegrounds — Sydney's sim racing, billiards and VR lounge",
   description:
-    "Book a driving simulator (standard or VR) or a billiard table at Raceground in Sydney. Quick Race, Double Race and Leaderboard Challenge, with member pricing and happy hour.",
+    "Book a driving simulator (standard or VR) or a billiard table at Racegrounds in Sydney. Quick Race, Double Race and Leaderboard Challenge, with member pricing and happy hour.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d10",
+  themeColor: "#0d0a14",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

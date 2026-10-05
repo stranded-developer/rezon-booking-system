@@ -5,5 +5,5 @@ const app = createAppFromEnv();
 const port = Number(process.env.PORT ?? 8787);
 
 serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`Raceground API listening on http://localhost:${info.port}`);
+  console.log(`Racegrounds API listening on http://localhost:${info.port}`);
 });

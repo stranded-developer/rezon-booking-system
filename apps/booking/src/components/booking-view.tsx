@@ -102,7 +102,7 @@ export function BookingView({
   return (
     <div className="mx-auto max-w-xl space-y-6">
       {waitingForPayment ? <Notice tone="info">Thanks! We&apos;re confirming your payment. This page updates itself.</Notice> : null}
-      {confirmed ? <Notice tone="good">Your booking is confirmed. See you at Raceground.</Notice> : null}
+      {confirmed ? <Notice tone="good">Your booking is confirmed. See you at Racegrounds.</Notice> : null}
       {booking.status === "cancelled" ? (
         <Notice tone="warn">
           This booking is cancelled.
@@ -171,7 +171,7 @@ export function BookingView({
       <p className="text-center text-sm text-ink-500">
         Keep this link: it&apos;s the only way back to your booking.{" "}
         <Link href="/" className="underline">
-          Raceground home
+          Racegrounds home
         </Link>
       </p>
     </div>

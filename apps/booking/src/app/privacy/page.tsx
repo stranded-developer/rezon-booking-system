@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Card, Notice } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Privacy — Raceground" };
+export const metadata: Metadata = { title: "Privacy — Racegrounds" };
 
 export default function PrivacyPage() {
   return (

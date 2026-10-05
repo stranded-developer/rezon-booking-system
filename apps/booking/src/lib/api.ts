@@ -1,4 +1,4 @@
-/** Calls to the Raceground API. The API prices and books everything; this site only shows it. */
+/** Calls to the Racegrounds API. The API prices and books everything; this site only shows it. */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 
 export class ApiRequestError extends Error {
@@ -39,7 +39,7 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new ApiRequestError(0, "network", "We couldn't reach Raceground. Please check your connection and try again.");
+    throw new ApiRequestError(0, "network", "We couldn't reach Racegrounds. Please check your connection and try again.");
   }
 
   const text = await res.text();

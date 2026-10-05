@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CancelView } from "@/components/cancel-view";
 import { PageShell } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Cancel your booking — Raceground", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Cancel your booking — Racegrounds", robots: { index: false, follow: false } };
 
 export default async function CancelPage(props: PageProps<"/booking/[ref]/cancel">) {
   const { ref } = await props.params;

@@ -53,8 +53,8 @@ export function MembershipView() {
   return (
     <>
       <section className="mx-auto w-full max-w-4xl px-4 py-14 text-center">
-        <h1 className="display text-4xl sm:text-6xl">
-          Become a <span className="text-flag">member</span> and take your Raceground further
+        <h1 className="display text-3xl sm:text-5xl">
+          Become a <span className="text-flag">member</span> and take your Racegrounds further
         </h1>
         {cheapest !== null ? (
           <p className="display mx-auto mt-6 inline-block rounded-xl border border-line bg-paper/70 px-5 py-3 text-lg">
@@ -99,7 +99,7 @@ export function MembershipView() {
 
         {/* The membership poster (D84): its layout, its words, and the venue's own numbers. */}
         <Reveal>
-          <h2 className="display text-5xl leading-none sm:text-6xl">
+          <h2 className="display text-[2.1rem] leading-none sm:text-6xl">
             Membership
             <span className="block font-light">Promo price</span>
           </h2>

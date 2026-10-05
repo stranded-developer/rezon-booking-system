@@ -10,9 +10,10 @@ const VARIANTS: Record<Variant, string> = {
   ghost: "text-ink-600 hover:bg-mist hover:text-ink-950 disabled:text-ink-500",
   danger: "bg-red-600 text-white hover:bg-red-500 disabled:bg-red-900 disabled:text-ink-500",
 };
-const SIZES = { sm: "h-9 px-3 text-sm", md: "h-11 px-4 text-sm", lg: "h-13 px-7 text-base" };
+const SIZES = { sm: "h-9 px-3 text-[0.65rem]", md: "h-11 px-4 text-[0.7rem]", lg: "h-12 px-6 text-xs" };
+/** The mockup's buttons: small, wide-spaced heavy capitals (D88). */
 const base =
-  "display inline-flex items-center justify-center gap-2 rounded-xl tracking-wide transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flag-bright disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-lg font-[family-name:var(--font-display)] font-bold uppercase tracking-[0.08em] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flag-bright disabled:cursor-not-allowed";
 
 export function Button({
   variant = "secondary",
@@ -93,10 +94,15 @@ export function Row({ label, value, strong = false }: { label: ReactNode; value:
   );
 }
 
+/**
+ * The logo as it is on the rigs' screens: thin, widely spaced capitals, with the A drawn as a Λ
+ * (D88). Screen readers get the name, not the letter shapes.
+ */
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`display tracking-tight ${className}`}>
-      Race<span className="text-flag">ground</span>
+    <span className={`whitespace-nowrap font-[family-name:var(--font-display)] font-light uppercase tracking-[0.42em] ${className}`}>
+      <span className="sr-only">Racegrounds</span>
+      <span aria-hidden>RΛCEGROUNDS</span>
     </span>
   );
 }

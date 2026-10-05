@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ForgotPasswordForm } from "@/components/auth-forms";
 import { PageShell } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Forgot your password — Raceground" };
+export const metadata: Metadata = { title: "Forgot your password — Racegrounds" };
 
 export default function ForgotPasswordPage() {
   return (

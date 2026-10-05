@@ -283,7 +283,7 @@ export async function buildReceipt(deps: AppDeps, sessionId: string): Promise<Re
   return {
     title: total > 8250 ? "Tax Invoice" : "Receipt",
     receiptNo: paymentRes.data?.receipt_no ?? null,
-    businessName: settings.business_name ?? "Raceground",
+    businessName: settings.business_name ?? "Racegrounds",
     abn: settings.abn,
     issuedAt: local(paymentRes.data?.created_at ?? s.closed_at ?? s.opened_at),
     resource: resource.label,

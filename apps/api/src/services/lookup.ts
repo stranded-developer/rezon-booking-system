@@ -76,7 +76,7 @@ export const hashQrToken = (token: string) => createHash("sha256").update(token)
 /** Member QR payload: rg:m:<token>. */
 export async function findMemberByQr(db: Db, code: string): Promise<MemberSummary> {
   const m = /^rg:m:([A-Za-z0-9_-]{20,128})$/.exec(code.trim());
-  if (!m) throw new ApiError(422, "invalid_qr", "That is not a Raceground member code");
+  if (!m) throw new ApiError(422, "invalid_qr", "That is not a Racegrounds member code");
   const { data, error } = await db.from("members").select(MEMBER_SELECT).eq("qr_token_hash", hashQrToken(m[1]!)).maybeSingle();
   if (error) throw mapDbError(error);
   if (!data) throw new ApiError(404, "not_found", "Member card not recognised");

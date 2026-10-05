@@ -61,7 +61,8 @@ test("the home page shows what the back office says", async ({ page }) => {
   // Anything without an experience is still shown at its hourly rate, including this run's own
   // type. The rate comes from the fixture, not from a number typed here: it is the owner's to
   // change in the back office (D74).
-  await expect(page.getByRole("heading", { name: "Also by the hour" })).toBeVisible();
+  // In the mockup (D88) "Also by the hour" is the small label over each hourly card, not a heading.
+  await expect(page.getByText("Also by the hour").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Billiard Table" })).toBeVisible();
   await expect(page.getByRole("heading", { name: f.resourceTypeName })).toBeVisible();
   await expect(page.getByText(`$${(f.resourceTypeRateCents / 100).toFixed(2)}/hr`).first()).toBeVisible();
@@ -73,9 +74,12 @@ test("the home page shows what the back office says", async ({ page }) => {
   await shot(page, "web-01-home");
 
   // D87: the tile sections, from the back office, in their order under the hero.
-  const tiles = page.getByRole("region", { name: "What Raceground is" });
-  await expect(tiles.getByText("Race.", { exact: true })).toBeVisible();
-  await expect(tiles.getByRole("link", { name: /Simulators/ })).toHaveAttribute("href", "/book");
+  // D88: the mockup's hero — the rig turning through its angles, and how many simulators there are.
+  await expect(page.getByRole("group", { name: "Choose an angle" }).getByRole("button")).toHaveCount(7);
+  await expect(page.getByRole("link", { name: /Simulators/ }).first()).toHaveAttribute("href", "/book");
+  const tiles = page.getByRole("region", { name: "What Racegrounds is" });
+  await expect(tiles.getByText("Sim Racing", { exact: true })).toBeVisible();
+  await expect(tiles.getByText("Compete.", { exact: true })).toBeVisible();
   const events = page.getByRole("region", { name: "Book your event" });
   // Every "Book your event" tile goes to Book now.
   for (const link of await events.getByRole("link").all()) await expect(link).toHaveAttribute("href", "/book");

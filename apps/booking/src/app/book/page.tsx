@@ -4,7 +4,7 @@ import { BookView } from "@/components/book/book-view";
 import { PageShell, Spinner } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Book a race or a table — Raceground",
+  title: "Book a race or a table — Racegrounds",
   description: "Pick an experience, choose a time and pay online. Every price includes GST.",
 };
 

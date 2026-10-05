@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { LoginForm } from "@/components/auth-forms";
 import { PageShell } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Member log in — Raceground" };
+export const metadata: Metadata = { title: "Member log in — Racegrounds" };
 
 export default function LoginPage() {
   return (

@@ -39,7 +39,7 @@ export function BottomBar() {
   return (
     <nav
       aria-label="Quick links"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-night/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-deep/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
     >
       <ul className="mx-auto grid max-w-xl grid-cols-3 gap-2 px-3 py-2">
         {ITEMS.map((item) => {
@@ -49,7 +49,7 @@ export function BottomBar() {
               <Link
                 href={item.href}
                 aria-current={current ? "page" : undefined}
-                className={`display flex h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-xs tracking-wide transition ${
+                className={`flex h-12 flex-col items-center justify-center gap-0.5 rounded-lg font-[family-name:var(--font-display)] text-[0.6rem] font-bold uppercase tracking-[0.08em] transition ${
                   item.primary ? "bg-flag text-on-flag hover:bg-flag-bright" : current ? "bg-mist text-ink-950" : "text-ink-600 hover:bg-mist hover:text-ink-950"
                 }`}
               >

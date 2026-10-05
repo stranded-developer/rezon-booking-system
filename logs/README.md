@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-10-01)
+## Current status (2026-10-05)
 
 | Area | State |
 |---|---|
@@ -46,6 +46,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Flat member prices that never stack, Single/Double Session, the membership poster (8n) | ✅ Built and verified |
 | "Before you arrive" rules, arrive-early setting (8o) | ✅ Built and verified |
 | Home page tiles with images from the back office (8p) | ✅ Built and verified — **photos to upload** |
+| The owner's mockup: new look, new home page, the rig renders, Racegrounds (8q) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -95,6 +96,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 37 | Flat member prices, Single/Double Session, the membership poster (8n) | [build/37-member-prices-sessions-poster.md](build/37-member-prices-sessions-poster.md) |
 | 38 | Before you arrive: the session rules (8o) | [build/38-arrive-early-rules.md](build/38-arrive-early-rules.md) |
 | 39 | The home page tiles (8p) | [build/39-home-tiles.md](build/39-home-tiles.md) |
+| 40 | The owner's mockup: new look, new home page, Racegrounds (8q) | [build/40-mockup-layout.md](build/40-mockup-layout.md) |
 
 ## Decisions
 
@@ -107,6 +109,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
+| [11 — 2026-10-05](decisions/11-2026-10-05-mockup-layout-racegrounds.md) | D88–D89: the owner's mockup — lime on purple, Unbounded, the new home page and header, the rig renders (**supersedes D76's look**); the name Racegrounds |
 | [10 — 2026-10-01](decisions/10-2026-10-01-poster-tiles-rules.md) | D81–D87: bottom bar, **member prices flat and never stacked (supersedes D67's arithmetic)**, Single/Double Session, the membership poster, arrive 15 min early, Clothing coming soon, home page tiles |
 | [09 — 2026-09-30](decisions/09-2026-09-30-look-vr-member-prompt-games.md) | D76–D80: our own colours and fonts (**supersedes D64's look**), VR rigs are simulators at the same price, Double Race second, "Are you a member?" with a return to the booking, pick your game/track/car |
 | [08 — 2026-09-23](decisions/08-2026-09-23-public-site-experiences-tournaments.md) | D64–D72: dark racing look (**supersedes D59**), experiences at flat prices, flat promotional prices, new membership values and listed perks, tournaments, event pop-up and banner, spots left, three-step booking panel, new home page |
@@ -139,6 +142,7 @@ The owner supplied `velocitysimlounge.com` as a reference (screenshots and three
 7. ✅ **8g** the owner's venue values, and tournament entries at the counter → [build/30](build/30-venue-values-counter-entry.md)
 8. ✅ **8i–8l** the owner's round of 2026-09-30: own look, VR as simulators, member prompt, game/track/car → [build/32](build/32-own-look.md)–[35](build/35-game-track-car.md)
 9. ✅ **8m–8p** the owner's round of 2026-10-01: bottom bar, clothing, member prices and the poster, rules, home tiles → [build/36](build/36-bottom-bar-clothing.md)–[39](build/39-home-tiles.md)
+10. ✅ **8q** the owner's mockup and the name Racegrounds → [build/40](build/40-mockup-layout.md)
 
 **Still open for the owner** (raised in [08](decisions/08-2026-09-23-public-site-experiences-tournaments.md)):
 - ~~Free tournament entry~~ — settled by the poster (D84): Diamond gets one a month.

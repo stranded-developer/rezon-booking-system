@@ -6,7 +6,7 @@ import { Card, Notice } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { PublicConfig } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Terms — Raceground" };
+export const metadata: Metadata = { title: "Terms — Racegrounds" };
 
 export default async function TermsPage() {
   // The rules' numbers are the venue's own settings (D85); the launch values if the API is away.

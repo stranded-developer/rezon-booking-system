@@ -290,7 +290,7 @@ describe("walk-in with a member", () => {
     expect(r.json.changeCents).toBe(720);
     expect(r.json.receipt).toMatchObject({
       title: "Receipt",
-      businessName: "Raceground",
+      businessName: "Racegrounds",
       totalCents: 2280,
       gstCents: 207,
       subtotalCents: 2850,

@@ -139,7 +139,7 @@ async function portalConfigurationId(deps: AppDeps): Promise<string> {
   if (ours) return ours.id;
   const created = await stripeCall(() =>
     stripe.billingPortal.configurations.create({
-      business_profile: { headline: "Manage your Raceground membership" },
+      business_profile: { headline: "Manage your Racegrounds membership" },
       features: {
         invoice_history: { enabled: true },
         payment_method_update: { enabled: true },

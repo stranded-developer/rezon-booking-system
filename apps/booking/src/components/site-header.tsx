@@ -15,56 +15,50 @@ const LINKS = [
 ];
 
 /**
- * The bar across the top shrinks into a floating pill once you scroll, the way the reference does,
- * so "Book now" is always within reach without the bar taking up the screen (D64).
+ * The mockup's header (D88): one rounded, bordered bar inset from the edges, with the wordmark,
+ * "Book now" and — on a phone — a menu button that opens the links underneath. On a wide screen
+ * the links sit in the bar itself.
  *
- * It is deliberately **one** bar that changes shape, not two that cross-fade. Two would mean two
- * "Book now" links and two sets of navigation in the page at the same time — confusing for anyone
- * using a screen reader or the keyboard, whichever one happens to be faded out.
+ * It stays one bar, never two cross-fading copies: two would put two "Book now" links and two
+ * navigations in the page at once for anyone on a screen reader or a keyboard.
  */
 export function SiteHeader() {
   const { session, ready } = useAccount();
   const pathname = usePathname();
-  const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
+  // The menu closes when the page changes, so a tap on a link doesn't leave it hanging open.
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setOpen(false);
+  }
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 120);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   const accountHref = session ? "/account" : "/login";
   const accountLabel = session ? "My account" : "Member log in";
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="sticky top-0 z-40">
-      <div
-        className={`transition-all duration-300 ease-out ${
-          scrolled
-            ? "mx-auto mt-2 w-[calc(100%-1rem)] max-w-3xl rounded-2xl border border-line bg-deep/95 shadow-xl backdrop-blur"
-            : "w-full border-b border-line bg-deep/95 backdrop-blur"
-        }`}
-      >
-        <div
-          className={`mx-auto flex w-full items-center justify-between gap-3 px-4 transition-all duration-300 ${
-            scrolled ? "max-w-3xl py-1.5" : "max-w-6xl py-3"
-          }`}
-        >
-          <Link href="/" aria-label="Raceground home" className="shrink-0">
-            <Wordmark className={`transition-all duration-300 ${scrolled ? "text-lg" : "text-2xl"}`} />
+    <header className="sticky top-0 z-40 px-3 pt-3">
+      <div className="mx-auto max-w-6xl rounded-xl border border-line bg-deep/85 shadow-lg shadow-black/30 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <Link href="/" aria-label="Racegrounds home" className="shrink-0">
+            <Wordmark className="text-xs sm:text-sm" />
           </Link>
 
-          <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+          <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
             {LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 aria-current={isCurrent(link.href) ? "page" : undefined}
-                className={`display rounded-lg tracking-wide transition-all duration-300 ${scrolled ? "px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm"} ${
-                  isCurrent(link.href) ? "text-flag" : "text-ink-600 hover:text-ink-950"
-                }`}
+                className={`kicker rounded-lg px-3 py-2 transition ${isCurrent(link.href) ? "" : "text-ink-600! hover:text-ink-950!"}`}
               >
                 {link.label}
               </Link>
@@ -73,43 +67,50 @@ export function SiteHeader() {
 
           <div className="flex shrink-0 items-center gap-2">
             {ready ? (
-              <Link
-                href={accountHref}
-                className={`display hidden rounded-lg tracking-wide text-ink-600 transition-all duration-300 hover:text-ink-950 sm:block ${
-                  scrolled ? "px-2.5 py-1.5 text-xs" : "px-3 py-2 text-sm"
-                }`}
-              >
+              <Link href={accountHref} className="kicker hidden px-2 py-2 text-ink-600! transition hover:text-ink-950! lg:block">
                 {accountLabel}
               </Link>
             ) : null}
-            <ButtonLink href="/book" variant="primary" size={scrolled ? "sm" : "md"}>
+            <ButtonLink href="/book" variant="primary" size="sm">
               Book now
             </ButtonLink>
+            <button
+              type="button"
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="site-menu"
+              onClick={() => setOpen((v) => !v)}
+              className="grid size-9 place-items-center rounded-lg text-ink-800 transition hover:bg-mist lg:hidden"
+            >
+              <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                {open ? <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" /> : <path d="M4 9h16M8 15h12" strokeLinecap="round" />}
+              </svg>
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* On a phone the main links do not fit beside the wordmark, so they sit under it. */}
-      <nav
-        aria-label="Main, small screens"
-        className={`border-b border-line bg-night/90 backdrop-blur transition-opacity duration-300 md:hidden ${scrolled ? "opacity-0" : "opacity-100"}`}
-        inert={scrolled || undefined}
-      >
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={isCurrent(link.href) ? "page" : undefined}
-              className={`display shrink-0 rounded-lg px-3 py-1.5 text-xs tracking-wide transition ${
-                isCurrent(link.href) ? "bg-flag text-on-flag" : "text-ink-600"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+        {open ? (
+          <nav id="site-menu" aria-label="Main, small screens" className="animate-fade border-t border-line px-2 pb-3 pt-2 lg:hidden">
+            <ul>
+              {[...LINKS, ...(ready ? [{ href: accountHref, label: accountLabel }] : [])].map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    aria-current={isCurrent(link.href) ? "page" : undefined}
+                    onClick={() => setOpen(false)}
+                    className={`display flex items-center justify-between rounded-lg px-3 py-3 text-base transition hover:bg-mist ${isCurrent(link.href) ? "text-flag" : ""}`}
+                  >
+                    {link.label}
+                    <span aria-hidden className="text-ink-500">
+                      ›
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
+      </div>
     </header>
   );
 }

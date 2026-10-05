@@ -49,13 +49,13 @@ select is((select arrive_early_minutes from public.venue_settings where id = 1),
 -- ── The home page tiles (D87) ───────────────────────────────────────────────
 select results_eq(
   $$ select section, string_agg(title, ' | ' order by sort) from public.site_tiles
-      where title in ('Race.', 'Play.', 'Hang out.', 'Compete.', 'Solo Race', 'Race with Friends', 'VR Race', 'Free Roam',
+      where title in ('Sim Racing', 'VR Sim Racing', 'Billiards', 'The Lounge', 'Solo Race', 'Race with Friends', 'VR Race', 'Free Roam',
                       'Leaderboard Challenge', 'Time Attack', 'F1', 'GT3', 'Rally', 'Drift', 'Supercars', 'Offroad Trucks', '& Others')
       group by section order by section $$,
   $$ values ('driving', 'F1 | GT3 | Rally | Drift | Supercars | Offroad Trucks | & Others'),
             ('events', 'Solo Race | Race with Friends | VR Race | Free Roam | Leaderboard Challenge | Time Attack'),
-            ('highlights', 'Race. | Play. | Hang out. | Compete.') $$,
-  'the launch tiles, by section and in order');
+            ('highlights', 'Sim Racing | VR Sim Racing | Billiards | The Lounge') $$,
+  'the launch tiles, by section and in order — the first four as the mockup names them (D88)');
 select throws_ok($$ insert into public.site_tiles (section, title) values ('footer', 'x') $$, '23514', null, 'a tile belongs to one of the three sections');
 
 insert into public.site_tiles (id, section, title, sort) values ('00000000-0000-0000-0000-0000000ff601', 'driving', 'pgTAP Hidden Tile', 99);

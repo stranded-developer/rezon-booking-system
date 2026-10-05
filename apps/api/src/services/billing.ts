@@ -26,7 +26,7 @@ export const tierPriceLookupKey = (tierId: string, amountCents: number) => `rg_t
 export async function syncTierCatalog(deps: AppDeps, tier: Tier, actorStaffId: string | null) {
   const stripe = requireStripe(deps);
   const productId = tierProductId(tier.id);
-  const name = `Raceground ${tier.name} membership`;
+  const name = `Racegrounds ${tier.name} membership`;
 
   const product = await stripeCall(async () => {
     try {
@@ -247,7 +247,7 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
           await deps.email.send({
             template: "membership_welcome",
             to: contact.email,
-            subject: `Welcome to Raceground ${contact.tierName}`,
+            subject: `Welcome to Racegrounds ${contact.tierName}`,
             text: `Hi ${contact.name},\n\nYour ${contact.tierName} membership (${contact.memberNo}) is active. You have ${result.balanceMinutes} minutes of free play ready to use.\n\nYour member QR is in your account at ${deps.env.BOOKING_SITE_URL}/account (log in or create your account with this email address), or collect a card at the counter.\n\nRaceground`,
             entity: "members",
             entityId: `${memberId}:${invoice.id}`,
@@ -273,7 +273,7 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
           await deps.email.send({
             template: "membership_payment_failed",
             to: contact.email,
-            subject: "Your Raceground membership payment didn't go through",
+            subject: "Your Racegrounds membership payment didn't go through",
             text: `Hi ${contact.name},\n\nWe couldn't take your monthly membership payment, so your member discount and free play are paused.\nStripe will try again automatically, or you can update your card. Everything comes back as soon as the payment succeeds.\n\nRaceground`,
             entity: "members",
             entityId: `${memberId}:${invoice.id}`,
@@ -293,7 +293,7 @@ export async function handleStripeEvent(deps: AppDeps, event: Stripe.Event) {
           await deps.email.send({
             template: "membership_ended",
             to: contact.email,
-            subject: "Your Raceground membership has ended",
+            subject: "Your Racegrounds membership has ended",
             text: `Hi ${contact.name},\n\nYour membership has ended. Any free-play minutes are kept for 30 days in case you re-join.\n\nRaceground`,
             entity: "members",
             entityId: `${result.memberId}:${event.data.object.id}`,
@@ -392,7 +392,7 @@ export async function migrateTierSubscriptions(deps: AppDeps, tierId: string, ac
       await deps.email.send({
         template: "membership_price_change",
         to: c.email,
-        subject: `Your Raceground ${tier.name} price is changing`,
+        subject: `Your Racegrounds ${tier.name} price is changing`,
         text: `Hi ${c.name},\n\nFrom ${from}, your ${tier.name} membership will be $${(tier.monthly_price_cents / 100).toFixed(2)} a month (incl. GST). Your current month is unchanged.\n\nRaceground`,
         entity: "members",
         entityId: `${m.id}:${synced.priceId}`,

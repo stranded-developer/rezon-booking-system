@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Card, Notice } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Cancellations and refunds — Raceground" };
+export const metadata: Metadata = { title: "Cancellations and refunds — Racegrounds" };
 
 export default function RefundPolicyPage() {
   return (

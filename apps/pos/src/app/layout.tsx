@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Raceground POS",
-  description: "Point of sale and floor control for Raceground",
+  title: "Racegrounds POS",
+  description: "Point of sale and floor control for Racegrounds",
   robots: { index: false, follow: false },
 };
 

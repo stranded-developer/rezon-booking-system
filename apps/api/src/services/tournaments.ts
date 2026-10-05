@@ -195,7 +195,7 @@ export async function signUp(
           metadata: { tournament_entry_id: entry.id, tournament_entry_ref: entry.ref, tournament_entry_token: token },
           payment_intent_data: {
             metadata: { tournament_entry_id: entry.id, tournament_entry_ref: entry.ref },
-            description: `Raceground tournament entry ${entry.ref}`,
+            description: `Racegrounds tournament entry ${entry.ref}`,
           },
           payment_method_types: ["card"],
           success_url: `${link}&paid=1`,
@@ -327,7 +327,7 @@ export async function sendEntryConfirmation(deps: AppDeps, entryId: string, toke
   return deps.email.send({
     template: "tournament_entry_confirmed",
     to: e.customers.email,
-    subject: `Raceground: you're entered in ${e.tournaments.name}`,
+    subject: `Racegrounds: you're entered in ${e.tournaments.name}`,
     text,
     entity: "tournament_entries",
     entityId: `${e.id}:confirmed`,

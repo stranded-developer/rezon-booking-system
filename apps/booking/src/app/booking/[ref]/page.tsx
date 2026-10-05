@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { BookingView } from "@/components/booking-view";
 import { PageShell } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Your booking — Raceground", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Your booking — Racegrounds", robots: { index: false, follow: false } };
 
 export default async function BookingPage(props: PageProps<"/booking/[ref]">) {
   const { ref } = await props.params;

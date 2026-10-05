@@ -27,7 +27,7 @@ const BaseEnvSchema = z.object({
   EMAIL_TRANSPORT: z.enum(["console", "resend"]).default("console"),
   /** Required when EMAIL_TRANSPORT is "resend". */
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
-  EMAIL_FROM: z.string().default("Raceground <hello@raceground.local>"),
+  EMAIL_FROM: z.string().default("Racegrounds <hello@raceground.local>"),
   /** Comma-separated browser origins allowed to call the API. */
   CORS_ORIGINS: z
     .string()

@@ -37,7 +37,7 @@ posOpsRoutes.get("/config", async (c) => {
   for (const r of [types, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
   return c.json({
     timeZone: settings.timezone,
-    businessName: settings.business_name ?? "Raceground",
+    businessName: settings.business_name ?? "Racegrounds",
     noShowHoldMinutes: settings.no_show_hold_minutes,
     resourceTypes: types.data,
     openingHours: hours.data!.map((h) => ({ ...h, open_time: wallTime(h.open_time), close_time: wallTime(h.close_time) })),

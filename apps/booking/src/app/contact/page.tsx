@@ -7,8 +7,8 @@ import { Reveal } from "@/components/reveal";
 import { ButtonLink, Checkers, Notice, SectionTitle } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Find us — Raceground",
-  description: "Where Raceground is, when we're open, and how to get in touch.",
+  title: "Find us — Racegrounds",
+  description: "Where Racegrounds is, when we're open, and how to get in touch.",
 };
 
 /** Everything here is edited in the back office (D58). */

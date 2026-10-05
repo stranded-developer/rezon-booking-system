@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { EntryView } from "@/components/entry-view";
 import { PageShell } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Your tournament entry — Raceground", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Your tournament entry — Racegrounds", robots: { index: false, follow: false } };
 
 export default async function EntryPage(props: PageProps<"/tournaments/[ref]">) {
   const { ref } = await props.params;

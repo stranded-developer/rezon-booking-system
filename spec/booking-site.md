@@ -106,7 +106,7 @@ Customers cancel through the signed link in their email.
 ## 7. Website implementation notes (Phase 6c)
 
 - **`apps/booking`** (Next.js App Router, port 3000) reads only the public API. It never holds a secret and never computes a charge: every price on screen comes from `POST /public/quote`, and the API re-prices at hold time.
-- **The look** (D76, replacing D64's colours and fonts, which replaced D59): volt lime on graphite — the POS's own colours — with Chakra Petch for headings and Manrope for text. The layout and flow are the reference's (D64, D71); only colour and type changed. The whole site works at phone width.
+- **The look** (D88, replacing D76): the owner's mockup — lime on near-black with violet glows and bands, Unbounded for headings, small wide-spaced lime labels, Manrope for text, the "RΛCEGROUNDS" wordmark. The header is one inset bar with a menu on phones. The home page follows the mockup section by section, with the rig turning through the owner's seven renders. The name customers read is **Racegrounds** (D89). The whole site works at phone width.
 - **Home page** renders per request (`connection()`), so a change in the back office shows immediately. Photos come from Supabase Storage and are resized by Next.
 - **Booking flow** on one page: type → day → start → length → (resource) → details → live quote → terms → pay. The chosen time, length and quote are keyed to the current choice, so a stale price can never be shown or paid.
 - **Errors the customer can hit** are handled: the price changed (shows the new total and asks again), the slot was taken (reloads the timetable), a used-up or unknown referral code, no email or phone given.

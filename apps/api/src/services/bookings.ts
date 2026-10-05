@@ -84,7 +84,7 @@ export async function publicConfig(deps: AppDeps) {
   for (const r of [types, resources, hours, hhs, tiers, bands, experiences, events]) if (r.error) throw mapDbError(r.error);
   const promos = await loadPromos(db, experiences.data!.map((e) => e.id));
   return {
-    businessName: settings.business_name ?? "Raceground",
+    businessName: settings.business_name ?? "Racegrounds",
     venue: {
       address: settings.address,
       phone: settings.phone,
@@ -641,7 +641,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
           client_reference_id: booking.id,
           // The link token rides along so the webhook can put it in the confirmation email (only its hash is stored).
           metadata: { booking_id: booking.id, booking_ref: booking.ref, booking_token: token },
-          payment_intent_data: { metadata: { booking_id: booking.id, booking_ref: booking.ref }, description: `Raceground booking ${booking.ref}` },
+          payment_intent_data: { metadata: { booking_id: booking.id, booking_ref: booking.ref }, description: `Racegrounds booking ${booking.ref}` },
           payment_method_types: ["card"],
           success_url: `${link}&paid=1`,
           cancel_url: `${link}&abandoned=1`,
@@ -709,7 +709,7 @@ export async function handleBookingCheckoutCompleted(deps: AppDeps, session: Str
       await deps.email.send({
         template: "booking_payment_refunded",
         to: email,
-        subject: `Raceground booking ${session.metadata?.booking_ref ?? ""}: payment refunded`,
+        subject: `Racegrounds booking ${session.metadata?.booking_ref ?? ""}: payment refunded`,
         text: `Hi,\n\nYour payment came through after we had to release the time you picked, so the booking wasn't made and we've refunded the full ${formatCents(refund.amount)} to your card. Refunds usually show within 5–10 business days.\n\nPlease book again at ${deps.env.BOOKING_SITE_URL}.\n\nRaceground`,
         entity: "bookings",
         entityId: `${bookingId}:refunded`,
@@ -961,7 +961,7 @@ export async function cancelBooking(deps: AppDeps, b: BookingRow, opts: CancelOp
     await deps.email.send({
       template: "booking_cancelled",
       to: b.customers.email,
-      subject: `Raceground booking ${b.ref} cancelled`,
+      subject: `Racegrounds booking ${b.ref} cancelled`,
       text: `Hi ${b.customers.name},\n\nYour booking ${b.ref} (${b.resources.resource_types.name} · ${b.resources.label}, ${s.date} ${s.time}–${venueText(end, settings.timezone).time}) is cancelled.${byVenue}\n${moneyLine}${minutesLine}\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:cancelled`,
@@ -998,15 +998,15 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
     start,
     end,
     stamp: deps.clock.now(),
-    summary: `Raceground: ${what}`,
+    summary: `Racegrounds: ${what}`,
     description: `Booking ${b.ref}. Show this code at the counter.`,
-    location: settings.business_name ?? "Raceground",
+    location: settings.business_name ?? "Racegrounds",
     ...(token ? { url: bookingLink(deps, b.ref, token) } : {}),
   });
   return deps.email.send({
     template: "booking_confirmed",
     to: b.customers.email,
-    subject: `Raceground booking ${b.ref} confirmed: ${s.date} ${s.time}`,
+    subject: `Racegrounds booking ${b.ref} confirmed: ${s.date} ${s.time}`,
     text,
     entity: "bookings",
     entityId: `${b.id}:confirmed`,
@@ -1112,7 +1112,7 @@ export async function sendDayBeforeReminders(deps: AppDeps) {
     const result = await deps.email.send({
       template: "booking_reminder",
       to: b.customers.email,
-      subject: `See you tomorrow at Raceground: ${s.time}`,
+      subject: `See you tomorrow at Racegrounds: ${s.time}`,
       text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start, 50% up to 2 hours before.\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:reminder`,

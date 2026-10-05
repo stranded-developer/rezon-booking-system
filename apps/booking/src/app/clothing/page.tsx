@@ -5,8 +5,8 @@ import type { PublicConfig } from "@/lib/types";
 import { ButtonLink, Checkers } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Clothing — Raceground",
-  description: "Raceground clothing is on its way.",
+  title: "Clothing — Racegrounds",
+  description: "Racegrounds clothing is on its way.",
 };
 
 /** The catalogue is still being made (D86): a coming-soon banner until it is. */
@@ -22,7 +22,7 @@ export default async function ClothingPage() {
   return (
     <>
       <section className="mx-auto w-full max-w-4xl px-4 py-16 text-center">
-        <p className="display text-sm tracking-[0.2em] text-flag">Raceground</p>
+        <p className="display text-sm tracking-[0.2em] text-flag">Racegrounds</p>
         <h1 className="display mt-3 text-5xl sm:text-6xl">
           <span className="text-flag">Clothing</span>
         </h1>

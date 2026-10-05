@@ -1,35 +1,36 @@
 @import "tailwindcss";
 
 /*
- * The public site's look (D76, which replaces D64's colours and fonts; the layout is unchanged).
+ * The public site's look (D88: the owner's mockup, lime on purple; replaces D76's graphite).
  *
- * The token names are the ones the site was built on — paper, mist, line, ink, flag — so every
- * screen changes at once rather than each being restyled by hand. `flag` is now the POS's volt
- * lime on graphite, so the website and the till read as one brand, and nothing is borrowed from
- * the reference's crimson-on-indigo any more. Lime is light, so text on it is `on-flag`, not white.
+ * The token names are the ones every screen already uses — night, deep, paper, mist, line, ink,
+ * flag, gold — so every page changes at once. `violet` is new: the mockup's purple, used for its
+ * glows, the featured cards and the members band. Lime is light, so text on it is `on-flag`.
  */
 @theme {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
 
   /* Text, brightest first. */
-  --color-ink-950: #f5f7fa;
-  --color-ink-800: #dde2e8;
-  --color-ink-600: #a4adb9;
-  --color-ink-500: #7c8694;
+  --color-ink-950: #f7f5fc;
+  --color-ink-800: #dcd7ea;
+  --color-ink-600: #a69fbd;
+  --color-ink-500: #7d7596;
 
-  /* Surfaces: graphite, neutral rather than tinted. */
-  --color-night: #0b0d10;
-  --color-deep: #12151a;
-  --color-paper: #161a20;
-  --color-mist: #1f242c;
-  --color-line: #2c333d;
+  /* Surfaces: near-black with a purple cast. */
+  --color-night: #0d0a14;
+  --color-deep: #14101f;
+  --color-paper: #1a1528;
+  --color-mist: #241d37;
+  --color-line: #2e2645;
 
   /* Accents. */
-  --color-flag: #e8ff47;
-  --color-flag-bright: #f2ff8a;
-  --color-on-flag: #0b0d10;
-  --color-gold: #ffb347;
+  --color-flag: #d7ff3b;
+  --color-flag-bright: #e6ff7a;
+  --color-on-flag: #0d0a14;
+  --color-violet: #6d3fd6;
+  --color-violet-deep: #3a2378;
+  --color-gold: #d7ff3b;
 
   --radius-xl: 0.6rem;
   --radius-2xl: 0.85rem;
@@ -43,49 +44,46 @@ body {
 
 body {
   -webkit-font-smoothing: antialiased;
-  /* A faint lime glow from the top, so flat sections still read as lit. */
+  /* The mockup's violet glow, strongest behind the hero. */
   background-image:
-    radial-gradient(70rem 36rem at 50% -12rem, rgb(232 255 71 / 0.09) 0%, transparent 70%),
-    radial-gradient(50rem 30rem at 100% 35%, rgb(56 189 248 / 0.05) 0%, transparent 65%);
-  background-attachment: fixed;
+    radial-gradient(60rem 40rem at 85% -5rem, rgb(109 63 214 / 0.35) 0%, transparent 70%),
+    radial-gradient(40rem 30rem at -10% 40rem, rgb(109 63 214 / 0.18) 0%, transparent 70%);
+  background-repeat: no-repeat;
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Headings: squared, upright capitals (D76). */
+/* Headings: the mockup's heavy, rounded capitals (D88). */
 .display {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   line-height: 1;
 }
 
-/* The checkered strip that separates sections: graphite on graphite, a texture rather than a flag. */
-.checkers {
-  height: 1.75rem;
-  background-image:
-    linear-gradient(45deg, var(--color-mist) 25%, transparent 25%, transparent 75%, var(--color-mist) 75%),
-    linear-gradient(45deg, var(--color-mist) 25%, transparent 25%, transparent 75%, var(--color-mist) 75%);
-  background-size: 1.75rem 1.75rem;
-  background-position:
-    0 0,
-    0.875rem 0.875rem;
-  background-color: var(--color-night);
+/* The small labels over a heading: wide, heavy and in lime. */
+.kicker {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.625rem;
+  color: var(--color-flag);
 }
 
-/* A slim version for card edges and dividers. */
+/* Between sections: the mockup has no flag strips, just a faint violet rule (D88). */
+.checkers {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(109 63 214 / 0.6), transparent);
+}
+
+/* The top edge of a card: a thin lime-to-violet line. */
 .checkers-thin {
-  height: 0.5rem;
-  background-image:
-    linear-gradient(45deg, var(--color-flag) 25%, transparent 25%, transparent 75%, var(--color-flag) 75%),
-    linear-gradient(45deg, var(--color-flag) 25%, transparent 25%, transparent 75%, var(--color-flag) 75%);
-  background-size: 0.5rem 0.5rem;
-  background-position:
-    0 0,
-    0.25rem 0.25rem;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-flag), var(--color-violet));
 }
 
 /*
