@@ -24,6 +24,7 @@ import { listTiles } from "./site-tiles.js";
 import { listPhotos } from "./venue-photos.js";
 
 const MINUTE_MS = 60_000;
+/** Availability scans the day in quarter hours; only starts on the session grid are offered (D90). */
 const SLOT_MINUTES = 15;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -256,14 +257,20 @@ async function busyPeriods(deps: AppDeps, resourceIds: string[], from: number, t
     });
 }
 
-/** Longest bookable length (15-minute steps) on a resource from `start`, or 0 if it's taken at `start`. */
-function maxMinutesFrom(start: number, closeAt: number, busy: Busy[]): number {
+/** Longest bookable length (whole sessions) on a resource from `start`, or 0 if it's taken at `start`. */
+function maxMinutesFrom(start: number, closeAt: number, busy: Busy[], sessionMinutes: number): number {
   let limit = closeAt;
   for (const b of busy) {
     if (b.start <= start && b.end > start) return 0;
     if (b.start > start && b.start < limit) limit = b.start;
   }
-  return Math.max(0, Math.floor((limit - start) / (SLOT_MINUTES * MINUTE_MS)) * SLOT_MINUTES);
+  return Math.max(0, Math.floor((limit - start) / (sessionMinutes * MINUTE_MS)) * sessionMinutes);
+}
+
+/** D90: online bookings start on the session grid of the venue's clock — :00 and :30 for a 30-minute session. */
+function onSessionGrid(wallTime: string, sessionMinutes: number): boolean {
+  const [h, m] = wallTime.split(":").map(Number);
+  return (h! * 60 + m!) % sessionMinutes === 0;
 }
 
 /**
@@ -319,18 +326,21 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const slots = [];
   for (let t = openAt; t + requiredMinutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
     if (t < earliest) continue;
+    const time = toLocal(t, tz).label.slice(11);
+    if (!onSessionGrid(time, sessionMinutes)) continue;
     const resourceMaxMinutes: Record<string, number> = {};
     for (const r of resources) {
       const max = maxMinutesFrom(
         t,
         closeAt,
         busy.filter((b) => b.resourceId === r.id),
+        sessionMinutes,
       );
       resourceMaxMinutes[r.id] = max >= requiredMinutes ? max : 0;
     }
     const lengths = Object.values(resourceMaxMinutes);
     slots.push({
-      time: toLocal(t, tz).label.slice(11),
+      time,
       startsAt: new Date(t).toISOString(),
       availableResources: lengths.filter((m) => m > 0).length,
       maxMinutes: Math.max(0, ...lengths),
@@ -407,10 +417,13 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   const type = await activeType(deps, exp ? exp.experience.resourceTypeId : req.resourceTypeId!);
 
   if (!isWallTime(req.startTime)) throw new ApiError(422, "validation_failed", "Start time must be HH:MM");
-  // An experience sets its own length; everything else is sold in sessions (D63).
+  // An experience sets its own length; everything else is sold in whole sessions (D90).
   const durationMinutes = exp ? exp.experience.minutes : (req.durationMinutes ?? 0);
-  if (!exp && (durationMinutes < sessionMinutes || durationMinutes % SLOT_MINUTES !== 0)) {
-    throw new ApiError(422, "validation_failed", `Bookings start at ${sessionMinutes} minutes (one session), then go up in ${SLOT_MINUTES}-minute steps`);
+  if (!exp && (durationMinutes < sessionMinutes || durationMinutes % sessionMinutes !== 0)) {
+    throw new ApiError(422, "validation_failed", `Bookings are in ${sessionMinutes}-minute sessions`);
+  }
+  if (!onSessionGrid(req.startTime, sessionMinutes)) {
+    throw new ApiError(422, "invalid_time", `Bookings start on a ${sessionMinutes}-minute mark, e.g. on the hour`);
   }
   const startAt = localToInstant(req.date, req.startTime, tz);
   if (toLocal(startAt, tz).label !== `${req.date} ${req.startTime}`) {
@@ -426,17 +439,15 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   }
   const freeMinutes = req.freeMinutes ?? 0;
   if (freeMinutes > 0 && !member) throw new ApiError(422, "validation_failed", "Free minutes need a member");
-  // Free play is spent the way the time is sold: whole sessions on an experience, otherwise
-  // a session and then 15-minute steps. The quote has to check this itself — it never reaches
-  // the database, so a wrong amount here would price the booking wrongly and only fail at payment.
-  if (freeMinutes > 0) {
-    if (exp) {
-      if (freeMinutes % sessionMinutes !== 0) {
-        throw new ApiError(422, "validation_failed", `Free play on ${exp.experience.name} is used ${sessionMinutes} minutes at a time`);
-      }
-    } else if (freeMinutes < sessionMinutes || freeMinutes % SLOT_MINUTES !== 0) {
-      throw new ApiError(422, "validation_failed", `Free play on a booking starts at ${sessionMinutes} minutes, then goes up in ${SLOT_MINUTES}-minute steps`);
-    }
+  // Free play is spent the way the time is sold: whole sessions (D90). The quote has to check
+  // this itself — it never reaches the database, so a wrong amount here would price the booking
+  // wrongly and only fail at payment.
+  if (freeMinutes > 0 && freeMinutes % sessionMinutes !== 0) {
+    throw new ApiError(
+      422,
+      "validation_failed",
+      `Free play on ${exp ? exp.experience.name : "a booking"} is used ${sessionMinutes} minutes at a time`,
+    );
   }
   if (member && freeMinutes > member.balanceMinutes) {
     throw new ApiError(422, "insufficient_balance", "Not enough free-play minutes", { balanceMinutes: member.balanceMinutes });

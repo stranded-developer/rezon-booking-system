@@ -133,7 +133,7 @@ export function BookView() {
                   <p className="tnum mt-1 text-sm text-gold">{formatRate(type.fromRateCents)} in happy hour</p>
                 ) : null}
                 <p className="mt-1 flex-1 text-sm text-ink-500">
-                  {type.resources.length} available · book from {formatMinutes(config.sessionMinutes)}, then 15 minutes at a time
+                  {type.resources.length} available · booked in {formatMinutes(config.sessionMinutes)} sessions
                 </p>
                 <Button variant="secondary" className="mt-5 w-full" onClick={() => setTarget({ kind: "hourly", type })}>
                   Book {type.name}

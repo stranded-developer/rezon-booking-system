@@ -177,15 +177,14 @@ describe("member pricing and free play online", () => {
     const tooMuch = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 150, durationMinutes: 180 }) });
     expect(tooMuch.json.error.code).toBe("insufficient_balance");
 
-    // D63: free play on a booking is a whole session, then 15-minute steps. The quote has to say so
-    // itself — it never reaches the database, so a wrong amount would price the booking wrongly and
-    // only fail at payment.
-    const halfSession = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 15 }) });
-    expect(halfSession.status).toBe(422);
-    expect(halfSession.json.error.message).toContain("30 minutes");
-    const offGrid = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 40 }) });
-    expect(offGrid.status).toBe(422);
-    expect((await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 45 }) })).status).toBe(200);
+    // D90: free play on a booking is whole sessions. The quote has to say so itself — it never
+    // reaches the database, so a wrong amount would price the booking wrongly and only fail at payment.
+    for (const freeMinutes of [15, 40, 45]) {
+      const r = await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes }) });
+      expect(r.status, `${freeMinutes} free minutes`).toBe(422);
+      expect(r.json.error.message).toContain("30 minutes at a time");
+    }
+    expect((await api("/public/quote", { jwt: memberJwt, body: request({ freeMinutes: 60 }) })).status).toBe(200);
   });
 
   let freeRef: string;

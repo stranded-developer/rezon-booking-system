@@ -17,9 +17,10 @@ Public, mobile-first, with a **light look** (D59): light background, RACEGROUND 
 
 ## 2. Availability
 
-The timetable is a grid per resource type for a chosen date, with **15-minute columns** from open to close.
+The timetable is a grid per resource type for a chosen date, with a column per **session start** (:00 and :30 for a 30-minute session) from open to close (D90).
 
 **A start time is offered only if:**
+- it is on the session grid of the venue's clock: minutes since midnight are a whole number of sessions, so :00 and :30 (D90)
 - the date is within `today … today + booking_window_days` (venue-local dates, inclusive)
 - `start ≥ now + online_cutoff_minutes`
 - `start ≥ open_time` and `end ≤ close_time` on that date, and the day isn't closed
@@ -27,7 +28,7 @@ The timetable is a grid per resource type for a chosen date, with **15-minute co
 
 **Walk-ins don't block online availability.** A walk-in has no end time, so staff get the POS alert and must wrap up the walk-in before the booking.
 
-**Durations** start at one **session** (30 minutes, `venue_settings.session_minutes`) and go up in 15-minute steps to the time remaining until close: 30, 45, 60, 75 … There is no maximum, and half a session can only be bought by walking in (D63).
+**Durations** are whole **sessions** (30 minutes, `venue_settings.session_minutes`) up to the time remaining until close: 30, 60, 90 … There is no maximum. 15 or 45 minutes can only be bought by walking in (D90, replacing D63's 15-minute steps).
 
 The customer picks a resource type, then a specific resource or "any available" (the API assigns the lowest-sorted free one).
 
@@ -95,7 +96,7 @@ Customers cancel through the signed link in their email.
 ## 6. API implementation notes (Phase 6b)
 
 - **Times are sent as venue date + wall time** (`date`, `startTime`, `durationMinutes`), never device-local instants. A time that doesn't exist on a DST change day is refused.
-- **Availability** returns, per 15-minute start from the cutoff to close: how many resources are free and the longest length on each (up to the next booking or close). Unexpired holds block; expired ones don't, even before cleanup.
+- **Availability** returns, per session start (:00 and :30) from the cutoff to close: how many resources are free and the longest length on each (up to the next booking or close). Unexpired holds block; expired ones don't, even before cleanup.
 - **"Any available"** tries resources in sort order and takes the first free one.
 - **Checkout:** payment mode, AUD, **cards only** (so a completed checkout is always paid), Adaptive Pricing off, expires about 1 minute after the 30-minute hold time (Stripe's minimum). The database hold lasts 10 minutes longer.
 - **Booking link token:** 32 random bytes; only its sha256 is stored. It is carried in the Checkout session metadata so the webhook can email the link.
@@ -131,7 +132,7 @@ Customers cancel through the signed link in their email.
 - Supabase Auth in the browser (email + password). The API is called with the member's token, and it decides everything: the site never assumes a discount.
 - **Sign up → confirm email → log in.** The confirmation link signs the member in and lands on the account. A login before confirming is refused with "Please confirm your email first" (D56).
 - **Forgot password** always answers the same way, so the form can't be used to find out who has an account.
-- **The booking flow with a member logged in:** the tier and discount are shown, the referral field is hidden (they never combine), and free play is offered up to `min(balance, length booked)`. **Free minutes are never spent unless the member picks an amount** — the default is none.
+- **The booking flow with a member logged in:** the tier and discount are shown, the referral field is hidden (they never combine), and free play is offered in whole sessions up to `min(balance, length booked)` (D90). **Free minutes are never spent unless the member picks an amount** — the default is none.
 - A signed-in customer without an active membership books with their account details, and the API's `memberNotice` explains that member pricing doesn't apply.
 - **Account page:** member number, status, renewal date, discount, free-play balance and history, the member QR (re-showable, D57, with "get a new code"), bookings with cancel, tier change, cancel/resume, and the Stripe Customer Portal for card and invoices. A venue-managed (complimentary) membership says to ask at the counter.
 - **Joining online** (D60): pick a tier → account first → Stripe Checkout in subscription mode → back to the account, which shows the membership as soon as the webhook lands.

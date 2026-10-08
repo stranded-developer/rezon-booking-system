@@ -12,7 +12,6 @@ import { ApiRequestError, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes, formatRate, formatVenueDate, formatWallTime } from "@/lib/format";
 import type { Availability, Experience, Game, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, ResourceType, Slot } from "@/lib/types";
 
-const STEP_MINUTES = 15;
 const ANY_RESOURCE = "any";
 const QUICK_MINUTES = [30, 60, 90, 120];
 
@@ -166,12 +165,12 @@ export function BookingPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tKey, date, startTime]);
 
-  /** An experience runs for its own length; anything else starts at a session and steps by 15. */
+  /** An experience runs for its own length; anything else is whole sessions: 30, 60, 90 … (D90). */
   const durations = useMemo(() => {
     if (!slot || isExperience) return [];
     const max = resourceId === ANY_RESOURCE ? slot.maxMinutes : (slot.resourceMaxMinutes[resourceId] ?? 0);
     const lengths: number[] = [];
-    for (let m = sessionMinutes; m <= max; m += STEP_MINUTES) lengths.push(m);
+    for (let m = sessionMinutes; m <= max; m += sessionMinutes) lengths.push(m);
     return lengths;
   }, [slot, resourceId, sessionMinutes, isExperience]);
 
@@ -188,13 +187,12 @@ export function BookingPanel({
 
   // ── Quote ─────────────────────────────────────────────────────────────────
   const maxFreeMinutes = member ? Math.min(member.balanceMinutes, durationMinutes) : 0;
-  /** Free play is spent the way the time is sold: whole sessions on an experience (D65). */
+  /** Free play is spent the way the time is sold: whole sessions (D65, D90). */
   const freeMinuteChoices = useMemo(() => {
     const choices = [0];
-    const step = isExperience ? sessionMinutes : STEP_MINUTES;
-    for (let m = sessionMinutes; m <= maxFreeMinutes; m += step) choices.push(m);
+    for (let m = sessionMinutes; m <= maxFreeMinutes; m += sessionMinutes) choices.push(m);
     return choices;
-  }, [sessionMinutes, maxFreeMinutes, isExperience]);
+  }, [sessionMinutes, maxFreeMinutes]);
   const freeMinutes = Math.min(freeMinutesChoice ?? 0, maxFreeMinutes);
 
   const quoteRequest = useMemo(() => {
@@ -772,9 +770,7 @@ function DetailsStep({
       {member && member.balanceMinutes > 0 ? (
         <Field
           label="Use your free play?"
-          hint={`You have ${formatMinutes(member.balanceMinutes)} saved up. ${
-            isExperience ? `On ${targetName(target)} it is used ${config.sessionMinutes} minutes at a time.` : "On a booking it starts at one session."
-          }`}
+          hint={`You have ${formatMinutes(member.balanceMinutes)} saved up. It is used ${config.sessionMinutes} minutes at a time.`}
         >
           <Select value={freeMinutes} onChange={(e) => onFreeMinutes(Number(e.target.value))}>
             {freeMinuteChoices.map((m) => (

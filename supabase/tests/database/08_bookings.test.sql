@@ -72,9 +72,9 @@ select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-22T12
   'RG:too_far_ahead:%', 'no further than 7 days ahead (venue dates)');
 select lives_ok($$ select booking_release_hold((booking_hold(pg_temp.p('{"startsAt": "2030-01-21T20:00:00+11:00", "endsAt": "2030-01-21T21:00:00+11:00"}'))).id) $$,
   'the 7th day is bookable, ending exactly at close');
-select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T09:45:00+11:00", "endsAt": "2030-01-15T10:45:00+11:00"}')) $$,
+select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T09:30:00+11:00", "endsAt": "2030-01-15T10:30:00+11:00"}')) $$,
   'RG:outside_opening_hours:%', 'cannot start before opening');
-select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T20:30:00+11:00", "endsAt": "2030-01-15T21:15:00+11:00"}')) $$,
+select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T20:30:00+11:00", "endsAt": "2030-01-15T21:30:00+11:00"}')) $$,
   'RG:outside_opening_hours:%', 'cannot run past close');
 update opening_hours set closed = true where day_of_week = 3;
 select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-16T12:00:00+11:00", "endsAt": "2030-01-16T13:00:00+11:00"}')) $$,
@@ -92,7 +92,7 @@ select results_eq(
   $$ values ('held', '2030-01-14T09:40:00+11:00'::timestamptz, 3000, 273, '[2030-01-15 12:00+11, 2030-01-15 13:00+11)'::tstzrange) $$,
   'guest hold: held for 30 min + 10 min grace, priced');
 select is((select c.name from bookings b join customers c on c.id = b.customer_id where b.id = pg_temp.id('guest')), 'Gina Guest', 'guest customer created');
-select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T12:45:00+11:00", "endsAt": "2030-01-15T13:30:00+11:00"}')) $$,
+select throws_like($$ select booking_hold(pg_temp.p('{"startsAt": "2030-01-15T12:30:00+11:00", "endsAt": "2030-01-15T13:30:00+11:00"}')) $$,
   'RG:slot_taken:%', 'an overlapping hold is refused');
 insert into ids select 'guest2', (booking_hold(pg_temp.p('{"startsAt": "2030-01-15T13:00:00+11:00", "endsAt": "2030-01-15T14:00:00+11:00", "customer": {"name": "Gina", "email": "gina.bk@test.local"}}'))).id;
 select is((select count(*) from customers where lower(email::text) = 'gina.bk@test.local'), 1::bigint, 'the same email in any case reuses the customer');
@@ -107,13 +107,13 @@ select throws_like(
   $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 75}')) $$,
   'RG:invalid:%', 'free minutes cannot exceed the booking length');
 select throws_like(
-  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 105, "startsAt": "2030-01-15T10:00:00+11:00", "endsAt": "2030-01-15T12:00:00+11:00"}')) $$,
+  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 120, "startsAt": "2030-01-15T10:00:00+11:00", "endsAt": "2030-01-15T12:00:00+11:00"}')) $$,
   'RG:insufficient_balance:%', 'free minutes cannot exceed the balance');
 insert into ids select 'mem', (booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 30, "totalCents": 1350, "gstCents": 123}'))).id;
 select is(pg_temp.bal(), 60, 'free minutes are taken when the hold is made');
 select is((select customer_id from bookings where id = pg_temp.id('mem')), '00000000-0000-0000-0000-00000000c101'::uuid, 'member booking uses the member''s customer');
 select throws_like(
-  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 75, "startsAt": "2030-01-15T15:00:00+11:00", "endsAt": "2030-01-15T17:00:00+11:00"}')) $$,
+  $$ select booking_hold(pg_temp.p('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 90, "startsAt": "2030-01-15T15:00:00+11:00", "endsAt": "2030-01-15T17:00:00+11:00"}')) $$,
   'RG:insufficient_balance:%', 'minutes held by one booking cannot be spent again by another');
 
 -- ── Expiry ──────────────────────────────────────────────────────────────────

@@ -139,6 +139,9 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
   await expect(panel.getByRole("heading", { name: f.resourceTypeName, level: 2 })).toBeVisible();
 
   await pickDay(panel, bookingDayLabel());
+  // D90: online, a booking starts on the hour or the half hour.
+  await expect(panel.getByRole("button").filter({ hasText: "10:30 am" })).toBeVisible();
+  await expect(panel.getByRole("button").filter({ hasText: /\b\d{1,2}:(15|45) (am|pm)/ })).toHaveCount(0);
   const firstSlot = panel.getByRole("button").filter({ hasText: "10:00 am" });
   // D70: every start time says how many are free.
   await expect(firstSlot).toContainText(/\d+ spots?/);
@@ -146,10 +149,12 @@ test("a guest books and cancels: the panel, spots left, a referral code, QR, ref
 
   // ── Step 2: how long, which one, and who you are ──────────────────────────
   await expect(panel.getByRole("button", { name: "Details", exact: true })).toHaveAttribute("aria-current", "step");
-  // D63: the shortest booking is one 30-minute session — half a session is a walk-in only.
+  // D90: a booking is whole 30-minute sessions — 15 or 45 minutes is a walk-in only.
   const lengths = panel.getByLabel("Or another length");
   await expect(lengths.locator("option").first()).toHaveText("30 min");
   await expect(lengths.locator('option[value="15"]')).toHaveCount(0);
+  await expect(lengths.locator('option[value="45"]')).toHaveCount(0);
+  await expect(lengths.locator("option").nth(1)).toHaveText("1 hour");
   await lengths.selectOption({ label: "30 min" });
   await expect(panel.getByLabel(`Which ${f.resourceTypeName}?`)).toContainText("Any available");
 

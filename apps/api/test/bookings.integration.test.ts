@@ -149,34 +149,42 @@ describe("config and availability", () => {
     expect(JSON.stringify(r.json)).not.toMatch(/stripe_price_id|pin_hash/);
   });
 
-  it("offers 15-minute starts from the cutoff to close, with room for a whole session", async () => {
+  it("offers starts on :00 and :30 from the cutoff to close, with room for a whole session (D90)", async () => {
     ctx.clock.set(at("10:10"));
     const r = await api(`/public/availability?type=${typeId}&date=2030-02-11`);
     expect(r.status, JSON.stringify(r.json)).toBe(200);
     expect(r.json).toMatchObject({ open: "10:00", close: "21:00", closed: false, inWindow: true, sessionMinutes: 30 });
-    // Now 10:10 + 30 min cutoff → first start 10:45. The last start is 20:30 (D63): a booking is at
-    // least one 30-minute session, so 20:45 leaves too little before closing.
-    expect(r.json.slots[0]).toMatchObject({ time: "10:45", availableResources: 2, maxMinutes: 615 });
+    // Now 10:10 + 30 min cutoff → 10:40, so the first start on the half hour is 11:00 (D90). The
+    // last start is 20:30: a booking is at least one 30-minute session.
+    expect(r.json.slots[0]).toMatchObject({ time: "11:00", availableResources: 2, maxMinutes: 600 });
     expect(r.json.slots.at(-1)).toMatchObject({ time: "20:30", maxMinutes: 30 });
-    expect(r.json.slots).toHaveLength(40);
+    expect(r.json.slots).toHaveLength(20);
+    expect(r.json.slots.every((s: { time: string }) => s.time.endsWith(":00") || s.time.endsWith(":30"))).toBe(true);
     ctx.clock.set(at("09:00"));
   });
 
-  it("sells sessions: at least 30 minutes, then 15-minute steps (D63)", async () => {
-    const quote = (durationMinutes: number) =>
-      api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-12", startTime: "12:00", durationMinutes } });
+  it("sells whole 30-minute sessions starting on :00 or :30 (D90)", async () => {
+    const quote = (durationMinutes: number, startTime = "12:00") =>
+      api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-12", startTime, durationMinutes } });
 
-    // Half a session is a walk-in, not a booking.
-    const half = await quote(15);
-    expect(half.status).toBe(422);
-    expect(half.json.error.message).toContain("one session");
-
-    const off = await quote(40);
-    expect(off.status).toBe(422);
+    // Half a session, or a session and a half, is a walk-in, not a booking.
+    for (const m of [15, 40, 45, 75]) {
+      const r = await quote(m);
+      expect(r.status, `${m} min`).toBe(422);
+      expect(r.json.error.message).toContain("30-minute sessions");
+    }
 
     expect((await quote(30)).status, "one session").toBe(200);
-    expect((await quote(45)).status, "a session and a half").toBe(200);
+    expect((await quote(60)).status, "two sessions").toBe(200);
     expect((await quote(120)).status, "four sessions").toBe(200);
+
+    // Starts are on the hour or the half hour.
+    expect((await quote(30, "12:30")).status, "12:30").toBe(200);
+    for (const t of ["12:15", "12:45"]) {
+      const r = await quote(30, t);
+      expect(r.status, t).toBe(422);
+      expect(r.json.error.code).toBe("invalid_time");
+    }
 
     // The config tells the website what a session is, so it can offer the right choices.
     expect((await api("/public/config")).json.sessionMinutes).toBe(30);

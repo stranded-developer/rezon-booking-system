@@ -1,7 +1,7 @@
--- Sessions (D63): a booking is at least one 30-minute session, then 15-minute steps.
+-- Sessions (D63, D90): a booking is whole 30-minute sessions starting on :00 or :30.
 -- Walk-ins keep their own smaller minimum, and free play is spent the way the time is sold.
 begin;
-select plan(16);
+select plan(20);
 
 -- These tests are about the booking and till rules, not about what hours the venue keeps.
 -- Setting the hours here — and rolling them back with the rest of the transaction — keeps them
@@ -45,32 +45,40 @@ select throws_ok(
   $$ update public.venue_settings set session_minutes = 20 $$, '23514', null,
   'a session has to be a whole number of quarter hours');
 
--- ── Bookings: one session minimum, then 15-minute steps ─────────────────────
+-- ── Bookings: whole sessions, starting on :00 or :30 (D90) ──────────────────
 select throws_like($$ select booking_hold(pg_temp.book(15)) $$,
-  'RG:invalid_time:A booking is at least one 30-minute session', 'half a session cannot be booked');
+  'RG:invalid_time:Bookings are in 30-minute sessions', 'half a session cannot be booked');
 select throws_like($$ select booking_hold(pg_temp.book(29)) $$,
   'RG:invalid_time:%', 'anything under a session is refused');
 select throws_like($$ select booking_hold(pg_temp.book(40)) $$,
-  'RG:invalid_time:Bookings start on the quarter hour and last in 15-minute steps',
-  'lengths off the quarter hour are still refused');
+  'RG:invalid_time:Bookings are in 30-minute sessions', 'lengths off the session are refused');
+select throws_like($$ select booking_hold(pg_temp.book(45, 0, '2030-01-16T11:00:00+11:00')) $$,
+  'RG:invalid_time:Bookings are in 30-minute sessions', 'a session and a half cannot be booked');
+select throws_like($$ select booking_hold(pg_temp.book(30, 0, '2030-01-16T11:15:00+11:00')) $$,
+  'RG:invalid_time:Bookings start on a 30-minute mark%', 'a booking cannot start at a quarter past');
+select throws_like($$ select booking_hold(pg_temp.book(30, 0, '2030-01-16T11:45:00+11:00')) $$,
+  'RG:invalid_time:Bookings start on a 30-minute mark%', 'a booking cannot start at a quarter to');
 
 select lives_ok($$ select booking_hold(pg_temp.book(30, 0, '2030-01-16T10:00:00+11:00')) $$, 'one session can be booked');
-select lives_ok($$ select booking_hold(pg_temp.book(45, 0, '2030-01-16T11:00:00+11:00')) $$, 'a session and a half can be booked');
+select lives_ok($$ select booking_hold(pg_temp.book(60, 0, '2030-01-16T11:30:00+11:00')) $$, 'two sessions can be booked, starting on the half hour');
 select lives_ok($$ select booking_hold(pg_temp.book(120, 0, '2030-01-16T13:00:00+11:00')) $$, 'longer bookings are unchanged');
 
--- ── Free play on a booking: a whole session, then 15-minute steps ───────────
+-- ── Free play on a booking: whole sessions (D90) ────────────────────────────
 select throws_like($$ select booking_hold(pg_temp.book(60, 15, '2030-01-16T15:00:00+11:00')) $$,
-  'RG:invalid:Free play on a booking starts at 30 minutes, then 15-minute steps',
+  'RG:invalid:Free play on a booking is used 30 minutes at a time',
   'half a session of free play cannot be used on a booking');
 select throws_like($$ select booking_hold(pg_temp.book(60, 40, '2030-01-16T15:00:00+11:00')) $$,
-  'RG:invalid:Free play on a booking starts at 30 minutes, then 15-minute steps',
-  'free play off the quarter hour is refused');
+  'RG:invalid:Free play on a booking is used 30 minutes at a time',
+  'free play off the session is refused');
+select throws_like($$ select booking_hold(pg_temp.book(90, 45, '2030-01-16T15:00:00+11:00')) $$,
+  'RG:invalid:Free play on a booking is used 30 minutes at a time',
+  'a session and a half of free play cannot be used on a booking');
 select lives_ok($$ select booking_hold(pg_temp.book(60, 30, '2030-01-16T15:00:00+11:00')) $$,
   'a whole session of free play can be used');
-select lives_ok($$ select booking_hold(pg_temp.book(60, 45, '2030-01-16T16:30:00+11:00')) $$,
-  'a session and a half of free play can be used');
+select lives_ok($$ select booking_hold(pg_temp.book(90, 60, '2030-01-16T16:30:00+11:00')) $$,
+  'two sessions of free play can be used');
 select is((select balance_minutes from public.member_balances where member_id = '00000000-0000-0000-0000-00000000d201'),
-  240 - 75, 'the minutes used come off the balance');
+  240 - 90, 'the minutes used come off the balance');
 
 -- ── Walk-ins keep the smaller minimum ───────────────────────────────────────
 select is((select min_minutes from public.resource_types where key = 'billiard'), 15,

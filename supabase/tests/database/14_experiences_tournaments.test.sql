@@ -113,7 +113,7 @@ select lives_ok(
   $$ select booking_hold(jsonb_build_object(
        'resourceId', '00000000-0000-0000-0000-0000000cc302',
        'startsAt', '2030-01-16T10:00:00+11:00'::timestamptz,
-       'endsAt', '2030-01-16T10:45:00+11:00'::timestamptz,
+       'endsAt', '2030-01-16T11:00:00+11:00'::timestamptz,
        'now', '2030-01-16T08:00:00+11:00'::timestamptz,
        'customer', jsonb_build_object('name', 'Guest', 'email', 'guest-exp2@test.local'),
        'totalCents', 0, 'gstCents', 0, 'pricing', '{}'::jsonb,

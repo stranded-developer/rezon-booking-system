@@ -38,7 +38,6 @@ const Booking = z
       .int()
       .min(15)
       .max(24 * 60)
-      .refine((m) => m % 15 === 0, "Bookings are in 15-minute steps")
       .optional(),
     referralCode: z.string().trim().min(1).max(32).optional(),
     freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
