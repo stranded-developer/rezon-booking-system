@@ -8,8 +8,9 @@
  * glows, the featured cards and the members band. Lime is light, so text on it is `on-flag`.
  */
 @theme {
+  /* Garet throughout (D93): Book for text, Heavy for headings. */
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-body), ui-sans-serif, system-ui, sans-serif;
 
   /* Text, brightest first. */
   --color-ink-950: #f7f5fc;
@@ -44,6 +45,8 @@ body {
 
 body {
   -webkit-font-smoothing: antialiased;
+  font-weight: 300;
+  font-synthesis: none;
   /* The mockup's violet glow, strongest behind the hero. */
   background-image:
     radial-gradient(60rem 40rem at 85% -5rem, rgb(109 63 214 / 0.35) 0%, transparent 70%),
@@ -51,23 +54,32 @@ body {
   background-repeat: no-repeat;
 }
 
+/* D92: text is 14px on a phone, as in the owner's video; 16px from a small tablet up. */
+@media (max-width: 639px) {
+  body {
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Headings: the mockup's heavy, rounded capitals (D88). */
+/* Headings: Garet Heavy capitals, as in the mockup (D88, D93). */
 .display {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 850;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  /* Garet Heavy set tight, as in the video (D92). */
+  letter-spacing: -0.04em;
   line-height: 1;
 }
 
 /* The small labels over a heading: wide, heavy and in lime. */
 .kicker {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 850;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.625rem;

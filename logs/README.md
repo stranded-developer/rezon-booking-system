@@ -50,8 +50,8 @@ Everything that was planned, decided and built, one file per step so each can be
 | Online bookings in whole 30-minute sessions, starting on :00 / :30 (8r) | ✅ Built and verified |
 | Walk-ins charged in 15-minute blocks, rounded up (8s) | ✅ Built and verified |
 | Smaller rig (8t, part 1) | ✅ Built and verified |
-| Sizes and spacing matched to the mockup video (8t, part 2) | ⏳ after Garet: the font is most of the difference ([build/43](build/43-smaller-rig.md)) |
-| Garet Bold / Regular on the booking site (8u) | ⏳ waiting for the font files from the owner |
+| Sizes and spacing matched to the mockup video (8t, part 2) | ✅ Built and verified |
+| Garet Book (300) / Heavy (850) on the booking site (8u) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -105,6 +105,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 41 | Online bookings are whole 30-minute sessions, on :00 and :30 (8r) | [build/41-whole-sessions-online.md](build/41-whole-sessions-online.md) |
 | 42 | Walk-ins are charged in 15-minute blocks, rounded up (8s) | [build/42-walk-in-blocks.md](build/42-walk-in-blocks.md) |
 | 43 | The rig is smaller; what the spacing check found (8t, part 1) | [build/43-smaller-rig.md](build/43-smaller-rig.md) |
+| 44 | Garet, and the sizes from the owner's video (8u, 8t part 2) | [build/44-garet-and-sizes.md](build/44-garet-and-sizes.md) |
 
 ## Decisions
 
@@ -117,7 +118,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
-| [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, Garet |
+| [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, **Garet Book/Heavy (supersedes D88's fonts)** |
 | [11 — 2026-10-05](decisions/11-2026-10-05-mockup-layout-racegrounds.md) | D88–D89: the owner's mockup — lime on purple, Unbounded, the new home page and header, the rig renders (**supersedes D76's look**); the name Racegrounds |
 | [10 — 2026-10-01](decisions/10-2026-10-01-poster-tiles-rules.md) | D81–D87: bottom bar, **member prices flat and never stacked (supersedes D67's arithmetic)**, Single/Double Session, the membership poster, arrive 15 min early, Clothing coming soon, home page tiles |
 | [09 — 2026-09-30](decisions/09-2026-09-30-look-vr-member-prompt-games.md) | D76–D80: our own colours and fonts (**supersedes D64's look**), VR rigs are simulators at the same price, Double Race second, "Are you a member?" with a return to the booking, pick your game/track/car |

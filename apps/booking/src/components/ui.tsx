@@ -10,10 +10,11 @@ const VARIANTS: Record<Variant, string> = {
   ghost: "text-ink-600 hover:bg-mist hover:text-ink-950 disabled:text-ink-500",
   danger: "bg-red-600 text-white hover:bg-red-500 disabled:bg-red-900 disabled:text-ink-500",
 };
-const SIZES = { sm: "h-9 px-3 text-[0.65rem]", md: "h-11 px-4 text-[0.7rem]", lg: "h-12 px-6 text-xs" };
+/** Measured from the owner's video (D92): the hero's Book now is 44px tall with ~10.5px capitals. */
+const SIZES = { sm: "h-9 px-3 text-[0.6rem]", md: "h-11 px-4 text-[0.65rem]", lg: "h-11 px-5 text-[0.68rem]" };
 /** The mockup's buttons: small, wide-spaced heavy capitals (D88). */
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-lg font-[family-name:var(--font-display)] font-bold uppercase tracking-[0.08em] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flag-bright disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-lg font-[family-name:var(--font-display)] font-bold uppercase tracking-[0.04em] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flag-bright disabled:cursor-not-allowed";
 
 export function Button({
   variant = "secondary",

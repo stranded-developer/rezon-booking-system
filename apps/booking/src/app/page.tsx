@@ -53,7 +53,7 @@ export default async function HomePage() {
 function Hero({ intro, simulators }: { intro: string | null; simulators: number }) {
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pb-10 pt-12 sm:pt-16 lg:grid-cols-[1fr_1.05fr]">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pb-10 pt-[4.25rem] sm:pt-16 lg:grid-cols-[1fr_1.05fr]">
         <div>
           <p className="kicker flex items-center gap-3">
             <span aria-hidden className="h-px w-8 bg-flag" />
@@ -65,12 +65,12 @@ function Hero({ intro, simulators }: { intro: string | null; simulators: number 
             <span className="mt-1 block text-2xl sm:text-4xl">Billiards and</span>
             <span className="mt-1 block text-[2.6rem] leading-[0.95] text-flag sm:text-7xl">VR lounge</span>
           </h1>
-          <p className="mt-6 max-w-md text-ink-600">{intro ?? "Pick a time, pay online and show your booking code at the counter."}</p>
-          <div className="mt-8 flex flex-wrap items-center gap-5">
+          <p className="mt-7 max-w-md text-ink-600">{intro ?? "Pick a time, pay online and show your booking code at the counter."}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-5">
             <ButtonLink href="/book" variant="primary" size="lg">
               Book now
             </ButtonLink>
-            <Link href="/membership" className="kicker flex items-center gap-1 text-ink-950! hover:text-flag!">
+            <Link href="/membership" className="kicker flex items-center gap-1 text-[0.58rem]! tracking-[0.08em]! text-ink-950! hover:text-flag!">
               See membership <Chevron />
             </Link>
           </div>
@@ -139,7 +139,7 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
                 {type.fromRateCents < type.baseRateCents ? <p className="tnum text-xs text-ink-500">{formatRate(type.fromRateCents)} in happy hour</p> : null}
               </div>
             </div>
-            <p className="mt-4 border-t border-line pt-4 text-sm text-ink-600">
+            <p className="mt-4 border-t border-line pt-4 text-xs sm:text-sm text-ink-600">
               Book in {config.sessionMinutes}-minute sessions. Walk in and we charge in 15-minute blocks. Every price includes GST.
             </p>
             {happyHour ? (
@@ -173,7 +173,7 @@ function ExperienceCard({ exp }: { exp: Experience }) {
         </div>
       ) : null}
       <h3 className="display text-xl">{exp.name}</h3>
-      {exp.tagline ? <p className={`mt-1 text-sm ${featured ? "text-ink-800" : "text-ink-500"}`}>{exp.tagline}</p> : null}
+      {exp.tagline ? <p className={`mt-1 text-xs sm:text-sm ${featured ? "text-ink-800" : "text-ink-500"}`}>{exp.tagline}</p> : null}
 
       <p className="kicker mt-5 text-ink-950!">From</p>
       <div className="mt-1 flex items-baseline justify-between gap-3">
@@ -186,7 +186,7 @@ function ExperienceCard({ exp }: { exp: Experience }) {
       </div>
 
       {exp.bullets.length > 0 ? (
-        <ul className={`mt-5 flex-1 space-y-2 border-t pt-5 text-sm ${featured ? "border-white/15 text-ink-800" : "border-line text-ink-600"}`}>
+        <ul className={`mt-5 flex-1 space-y-2 border-t pt-5 text-xs sm:text-sm ${featured ? "border-white/15 text-ink-800" : "border-line text-ink-600"}`}>
           {exp.bullets.map((bullet) => (
             <li key={bullet} className="flex gap-3">
               <span aria-hidden className={featured ? "text-flag" : "text-violet"}>
@@ -243,7 +243,7 @@ function MembersClub({ tiers, sessionMinutes }: { tiers: PublicConfig["tiers"]; 
                       <span className="ml-1 text-[0.6rem]">/mo</span>
                     </p>
                   </div>
-                  <p className={`mt-4 text-sm ${featured ? "text-on-flag/80" : "text-ink-600"}`}>
+                  <p className={`mt-4 text-xs sm:text-sm ${featured ? "text-on-flag/80" : "text-ink-600"}`}>
                     {tier.discountBp / 100}% off every booking, and{" "}
                     {races > 0 ? `${races} free ${races === 1 ? "race" : "races"}` : `${tier.monthlyFreeMinutes} free minutes`} a month.
                   </p>
@@ -256,7 +256,7 @@ function MembersClub({ tiers, sessionMinutes }: { tiers: PublicConfig["tiers"]; 
           <ButtonLink href="/membership" variant="secondary" size="lg">
             View memberships
           </ButtonLink>
-          <Link href="/login" className="kicker flex items-center gap-1 text-ink-950! hover:text-flag!">
+          <Link href="/login" className="kicker flex items-center gap-1 text-[0.58rem]! tracking-[0.08em]! text-ink-950! hover:text-flag!">
             Member log in <Chevron />
           </Link>
         </Reveal>
@@ -275,7 +275,7 @@ function Hours({ openingHours, bookingWindowDays }: { openingHours: PublicConfig
             {openingHours.map((day) => (
               <li key={day.dayOfWeek} className="flex items-center justify-between gap-4 py-3.5">
                 <span className="kicker text-ink-950!">{dayName(day.dayOfWeek)}</span>
-                <span className="tnum text-sm text-ink-600">{day.closed ? "Closed" : `${formatWallTime(day.open)} – ${formatWallTime(day.close)}`}</span>
+                <span className="tnum text-xs sm:text-sm text-ink-600">{day.closed ? "Closed" : `${formatWallTime(day.open)} – ${formatWallTime(day.close)}`}</span>
               </li>
             ))}
           </ul>
@@ -300,7 +300,7 @@ function ReadyToRace() {
             <ButtonLink href="/book" variant="primary" size="lg">
               Book a session
             </ButtonLink>
-            <Link href="/tournaments" className="kicker flex items-center gap-1 text-ink-950! hover:text-flag!">
+            <Link href="/tournaments" className="kicker flex items-center gap-1 text-[0.58rem]! tracking-[0.08em]! text-ink-950! hover:text-flag!">
               See tournaments <Chevron />
             </Link>
           </div>

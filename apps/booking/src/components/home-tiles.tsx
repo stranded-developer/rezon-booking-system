@@ -16,7 +16,8 @@ export function SectionHeading({ kicker, title, sub, center = false }: { kicker?
   return (
     <Reveal className={center ? "text-center" : ""}>
       {kicker ? <p className="kicker mb-3">{kicker}</p> : null}
-      <h2 className="display text-3xl sm:text-5xl">{title}</h2>
+      {/* On a phone the video breaks headings at about eleven letters ("More than a / race"). */}
+      <h2 className={`display max-w-[11ch] text-[2rem] sm:max-w-none sm:text-5xl ${center ? "mx-auto" : ""}`}>{title}</h2>
       {sub ? <p className={`mt-4 max-w-xl text-ink-600 ${center ? "mx-auto" : ""}`}>{sub}</p> : null}
     </Reveal>
   );

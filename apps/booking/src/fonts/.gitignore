@@ -1,0 +1,5 @@
+# Only the web files the site loads are committed (D93). The desktop copies (.otf/.ttf) and the
+# older .woff stay on the owner's machine: a font licence usually restricts sharing those.
+*.otf
+*.ttf
+*.woff

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Unbounded } from "next/font/google";
+import localFont from "next/font/local";
 import { connection } from "next/server";
 import { AccountProvider } from "@/components/account-provider";
 import { BottomBar } from "@/components/bottom-bar";
@@ -10,9 +10,19 @@ import { api } from "@/lib/api";
 import type { PublicConfig } from "@/lib/types";
 import "./globals.css";
 
-const body = Manrope({ subsets: ["latin"], variable: "--font-body" });
-/** Headings are the mockup's heavy, rounded capitals (D88). Variable, so every weight is there. */
-const heading = Unbounded({ subsets: ["latin"], variable: "--font-heading" });
+/**
+ * Garet, the owner's licensed font (D93): Book (300) for text, Heavy (850) for headings, buttons
+ * and labels. These are the only two faces, so any bold weight resolves to Heavy and any normal
+ * one to Book; `font-synthesis: none` (globals.css) stops the browser faking weights in between.
+ */
+const garet = localFont({
+  src: [
+    { path: "../fonts/garet/Garet-Book.woff2", weight: "300", style: "normal" },
+    { path: "../fonts/garet/Garet-Heavy.woff2", weight: "850", style: "normal" },
+  ],
+  variable: "--font-body",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Racegrounds — Sydney's sim racing, billiards and VR lounge",
@@ -36,7 +46,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const events = config?.events ?? [];
 
   return (
-    <html lang="en-AU" className={`${body.variable} ${heading.variable}`}>
+    <html lang="en-AU" className={garet.variable}>
       {/* Padded by the bottom bar's height, so the footer is never hidden behind it (D81). */}
       <body className="flex min-h-dvh flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] font-sans">
         <AccountProvider>

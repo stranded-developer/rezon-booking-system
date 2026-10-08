@@ -17,12 +17,12 @@
 
 **Asked:** "in walk in/pos, 15 min options are possible, they are charged with either 15 mins or 30 mins." **(asked)** Of the three readings offered, the owner chose: **round the time played up to the next 15 minutes.**
 
-**Decision:** 15 minutes is still the least anyone pays. Beyond that a walk-in is billed in quarter hours: 5 min → 15, 20 min → 30, 31 min → 45, 45 min → 45. The price of each quarter hour is still worked out minute by minute (happy hour, rate bands), so a block that runs into happy hour is priced fairly.
+**Decision:** 15 minutes is still the least anyone pays. Beyond that a walk-in is billed in quarter hours: 5 min → 15, 20 min → 30, 31 min → 45, 45 min → 45. The price of each quarter hour is still worked out minute by minute (happy hour, rate bands), so a block that runs into happy hour is priced fairly. **(asked)** That is how the owner wants happy hour: a walk-in from 2:50 to 3:10 is charged 2:50–3:20, with 2:50–3:00 at the happy-hour price and the rest at the normal price.
 
 ## D92 — The site's sizes follow the mockup video ✅ owner 2026-10-08
 
 **Asked:** "the spacing in the website is slightly different compared to the design … can you confirm." Confirmed by putting the site at phone width beside frames of the video: the video's headings, body text, buttons and card padding are about 20–25% smaller, so its page is tighter. **(asked)** Match the video on every page, and make the rig images smaller.
 
-## D93 — Garet Bold and Garet Regular on the booking site ✅ owner 2026-10-08
+## D93 — Garet Book (300) and Garet Heavy (850) on the booking site ✅ owner 2026-10-08
 
-**Asked:** "for the fonts in the booking site use garet bold and garet regular." Garet isn't a free web font, so the owner adds the licensed files to `apps/booking/src/fonts/`. Bold for headings and buttons, Regular for body text.
+**Asked:** "for the fonts in the booking site use garet bold and garet regular". When the owner supplied the licensed files (`apps/booking/src/fonts/garet/`) they made it exact: **Garet Book at 300 and Garet Heavy at 850.** Heavy for headings, buttons and the small labels; Book for all other text. These are the only two faces, so nothing in between is faked by the browser. Only the `.woff2` files are committed.
