@@ -194,6 +194,10 @@ test("a member can ask for a new password", async ({ page }) => {
   await page.goto("/login");
   await appReady(page);
   await page.getByRole("link", { name: "Forgot your password?" }).click();
+  // The login page has an Email box too: wait for the new page, or the address can be typed into
+  // the old one just before it is replaced, leaving the new form empty (build/43).
+  await page.waitForURL(/\/forgot-password$/);
+  await expect(page.getByRole("heading", { name: "Forgot your password?" })).toBeVisible();
   await appReady(page);
   await fillLive(page.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
   await page.getByRole("button", { name: "Send me a link" }).click();

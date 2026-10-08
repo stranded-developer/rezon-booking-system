@@ -49,7 +49,8 @@ Everything that was planned, decided and built, one file per step so each can be
 | The owner's mockup: new look, new home page, the rig renders, Racegrounds (8q) | ✅ Built and verified |
 | Online bookings in whole 30-minute sessions, starting on :00 / :30 (8r) | ✅ Built and verified |
 | Walk-ins charged in 15-minute blocks, rounded up (8s) | ✅ Built and verified |
-| Sizes and spacing matched to the mockup video, smaller rig (8t) | 🚧 next |
+| Smaller rig (8t, part 1) | ✅ Built and verified |
+| Sizes and spacing matched to the mockup video (8t, part 2) | ⏳ after Garet: the font is most of the difference ([build/43](build/43-smaller-rig.md)) |
 | Garet Bold / Regular on the booking site (8u) | ⏳ waiting for the font files from the owner |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
@@ -103,6 +104,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 40 | The owner's mockup: new look, new home page, Racegrounds (8q) | [build/40-mockup-layout.md](build/40-mockup-layout.md) |
 | 41 | Online bookings are whole 30-minute sessions, on :00 and :30 (8r) | [build/41-whole-sessions-online.md](build/41-whole-sessions-online.md) |
 | 42 | Walk-ins are charged in 15-minute blocks, rounded up (8s) | [build/42-walk-in-blocks.md](build/42-walk-in-blocks.md) |
+| 43 | The rig is smaller; what the spacing check found (8t, part 1) | [build/43-smaller-rig.md](build/43-smaller-rig.md) |
 
 ## Decisions
 

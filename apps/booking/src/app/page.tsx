@@ -77,7 +77,8 @@ function Hero({ intro, simulators }: { intro: string | null; simulators: number 
         </div>
 
         <div>
-          <RigGallery className="mx-auto w-full max-w-xl" />
+          {/* D92: the owner asked for the rig smaller — three quarters of the column on a phone, at most 24rem. */}
+          <RigGallery className="mx-auto w-3/4 max-w-sm" />
           <div className="mt-6 flex items-end justify-between gap-4">
             <p className="border-l-2 border-flag pl-3">
               <span className="kicker block max-w-[14ch] leading-relaxed">Your place on the grid</span>

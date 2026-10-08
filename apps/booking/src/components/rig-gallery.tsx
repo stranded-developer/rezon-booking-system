@@ -60,7 +60,7 @@ export function RigGallery({ className = "" }: { className?: string }) {
             aria-hidden={i !== index}
             fill
             priority={i === 0}
-            sizes="(max-width: 1024px) 92vw, 560px"
+            sizes="(max-width: 1024px) 75vw, 384px"
             className={`object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.6)] transition-opacity duration-1000 ${i === index ? "opacity-100" : "opacity-0"}`}
           />
         ))}
