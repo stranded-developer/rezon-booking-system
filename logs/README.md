@@ -48,14 +48,14 @@ Everything that was planned, decided and built, one file per step so each can be
 | Home page tiles with images from the back office (8p) | ✅ Built and verified — **photos to upload** |
 | The owner's mockup: new look, new home page, the rig renders, Racegrounds (8q) | ✅ Built and verified |
 | Online bookings in whole 30-minute sessions, starting on :00 / :30 (8r) | ✅ Built and verified |
-| Walk-ins charged in 15-minute blocks (8s) | 🚧 next |
-| Sizes and spacing matched to the mockup video, smaller rig (8t) | 🚧 planned |
+| Walk-ins charged in 15-minute blocks, rounded up (8s) | ✅ Built and verified |
+| Sizes and spacing matched to the mockup video, smaller rig (8t) | 🚧 next |
 | Garet Bold / Regular on the booking site (8u) | ⏳ waiting for the font files from the owner |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
 
-**Test totals at the last step:** pricing 104 · API 256 · pgTAP 504 · e2e 21 (8 POS + 13 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
+**Test totals at the last step:** pricing 114 · API 257 · pgTAP 504 · e2e 21 (8 POS + 13 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
 
 ## Build steps (in the order they were done)
 
@@ -102,6 +102,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 39 | The home page tiles (8p) | [build/39-home-tiles.md](build/39-home-tiles.md) |
 | 40 | The owner's mockup: new look, new home page, Racegrounds (8q) | [build/40-mockup-layout.md](build/40-mockup-layout.md) |
 | 41 | Online bookings are whole 30-minute sessions, on :00 and :30 (8r) | [build/41-whole-sessions-online.md](build/41-whole-sessions-online.md) |
+| 42 | Walk-ins are charged in 15-minute blocks, rounded up (8s) | [build/42-walk-in-blocks.md](build/42-walk-in-blocks.md) |
 
 ## Decisions
 

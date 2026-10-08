@@ -53,7 +53,7 @@ export interface PriceSessionInput {
   referral?: ReferralDiscount;
   /** Requested free-play minutes from the member balance. */
   freeMinutes?: number;
-  /** Apply resourceType.minMinutes. Default true; false for overstay extensions. */
+  /** Apply resourceType.minMinutes and round up to 15-minute blocks (D91). Default true; false bills exact minutes. */
   applyMinimum?: boolean;
 }
 

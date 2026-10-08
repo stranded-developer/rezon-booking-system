@@ -6,7 +6,7 @@ It has **two entry points**, which share their discount, rounding and GST steps:
 
 | Function | Used for | Price comes from |
 |---|---|---|
-| `priceSession` | every walk-in, and online bookings of billiard tables | an **hourly rate**, per minute |
+| `priceSession` | every walk-in, and online bookings of billiard tables | an **hourly rate**, each minute priced on its own, charged in 15-minute blocks (D91) |
 | `priceExperience` | online bookings of a named package on the simulators (D65) | a **flat price** for a fixed length |
 
 ## 1. Units and representation
@@ -65,7 +65,8 @@ Back office validation (§7) prevents these from being saved in the first place.
 
 ```
 1. actualMinutes  = ceil((endAt − startAt) / 60_000)
-   billedMinutes  = applyMinimum ? max(actualMinutes, minMinutes) : actualMinutes
+   billedMinutes  = applyMinimum ? ceil(max(actualMinutes, minMinutes) / 15) × 15 : actualMinutes
+                    // D91: the minimum, then 15-minute blocks rounded up (20 min played → 30 billed)
    (billed period = [startAt, startAt + billedMinutes × 60_000])
 
 2. freeMinutes    = min(requestedFreeMinutes ?? 0, billedMinutes)
@@ -159,7 +160,8 @@ Every case below is an automated test. The dollar values use launch configuratio
 |---|---|---|
 | T1 | Table, 5 min actual, weekday 16:00 (no HH) | billed 15 min, $7.50 |
 | T2 | Table, exactly 15:00 min | billed 15, $7.50 |
-| T3 | Table, 16 min 10 s | billed 17 min, $8.50 |
+| T3 | Table, 16 min 10 s | 17 played, billed 30 min (D91), $15.00 |
+| T3b | Table, 20 / 31 / 45 / 61 min played | billed 30 / 45 / 45 / 75 min (D91) |
 | T4 | Sim, Wed 14:30–15:30, Gold | $27.00 + $30.00 = $57.00 − $11.40 = **$45.60**, GST $4.15 |
 | T5 | Table, 1 h inside HH, $5 fixed referral | $27.00 − $5.00 = **$22.00** |
 | T6 | Table, 1 h inside HH, $30 fixed referral | total floors at **$0.00** |

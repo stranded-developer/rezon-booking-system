@@ -139,5 +139,5 @@ Customers cancel through the signed link in their email.
 
 ## 8. Legal pages content (drafted in Phase 7)
 
-- **Terms:** booking rules and the refund policy above, conduct, and the fact that time played is billed per minute.
+- **Terms:** booking rules and the refund policy above, conduct, and the fact that walk-in time is charged in 15-minute blocks, rounded up (D91).
 - **Privacy policy:** name, email and phone collected. Payments are handled by Stripe, and no card data is stored.

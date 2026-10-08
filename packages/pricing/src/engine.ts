@@ -19,6 +19,9 @@ const BP = 10_000n;
 /** Minute amounts are kept exact as numerators over (60 minutes × 10000 bp). */
 const MINUTE_DENOMINATOR = 60n * BP;
 
+/** D91: time is charged in quarter hours, rounded up, once the minimum is met (20 min → 30). */
+export const BILLING_BLOCK_MINUTES = 15;
+
 function assertInteger(value: number, name: string, min: number): void {
   if (!Number.isSafeInteger(value) || value < min) {
     throw new PricingError(`${name} must be an integer ≥ ${min}, got ${value}`);
@@ -137,7 +140,9 @@ export function priceSession(input: PriceSessionInput): PriceResult {
   const applyMinimum = input.applyMinimum ?? true;
 
   const actualMinutes = Math.ceil((endAt - startAt) / MINUTE_MS);
-  const billedMinutes = applyMinimum ? Math.max(actualMinutes, resourceType.minMinutes) : actualMinutes;
+  const billedMinutes = applyMinimum
+    ? Math.ceil(Math.max(actualMinutes, resourceType.minMinutes) / BILLING_BLOCK_MINUTES) * BILLING_BLOCK_MINUTES
+    : actualMinutes;
   const minimumApplied = billedMinutes > actualMinutes;
   const freeMinutes = Math.min(input.freeMinutes ?? 0, billedMinutes);
 
@@ -392,7 +397,11 @@ function explain(r: Omit<PriceResult, "explanation">): string[] {
   }
 
   if (r.minimumApplied) {
-    lines.push(`Minimum ${r.billedMinutes} min charge (played ${r.actualMinutes} min)`);
+    lines.push(
+      r.billedMinutes === BILLING_BLOCK_MINUTES
+        ? `Minimum ${r.billedMinutes} min charge (played ${r.actualMinutes} min)`
+        : `Charged ${r.billedMinutes} min, in ${BILLING_BLOCK_MINUTES}-minute blocks (played ${r.actualMinutes} min)`,
+    );
   }
   for (const s of r.segments) {
     if (s.free) {

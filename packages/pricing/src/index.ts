@@ -1,4 +1,4 @@
-export { priceExperience, priceSession } from "./engine.js";
+export { BILLING_BLOCK_MINUTES, priceExperience, priceSession } from "./engine.js";
 export { PricingError } from "./errors.js";
 export { allocateLargestRemainder, formatBp, formatCents, roundHalfUp } from "./money.js";
 export { addDaysToDate, isWallTime, localToInstant, parseWallTime, toLocal, MINUTE_MS } from "./time.js";

@@ -5,7 +5,7 @@ import { aest, base, billiard, diamond, gold, silver, sim, vr, weekdayHappyHour 
 
 // Calendar reference: 2026-09-14 Mon, 16 Wed, 19 Sat, 20 Sun, 21 Mon.
 
-describe("minimum and per-minute billing (spec D16)", () => {
+describe("minimum and 15-minute blocks (spec D16, D91)", () => {
   it("T1: 5 minutes played bills the 15-minute minimum", () => {
     const r = priceSession(base({ startAt: aest("2026-09-16T16:00:00"), endAt: aest("2026-09-16T16:05:00") }));
     expect(r.actualMinutes).toBe(5);
@@ -22,11 +22,40 @@ describe("minimum and per-minute billing (spec D16)", () => {
     expect(r.totalCents).toBe(7_50);
   });
 
-  it("T3: 16 min 10 s rounds up to 17 minutes", () => {
+  it("T3: 16 min 10 s is 17 minutes played, charged as 30 (D91)", () => {
     const r = priceSession(base({ startAt: aest("2026-09-16T16:00:00"), endAt: aest("2026-09-16T16:16:10") }));
     expect(r.actualMinutes).toBe(17);
-    expect(r.billedMinutes).toBe(17);
-    expect(r.totalCents).toBe(8_50);
+    expect(r.billedMinutes).toBe(30);
+    expect(r.minimumApplied).toBe(true);
+    expect(r.totalCents).toBe(15_00);
+  });
+
+  it.each([
+    [5, 15],
+    [15, 15],
+    [16, 30],
+    [20, 30],
+    [30, 30],
+    [31, 45],
+    [45, 45],
+    [46, 60],
+    [61, 75],
+  ])("D91: %i min played is charged as %i", (played, charged) => {
+    const startAt = aest("2026-09-16T16:00:00");
+    const r = priceSession(base({ startAt, endAt: startAt + played * 60_000 }));
+    expect(r.actualMinutes).toBe(played);
+    expect(r.billedMinutes).toBe(charged);
+    expect(r.totalCents).toBe(charged * 50); // $30/hr is 50c a minute
+  });
+
+  it("D91: the receipt says why more was charged than played", () => {
+    const at = aest("2026-09-16T16:00:00");
+    const short = priceSession(base({ startAt: at, endAt: at + 5 * 60_000 })).explanation;
+    expect(short[0]).toBe("Minimum 15 min charge (played 5 min)");
+    const blocks = priceSession(base({ startAt: at, endAt: at + 20 * 60_000 })).explanation;
+    expect(blocks[0]).toBe("Charged 30 min, in 15-minute blocks (played 20 min)");
+    const exact = priceSession(base({ startAt: at, endAt: at + 45 * 60_000 })).explanation;
+    expect(exact.some((l) => l.startsWith("Charged") || l.startsWith("Minimum"))).toBe(false);
   });
 
   it("zero-length session still bills the minimum", () => {
@@ -93,13 +122,14 @@ describe("happy hour and membership (spec D2, D24)", () => {
   });
 
   it("T17: a session starting mid-minute classifies each minute by its start instant", () => {
+    // 16 minutes played, charged as 30 (D91): the extra minutes are priced from where they fall.
     const r = priceSession(base({ startAt: aest("2026-09-16T14:59:30"), endAt: aest("2026-09-16T15:15:30") }));
-    expect(r.billedMinutes).toBe(16);
+    expect(r.billedMinutes).toBe(30);
     expect(r.segments.map((s) => [s.minutes, s.happyHourBp, s.amountCents])).toEqual([
       [1, 1000, 45],
-      [15, 0, 7_50],
+      [29, 0, 14_50],
     ]);
-    expect(r.subtotalCents).toBe(7_95);
+    expect(r.subtotalCents).toBe(14_95);
   });
 
   it("Diamond 20% applies multiplicatively after happy hour", () => {

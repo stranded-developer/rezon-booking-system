@@ -37,7 +37,7 @@ All values below are **editable in the back office**. None are hardcoded.
 | Opening hours | Mon–Thu 12:00–22:00 · Fri 12:00–24:00 · Sat 11:00–24:00 · Sun 11:00–22:00 (D73). Midnight is stored as `24:00`. |
 | Billiard tables | 2 × $25/hr incl. GST, $20/hr in happy hour |
 | Driving simulators | 8 × $60/hr incl. GST: Sim 1–6 and VR Sim 1–2. **The VR rigs are simulators at the same price**, not a type of their own (D77) |
-| Session | 30 min (D63). Booked online: whole sessions only (30, 60, 90 …), starting on :00 or :30 (D90). Walk-in: from 15 min, then per minute |
+| Session | 30 min (D63). Booked online: whole sessions only (30, 60, 90 …), starting on :00 or :30 (D90). Walk-in: from 15 min, then charged in 15-minute blocks rounded up (D91) |
 | Experiences (simulators, online) | **Single Session** 30 min $35 ("Quick Race, Time trial, Drift, and more.") · **Double Session** 60 min $58 ("Full Experience, Double Race, Drift, Free Roam, and more") · Leaderboard Challenge 30 min $35, in that order (D65, D78, D83) |
 | Member prices (experiences) | Silver $32 / $52 · Gold $28 / $46 · Diamond $28 / $46 (Single / Double). Flat, never stacked with a promotion: the cheapest single price wins (D82). Leaderboard Challenge: the tier's percentage |
 | Experience promotions | Happy Hour every day 12:00–15:00: $29 / $29 / $49 · Student, any time on request: $32 / $32 / $52. The cheapest match wins (D66) |

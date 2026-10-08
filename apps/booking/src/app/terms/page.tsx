@@ -32,7 +32,7 @@ export default async function TermsPage() {
             </Link>
             .
           </li>
-          <li>Walk-in time is billed per minute after the minimum session length. Booked time is paid in advance and is never charged extra.</li>
+          <li>Walk-in time is charged in 15-minute blocks, rounded up, with 15 minutes as the minimum. Booked time is paid in advance and is never charged extra.</li>
           <li>Show your booking code at the counter.</li>
           {rules.map((rule) => (
             <li key={rule}>{rule}</li>

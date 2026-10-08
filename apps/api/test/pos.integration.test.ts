@@ -572,6 +572,17 @@ describe("bookings", () => {
     expect((await tile(res.t2)).bookingWarning).toBe(true);
     expect((await pos(`/sessions/${r.json.session.id}/void`, { as: "owner", body: { reason: "test cleanup" } })).status).toBe(200);
   });
+
+  it("charges a walk-in in 15-minute blocks, rounded up (D91)", async () => {
+    const s = await openWalkIn(res.t2, "19:25");
+    const twenty = await quote(s, "19:45");
+    expect(twenty.status, JSON.stringify(twenty.json)).toBe(200);
+    expect(twenty.json.quote.pricing).toMatchObject({ actualMinutes: 20, billedMinutes: 30 });
+    expect(twenty.json.quote.explanation[0]).toBe("Charged 30 min, in 15-minute blocks (played 20 min)");
+    const fortyFive = await quote(s, "20:10");
+    expect(fortyFive.json.quote.pricing).toMatchObject({ actualMinutes: 45, billedMinutes: 45 });
+    expect((await pos(`/sessions/${s}/void`, { as: "owner", body: { reason: "test cleanup" } })).status).toBe(200);
+  });
 });
 
 describe("closing the till", () => {

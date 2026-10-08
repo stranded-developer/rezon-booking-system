@@ -139,7 +139,7 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
               </div>
             </div>
             <p className="mt-4 border-t border-line pt-4 text-sm text-ink-600">
-              Book in {config.sessionMinutes}-minute sessions. Walk in and we bill by the minute. Every price includes GST.
+              Book in {config.sessionMinutes}-minute sessions. Walk in and we charge in 15-minute blocks. Every price includes GST.
             </p>
             {happyHour ? (
               <p className="kicker mt-3">
