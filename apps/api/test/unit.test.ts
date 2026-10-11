@@ -127,7 +127,7 @@ describe("loadEnv", () => {
       OPERATOR_TOKEN_SECRET: SECRET,
       QR_TOKEN_SECRET: SECRET,
     });
-    expect(env.OPERATOR_IDLE_SECONDS).toBe(300);
+    expect(env.OPERATOR_IDLE_SECONDS).toBe(3600);
     expect(env.BOOKING_SITE_URL).toBe("http://localhost:3000");
     expect(() =>
       loadEnv({ SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_SERVICE_ROLE_KEY: "k".repeat(30), OPERATOR_TOKEN_SECRET: SECRET }),
@@ -148,7 +148,7 @@ describe("settings", () => {
   it("treats an empty value as not set, so defaults still apply", () => {
     // A hosting dashboard with every key added but left blank.
     const env = loadEnv({ ...required, OPERATOR_IDLE_SECONDS: "", EMAIL_TRANSPORT: "", STRIPE_SECRET_KEY: "", BOOKING_SITE_URL: "  " });
-    expect(env.OPERATOR_IDLE_SECONDS).toBe(300);
+    expect(env.OPERATOR_IDLE_SECONDS).toBe(3600);
     expect(env.EMAIL_TRANSPORT).toBe("console");
     expect(env.STRIPE_SECRET_KEY).toBeUndefined();
     expect(env.BOOKING_SITE_URL).toBe("http://localhost:3000");

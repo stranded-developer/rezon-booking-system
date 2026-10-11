@@ -136,6 +136,8 @@ game_tracks / game_cars                one list each per game
   sort, active
 ```
 
+A game can list **up to 1000 tracks and up to 1000 cars** (D95). The limit is the API's (the back office sends the whole list on each save); the database has none.
+
 `private.seed_launch_games()` holds the launch list in one place: the migration calls it for a venue that already exists, `seed.sql` for a fresh install. It does nothing if the venue already has games.
 
 **Overlap is allowed on `experience_promos`, on purpose.** The cheapest matching price wins, so an overlap is how "the student price is not included in Happy Hour" is expressed. There is no validator rejecting it.

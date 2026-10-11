@@ -15,6 +15,7 @@ import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { auditHeaders } from "../lib/audit-headers.js";
+import { selectAll } from "../lib/select-all.js";
 import { migrateTierSubscriptions } from "../services/billing.js";
 import { wallTime } from "../services/venue.js";
 import { addTile, clearTileImage, listTiles, removeTile, setTileImage, TILE_SECTIONS, updateTile } from "../services/site-tiles.js";
@@ -1133,7 +1134,10 @@ adminConfigRoutes.patch(
 // sent is the whole list, in order. Bookings keep the names they were made with, so removing a
 // car here never changes what someone already booked.
 
-const Names = z.array(z.string().trim().min(1).max(80)).max(200);
+/** Most tracks or cars one game can list. */
+export const MAX_GAME_LIST = 1000;
+
+const Names = z.array(z.string().trim().min(1).max(80)).max(MAX_GAME_LIST);
 
 /** Same name twice (ignoring case) is kept once, first position wins. */
 const dedupe = (names: string[]) => names.filter((n, i) => names.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i);
@@ -1142,15 +1146,15 @@ adminConfigRoutes.get("/games", async (c) => {
   const { db } = c.get("deps");
   const [games, tracks, cars] = await Promise.all([
     db.from("games").select("*").order("sort").order("name"),
-    db.from("game_tracks").select("id, game_id, name, sort").order("sort").order("name"),
-    db.from("game_cars").select("id, game_id, name, sort").order("sort").order("name"),
+    selectAll((from, to) => db.from("game_tracks").select("id, game_id, name, sort").order("sort").order("name").order("id").range(from, to)),
+    selectAll((from, to) => db.from("game_cars").select("id, game_id, name, sort").order("sort").order("name").order("id").range(from, to)),
   ]);
-  for (const r of [games, tracks, cars]) if (r.error) throw mapDbError(r.error);
+  if (games.error) throw mapDbError(games.error);
   return c.json({
-    games: games.data!.map((g) => ({
+    games: games.data.map((g) => ({
       ...g,
-      tracks: tracks.data!.filter((t) => t.game_id === g.id).map((t) => t.name),
-      cars: cars.data!.filter((x) => x.game_id === g.id).map((x) => x.name),
+      tracks: tracks.filter((t) => t.game_id === g.id).map((t) => t.name),
+      cars: cars.filter((x) => x.game_id === g.id).map((x) => x.name),
     })),
   });
 });
@@ -1163,19 +1167,25 @@ async function saveGameList(c: Context<AppEnv>, table: "game_tracks" | "game_car
   const { data: current, error } = await db.from(table).select("id, name, sort, active").eq("game_id", gameId);
   if (error) throw mapDbError(error);
 
-  const gone = current.filter((row) => !wanted.includes(row.name)).map((row) => row.id);
-  if (gone.length > 0) {
-    const { error: e } = await auditHeaders(db.from(table).delete().in("id", gone), actor, reason);
+  const keep = new Set(wanted);
+  const gone = current.filter((row) => !keep.has(row.name)).map((row) => row.id);
+  // The ids go in the URL, so a long list is removed 100 at a time.
+  for (let i = 0; i < gone.length; i += 100) {
+    const { error: e } = await auditHeaders(db.from(table).delete().in("id", gone.slice(i, i + 100)), actor, reason);
     if (e) throw mapDbError(e);
   }
   const fresh: { game_id: string; name: string; sort: number }[] = [];
+  const moved: { id: string; game_id: string; name: string; sort: number; active: boolean }[] = [];
+  const byName = new Map(current.map((r) => [r.name, r]));
   for (const [i, name] of wanted.entries()) {
-    const row = current.find((r) => r.name === name);
+    const row = byName.get(name);
     if (!row) fresh.push({ game_id: gameId, name, sort: i + 1 });
-    else if (row.sort !== i + 1 || !row.active) {
-      const { error: e } = await auditHeaders(db.from(table).update({ sort: i + 1, active: true }).eq("id", row.id), actor, reason);
-      if (e) throw mapDbError(e);
-    }
+    else if (row.sort !== i + 1 || !row.active) moved.push({ id: row.id, game_id: gameId, name, sort: i + 1, active: true });
+  }
+  // One request for every reordered row, not one each: a list can be 1000 long.
+  if (moved.length > 0) {
+    const { error: e } = await auditHeaders(db.from(table).upsert(moved, { onConflict: "id" }), actor, reason);
+    if (e) throw mapDbError(e);
   }
   if (fresh.length > 0) {
     const { error: e } = await auditHeaders(db.from(table).insert(fresh), actor, reason);

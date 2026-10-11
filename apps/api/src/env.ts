@@ -7,7 +7,7 @@ const BaseEnvSchema = z.object({
   /** HMAC secret for POS operator tokens. */
   OPERATOR_TOKEN_SECRET: z.string().min(32, "OPERATOR_TOKEN_SECRET must be at least 32 characters"),
   /** Operator token lifetime; each authenticated request slides it forward (idle lock). */
-  OPERATOR_IDLE_SECONDS: z.coerce.number().int().positive().default(300),
+  OPERATOR_IDLE_SECONDS: z.coerce.number().int().positive().default(3600),
   PIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   PIN_LOCK_MINUTES: z.coerce.number().int().positive().default(5),
   /** HMAC secret member QR tokens are derived from. Changing it invalidates every member QR. */

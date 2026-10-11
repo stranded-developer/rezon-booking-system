@@ -7,7 +7,7 @@ import { operatorToken } from "@/lib/operator-token";
 import type { Operator, PosConfig } from "@/lib/types";
 
 /** Client-side idle lock. The API enforces the same limit on the operator token. */
-export const IDLE_LOCK_MS = 5 * 60_000;
+export const IDLE_LOCK_MS = 60 * 60_000;
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -128,7 +128,7 @@ export function PosProvider({ children }: { children: ReactNode }) {
     const events = ["pointerdown", "keydown", "wheel"] as const;
     events.forEach((e) => window.addEventListener(e, touch, { passive: true }));
     const timer = window.setInterval(() => {
-      if (Date.now() - lastActivity.current > IDLE_LOCK_MS) lock("Locked after 5 minutes without activity.");
+      if (Date.now() - lastActivity.current > IDLE_LOCK_MS) lock("Locked after an hour without activity.");
     }, 5_000);
     return () => {
       events.forEach((e) => window.removeEventListener(e, touch));

@@ -17,6 +17,7 @@ import type { AppDeps } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { writeAudit } from "../lib/audit.js";
 import { buildIcs } from "../lib/ics.js";
+import { selectAll } from "../lib/select-all.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
 import { loadExperience, loadPricingContext, loadPromos, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
@@ -197,18 +198,19 @@ export interface GameOption {
 
 /** The active games with their active tracks and cars, in the venue's order. */
 async function loadGames(db: Db): Promise<GameOption[]> {
+  // Each game can list up to 1000 tracks and cars, so these are read a page at a time.
   const [games, tracks, cars] = await Promise.all([
     db.from("games").select("id, name, resource_type_id").eq("active", true).order("sort").order("name"),
-    db.from("game_tracks").select("id, game_id, name").eq("active", true).order("sort").order("name"),
-    db.from("game_cars").select("id, game_id, name").eq("active", true).order("sort").order("name"),
+    selectAll((from, to) => db.from("game_tracks").select("id, game_id, name").eq("active", true).order("sort").order("name").order("id").range(from, to)),
+    selectAll((from, to) => db.from("game_cars").select("id, game_id, name").eq("active", true).order("sort").order("name").order("id").range(from, to)),
   ]);
-  for (const r of [games, tracks, cars]) if (r.error) throw mapDbError(r.error);
-  return games.data!.map((g) => ({
+  if (games.error) throw mapDbError(games.error);
+  return games.data.map((g) => ({
     id: g.id,
     name: g.name,
     resourceTypeId: g.resource_type_id,
-    tracks: tracks.data!.filter((t) => t.game_id === g.id).map((t) => ({ id: t.id, name: t.name })),
-    cars: cars.data!.filter((c) => c.game_id === g.id).map((c) => ({ id: c.id, name: c.name })),
+    tracks: tracks.filter((t) => t.game_id === g.id).map((t) => ({ id: t.id, name: t.name })),
+    cars: cars.filter((c) => c.game_id === g.id).map((c) => ({ id: c.id, name: c.name })),
   }));
 }
 

@@ -235,7 +235,10 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   // Read from the database rather than typed in: the list is the owner's to change.
   const db = localSupabase();
   const { data: sim } = await db.from("resource_types").select("id").eq("key", "sim").single();
-  const { data: games } = await db.from("games").select("id, name, game_tracks(name), game_cars(name)").eq("resource_type_id", sim!.id).eq("active", true).order("sort");
+  const { data: games } = await db.from("games").select("id, name, game_tracks(name), game_cars(name)").eq("resource_type_id", sim!.id).eq("active", true).order("sort")
+    // In the venue's order, as the panel shows them; unordered, the database may hand them back alphabetically.
+    .order("sort", { referencedTable: "game_tracks" })
+    .order("sort", { referencedTable: "game_cars" });
   const [game, other] = games as { name: string; game_tracks: { name: string }[]; game_cars: { name: string }[] }[];
   const otherOnly = other!.game_tracks.map((t) => t.name).find((n) => !game!.game_tracks.some((t) => t.name === n))!;
 

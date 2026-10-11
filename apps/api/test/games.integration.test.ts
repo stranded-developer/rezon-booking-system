@@ -233,4 +233,30 @@ describe("the back office list", () => {
     const config = await api("/public/config");
     expect(config.json.games.some((g: { id: string }) => g.id === id)).toBe(false);
   });
+
+  it("keeps a list of 1000 cars whole, reorders it in one save, and refuses 1001", { timeout: 60_000 }, async () => {
+    const cars = Array.from({ length: 1000 }, (_, i) => `Car ${String(i + 1).padStart(4, "0")} ${run}`);
+    const r = await admin("/games", { body: { resourceTypeId: typeId, name: `Big Grid ${run}`, cars, reason: "Full car list" } });
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const id = r.json.game.id as string;
+
+    // Every car comes back, in order — past the 1000 rows the database hands out per request.
+    const listed = (await admin("/games")).json.games.find((g: { id: string }) => g.id === id);
+    expect(listed.cars).toEqual(cars);
+    const offered = (await api("/public/config")).json.games.find((g: { id: string }) => g.id === id);
+    expect(offered.cars.map((c: { name: string }) => c.name)).toEqual(cars);
+
+    const reversed = [...cars].reverse();
+    expect((await admin(`/games/${id}`, { method: "PATCH", body: { cars: reversed, reason: "Reverse" } })).status).toBe(200);
+    expect((await admin("/games")).json.games.find((g: { id: string }) => g.id === id).cars).toEqual(reversed);
+
+    const tooMany = await admin(`/games/${id}`, { method: "PATCH", body: { cars: [...cars, `One more ${run}`] } });
+    expect(tooMany.status).toBe(422);
+
+    // Cutting the list back removes the rest.
+    expect((await admin(`/games/${id}`, { method: "PATCH", body: { cars: cars.slice(0, 3) } })).status).toBe(200);
+    const { count } = await ctx.db.from("game_cars").select("id", { count: "exact", head: true }).eq("game_id", id);
+    expect(count).toBe(3);
+    await ctx.db.from("games").delete().eq("id", id);
+  });
 });

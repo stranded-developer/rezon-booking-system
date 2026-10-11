@@ -6,7 +6,7 @@ Runs in Chrome on a laptop or desktop at the counter, with a USB 2D QR scanner a
 
 - **Device login:** a staff member signs in with email + password (Supabase Auth). The device stays signed in.
 - **Operator:** every action is attributed to the current **operator**, chosen on a lock screen by tapping your name and entering a **4-digit PIN**.
-  - The operator switches back to the lock screen after **5 minutes idle** or on "Lock".
+  - The operator switches back to the lock screen after **1 hour idle** (D94) or on "Lock".
   - PINs are verified by the API. 5 wrong attempts lock that staff PIN for 5 minutes (`pin_locked_until`), and the lockout is audited.
 - **Back office screens** require an operator with role `superadmin`.
 

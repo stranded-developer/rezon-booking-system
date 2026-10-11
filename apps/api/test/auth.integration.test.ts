@@ -76,7 +76,7 @@ describe("POS operator PIN", () => {
     const res = await call(ctx, "/pos/operator", { jwt: cashier.jwt, body: { staffId: owner.id, pin: owner.pin } });
     expect(res.status).toBe(200);
     expect(res.json.operator).toEqual({ id: owner.id, displayName: "Test owner", role: "superadmin" });
-    expect(res.json.expiresInSeconds).toBe(300);
+    expect(res.json.expiresInSeconds).toBe(3600);
     expect(res.headers.get("X-Operator-Token")).toBe(res.json.token);
 
     const { data } = await ctx.db

@@ -43,7 +43,7 @@ logs/          README (index + status), planning/, decisions/, build/ (one file 
    - **Device session:** `Authorization: Bearer <Supabase access token>`, verified with `auth.getClaims()` (JWKS signature check for asymmetric keys, auth-server check otherwise), mapped to an **active** staff row.
    - **Operator token:** `X-Operator-Token`, HS256 signed with `OPERATOR_TOKEN_SECRET`.
      - It is **bound to the device session's user** (a token issued on another device is rejected).
-     - Its lifetime is `OPERATOR_IDLE_SECONDS` (300). Every successful request returns a renewed token in the same header, so the idle lock is enforced by the server as well as the UI.
+     - Its lifetime is `OPERATOR_IDLE_SECONDS` (3600, one hour — D94). Every successful request returns a renewed token in the same header, so the idle lock is enforced by the server as well as the UI.
      - **Passive requests:** background requests (floor polling) send `X-Operator-Passive: 1`. They're authorised but don't renew the token, so an unattended POS still locks.
      - The operator's staff row is re-read on every request, so deactivating someone or changing their role takes effect immediately.
    - **PIN checks:** the API compares the scrypt hash, then records the outcome with `register_pin_attempt()`. That function holds a row lock, so parallel guesses can't exceed `PIN_MAX_ATTEMPTS` (5). A correct PIN is refused if the account became locked while it was being checked. Lockouts are audited.

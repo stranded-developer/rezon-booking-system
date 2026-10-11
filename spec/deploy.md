@@ -97,7 +97,7 @@ Set these in each Vercel project (Settings → Environment Variables). Use **Pre
 | `CORS_ORIGINS` | `https://racegrounds.eatzyeats.com,https://pos.racegrounds.eatzyeats.com` | Only these browsers may call the API. |
 | `EMAIL_TRANSPORT` | `console` until Resend is wired in (Phase 7) | |
 | `EMAIL_FROM` | `Raceground <bookings@racegrounds.eatzyeats.com>` | |
-| `OPERATOR_IDLE_SECONDS`, `PIN_MAX_ATTEMPTS`, `PIN_LOCK_MINUTES` | defaults are fine | |
+| `OPERATOR_IDLE_SECONDS`, `PIN_MAX_ATTEMPTS`, `PIN_LOCK_MINUTES` | defaults are fine — leave `OPERATOR_IDLE_SECONDS` unset for the one-hour lock (D94) | |
 
 `apps/api/.env.example` lists every setting the API reads, and a test fails if the two ever drift apart.
 
