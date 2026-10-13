@@ -90,19 +90,22 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(driving.getByRole("link")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Drivers, start your engines/i })).toHaveCount(0);
 
-  // D81: the bottom bar is there however far down the page is scrolled, and Explore lands on the
-  // types of driving.
+  // D81: the bottom bar is there however far down the page is scrolled. D96: Explore goes back to
+  // the top of the home page, from the home page itself and from any other page.
   const bar = page.getByRole("navigation", { name: "Quick links" });
   await page.mouse.wheel(0, 4000);
   await expect(bar.getByRole("link", { name: "Book now" })).toBeInViewport();
   await expect(bar.getByRole("link", { name: "Events" })).toHaveAttribute("href", "/tournaments");
-  await page.evaluate(() => window.scrollTo(0, 0));
   await bar.getByRole("link", { name: "Explore" }).click();
-  await expect(driving).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await driving.scrollIntoViewIfNeeded();
   await shot(page, "web-01b-home-tiles");
 
   await bar.getByRole("link", { name: "Book now" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /Choose your experience/i })).toBeVisible();
+  await bar.getByRole("link", { name: "Explore" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 test("clothing is coming soon, and the membership page is the poster", async ({ page }) => {
@@ -117,7 +120,7 @@ test("clothing is coming soon, and the membership page is the poster", async ({ 
   await expect(page.getByRole("heading", { name: /Membership\s*Promo price/i })).toBeVisible();
   const gold = page.getByRole("article").filter({ hasText: "Gold" });
   await expect(gold).toContainText("Most popular");
-  await expect(gold.getByText("4 races per month")).toBeVisible();
+  await expect(gold.getByText("4 FREE RACES PER MONTH")).toBeVisible();
   await expect(gold).toContainText("(Only $19.50 per race)");
   await expect(gold).toContainText("20% off next bookings");
   // The race prices are the poster's flat member prices (D82), not a percentage of the list price.

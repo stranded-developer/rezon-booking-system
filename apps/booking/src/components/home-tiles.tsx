@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { EXPLORE_ID } from "@/components/bottom-bar";
 import { Reveal } from "@/components/reveal";
 import type { SiteTile } from "@/lib/types";
 
@@ -125,7 +124,7 @@ export function DrivingTiles({ tiles }: { tiles: SiteTile[] }) {
   const captions = tiles.filter((t) => t.title.startsWith("&"));
   if (tiles.length === 0) return null;
   return (
-    <Section id={EXPLORE_ID} label="Types of driving">
+    <Section label="Types of driving">
       <SectionHeading title="Types of driving" sub="Open-wheel to off-road: whatever you like to drive, it's on the rigs." />
       <div className="mt-8 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
         {cards.map((tile, i) => (

@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-/** Where "Explore" lands: the types of driving on the home page (D81). */
-export const EXPLORE_ID = "explore";
-
 const ITEMS = [
   {
     href: "/book",
@@ -20,7 +17,8 @@ const ITEMS = [
     icon: <path d="M8 4h8v5a4 4 0 01-8 0V4zM8 6H5a3 3 0 003 4M16 6h3a3 3 0 01-3 4M12 13v4M8 20h8" strokeLinecap="round" strokeLinejoin="round" />,
   },
   {
-    href: `/#${EXPLORE_ID}`,
+    // The top of the home page (D96). Already there, Link would do nothing, so it scrolls up itself.
+    href: "/",
     label: "Explore",
     primary: false,
     icon: <path d="M12 21a9 9 0 100-18 9 9 0 000 18zM15.5 8.5l-2 5-5 2 2-5 5-2z" strokeLinecap="round" strokeLinejoin="round" />,
@@ -29,7 +27,7 @@ const ITEMS = [
 
 /**
  * Three buttons fixed to the bottom of the screen on every page, so booking, events and the
- * showcase are always one tap away however far down someone has scrolled (D81).
+ * home page are always one tap away however far down someone has scrolled (D81, D96).
  *
  * It sits under the booking panel and the event pop-up (z-30 against their z-50), and the layout
  * pads the page by its height so the footer is never hidden behind it.
@@ -49,6 +47,12 @@ export function BottomBar() {
               <Link
                 href={item.href}
                 aria-current={current ? "page" : undefined}
+                onClick={(e) => {
+                  if (item.href === "/" && pathname === "/") {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
                 className={`flex h-12 flex-col items-center justify-center gap-0.5 rounded-lg font-[family-name:var(--font-display)] text-[0.6rem] font-bold uppercase tracking-[0.08em] transition ${
                   item.primary ? "bg-flag text-on-flag hover:bg-flag-bright" : current ? "bg-mist text-ink-950" : "text-ink-600 hover:bg-mist hover:text-ink-950"
                 }`}

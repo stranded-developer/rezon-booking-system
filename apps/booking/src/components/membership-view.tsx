@@ -208,7 +208,7 @@ function TierCard({ tier, config, mostPopular, action }: { tier: PublicConfig["t
             <span aria-hidden>–</span>
             <span>
               <strong className="text-base font-extrabold text-ink-950">
-                {races} {races === 1 ? "race" : "races"} per month
+                {races} FREE {races === 1 ? "RACE" : "RACES"} PER MONTH
               </strong>
               <span className="block text-ink-600">(Only {dollars(Math.round(tier.monthlyPriceCents / races))} per race)</span>
             </span>

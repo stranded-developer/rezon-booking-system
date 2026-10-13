@@ -54,6 +54,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Garet Book (300) / Heavy (850) on the booking site (8u) | ✅ Built and verified |
 | The till locks after 1 hour idle; 1000 tracks and cars per game (45) | ✅ Built and verified |
 | The owner's logo in the booking site and POS (46) | ✅ Built and verified |
+| Explore → top of home; "x FREE RACES PER MONTH" (47) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -110,6 +111,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 44 | Garet, and the sizes from the owner's video (8u, 8t part 2) | [build/44-garet-and-sizes.md](build/44-garet-and-sizes.md) |
 | 45 | The till locks after an hour; games can list 1000 tracks and cars | [build/45-idle-lock-game-lists.md](build/45-idle-lock-game-lists.md) |
 | 46 | The owner's logo everywhere | [build/46-logo.md](build/46-logo.md) |
+| 47 | Explore goes to the top; "x FREE RACES PER MONTH" | [build/47-explore-free-races.md](build/47-explore-free-races.md) |
 
 ## Decisions
 
@@ -122,6 +124,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
+| [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D100: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice |
 | [13 — 2026-10-11](decisions/13-2026-10-11-idle-lock-game-lists.md) | D94–D95: **the till locks after 1 hour idle (was 5 min)**, up to 1000 tracks and 1000 cars per game (was 200) |
 | [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, **Garet Book/Heavy (supersedes D88's fonts)** |
 | [11 — 2026-10-05](decisions/11-2026-10-05-mockup-layout-racegrounds.md) | D88–D89: the owner's mockup — lime on purple, Unbounded, the new home page and header, the rig renders (**supersedes D76's look**); the name Racegrounds |

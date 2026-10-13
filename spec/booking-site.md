@@ -116,10 +116,10 @@ Customers cancel through the signed link in their email.
 - **Legal pages** are drafted below and finished in Phase 7.
 
 **Round of 2026-10-01 (D81–D87)**
-- **Bottom bar** on every page, fixed to the bottom of the screen: *Book now* → `/book`, *Events* → `/tournaments`, *Explore* → `/#explore` (Types of driving). Under the booking panel and pop-up; the page is padded so the footer is never hidden.
+- **Bottom bar** on every page, fixed to the bottom of the screen: *Book now* → `/book`, *Events* → `/tournaments`, *Explore* → the top of the home page, scrolling up if already there (D96). Under the booking panel and pop-up; the page is padded so the footer is never hidden.
 - **Clothing** in the top bar after Contact → `/clothing`: a coming-soon banner and empty catalogue tiles until the collection is ready (D86).
 - **Home page**: under the hero, the 2×2 tile grid and an "8 Simulators · Explore" bar; then **Book your event** (every tile → `/book`) in place of the four how-it-works steps; then **Types of driving** (not links). All from `site_tiles` (D87).
-- **Membership page**: the owner's poster — "Membership / Promo price", each tier's card with the RG badge, "$48 / Month", the free races per month in heavy bold with the price per race, the poster's lines, "% off next bookings", and a **Race price** block with the tier's flat member prices. Gold keeps "Most popular". The old "What you'd pay" table is gone (D84).
+- **Membership page**: the owner's poster — "Membership / Promo price", each tier's card with the RG badge, "$48 / Month", the free races per month in heavy bold, written "x FREE RACES PER MONTH" (D97), with the price per race, the poster's lines, "% off next bookings", and a **Race price** block with the tier's flat member prices. Gold keeps "Most popular". The old "What you'd pay" table is gone (D84).
 - **Before you arrive** (D85): arrive `arriveEarlyMinutes` early; the session starts and ends at the booked time and arriving late does not extend it; the spot is held `noShowHoldMinutes`. On Pay, the booking page, the terms and both emails.
 - Experiences show their member price as "Gold member price" on the booking (D82).
 

@@ -245,7 +245,7 @@ function MembersClub({ tiers, sessionMinutes }: { tiers: PublicConfig["tiers"]; 
                   </div>
                   <p className={`mt-4 text-xs sm:text-sm ${featured ? "text-on-flag/80" : "text-ink-600"}`}>
                     {tier.discountBp / 100}% off every booking, and{" "}
-                    {races > 0 ? `${races} free ${races === 1 ? "race" : "races"}` : `${tier.monthlyFreeMinutes} free minutes`} a month.
+                    {races > 0 ? `${races} FREE ${races === 1 ? "RACE" : "RACES"} PER MONTH` : `${tier.monthlyFreeMinutes} free minutes a month`}.
                   </p>
                 </article>
               </Reveal>
