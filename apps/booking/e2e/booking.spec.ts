@@ -292,8 +292,10 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await panel.getByRole("button", { name: "Continue", exact: true }).click();
   const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
   const listPrice = await total.textContent();
-  // D85: the rules are there before paying.
+  // D85: the rules are there before paying. D100: and the owner's big notice, above the pay button.
   await expect(panel.getByText("Before you arrive")).toBeVisible();
+  await expect(panel.getByRole("note")).toHaveText(/^Please come \d+ minutes before your booking time to choose cars, tracks and games$/);
+  await expect(panel.getByRole("note").locator("p")).toHaveCSS("text-transform", "uppercase");
   await expect(panel.getByText(/Arriving late does not extend it/)).toBeVisible();
   await expect(panel.getByText("Your setup").locator("xpath=following-sibling::span")).toHaveText(
     `${game!.name} · ${game!.game_tracks[1]!.name} · ${game!.game_cars[0]!.name}`,

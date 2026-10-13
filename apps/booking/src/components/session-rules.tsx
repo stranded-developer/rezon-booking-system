@@ -27,3 +27,17 @@ export function SessionRules({ arriveEarlyMinutes, noShowHoldMinutes, className 
     </div>
   );
 }
+
+/**
+ * The owner's "super clear" notice before a booking is finished (D100): the arrive-early minutes
+ * from the back office, in big capitals on a lime band, right above the button that completes it.
+ */
+export function ArriveEarlyNotice({ minutes }: { minutes: number }) {
+  return (
+    <div role="note" className="rounded-xl bg-flag px-5 py-5 text-center text-on-flag shadow-[0_6px_24px_-10px_var(--color-flag)]">
+      <p className="display text-xl leading-tight sm:text-2xl">
+        Please come {minutes} minutes before your booking time to choose cars, tracks and games
+      </p>
+    </div>
+  );
+}

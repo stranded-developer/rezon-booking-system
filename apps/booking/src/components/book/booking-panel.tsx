@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/account-provider";
 import { MonthCalendar } from "@/components/book/month-calendar";
 import { SearchSelect } from "@/components/search-select";
-import { SessionRules } from "@/components/session-rules";
+import { ArriveEarlyNotice, SessionRules } from "@/components/session-rules";
 import { Badge, Button, ButtonLink, Field, Input, Notice, Row, Select, Spinner } from "@/components/ui";
 import { ApiRequestError, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes, formatRate, formatVenueDate, formatWallTime } from "@/lib/format";
@@ -989,6 +989,8 @@ function PayStep({
             </p>
           </div>
 
+          <ArriveEarlyNotice minutes={config.arriveEarlyMinutes} />
+
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-1 size-4 accent-[var(--color-flag)]" checked={acceptTerms} onChange={(e) => onAcceptTerms(e.target.checked)} />
             <span>
@@ -1070,7 +1072,7 @@ function Summary({
         {quote
           ? formatCents(quote.totalCents)
           : target.kind === "experience"
-            ? formatCents(target.experience.fromPriceCents)
+            ? formatCents(target.experience.priceCents)
             : formatRate(target.type.baseRateCents)}
       </p>
       {quote?.happyHour ? <HappyHourNote happyHour={quote.happyHour} /> : null}

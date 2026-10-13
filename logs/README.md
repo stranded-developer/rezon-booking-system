@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-10-11)
+## Current status (2026-10-13)
 
 | Area | State |
 |---|---|
@@ -58,6 +58,8 @@ Everything that was planned, decided and built, one file per step so each can be
 | Experience cards follow the owner's mockups; normal price big, happy hour boxed (48) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Happy hour tagged on the session times and highlighted in the summary (49) | ✅ Built and verified |
 | Tournament list no longer breaks past ~200 tournaments (50) | ✅ Fixed and verified |
+| Big "come 15 minutes early" notice before paying (51) | ✅ Built and verified |
+| Terms and conditions from the owner's file | ⏸ **Waiting:** `assets/brand/tnc` is empty |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -118,6 +120,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 48 | The experience cards follow the owner's mockups | [build/48-experience-cards.md](build/48-experience-cards.md) |
 | 49 | Happy hour shown in the session times and the summary | [build/49-happy-hour-shown.md](build/49-happy-hour-shown.md) |
 | 50 | The tournament list no longer breaks past ~200 tournaments | [build/50-tournament-list-batches.md](build/50-tournament-list-batches.md) |
+| 51 | The big "come 15 minutes early" notice | [build/51-arrive-early-notice.md](build/51-arrive-early-notice.md) |
 
 ## Decisions
 
