@@ -98,7 +98,6 @@ export function CancelView({ bookingRef, token }: { bookingRef: string; token: s
           {quote.returnMinutes > 0 ? <p className="mt-2 text-sm text-ink-600">{quote.returnMinutes} free minutes go back into your balance.</p> : null}
           <p className="mt-2 text-sm text-ink-500">
             {quote.rule === "full" ? "Cancelled at least 24 hours before the start: full refund." : null}
-            {quote.rule === "half" ? "Cancelled between 2 and 24 hours before the start: half refund." : null}
           </p>
           {error ? (
             <div className="mt-4">
@@ -117,7 +116,8 @@ export function CancelView({ bookingRef, token }: { bookingRef: string; token: s
       ) : (
         <Card>
           <p className="text-sm text-ink-600">
-            Bookings can&apos;t be cancelled online less than 2 hours before the start. Please call the venue if something has come up.
+            Bookings can&apos;t be cancelled less than 24 hours before the start, and no refund applies. Please call the venue if something
+            has come up.
           </p>
           <div className="mt-4">
             <ButtonLink href={`/booking/${booking.ref}?token=${encodeURIComponent(token ?? "")}`}>Back to my booking</ButtonLink>

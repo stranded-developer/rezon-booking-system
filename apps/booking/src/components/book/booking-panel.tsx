@@ -983,9 +983,8 @@ function PayStep({
           <div className="rounded-xl border border-line p-4 text-sm text-ink-600">
             <p className="display text-ink-950">Cancellations</p>
             <p className="mt-1">
-              Full refund if you cancel at least {config.refundPolicy.fullRefundHoursBefore} hours before the start, 50% between{" "}
-              {config.refundPolicy.halfRefundHoursBefore} and {config.refundPolicy.fullRefundHoursBefore} hours before. Inside{" "}
-              {config.refundPolicy.halfRefundHoursBefore} hours you can&apos;t cancel online.
+              Full refund if you cancel at least {config.refundPolicy.fullRefundHoursBefore} hours before the start. Inside{" "}
+              {config.refundPolicy.fullRefundHoursBefore} hours a booking can&apos;t be cancelled and no refund applies.
             </p>
           </div>
 

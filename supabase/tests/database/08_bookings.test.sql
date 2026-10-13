@@ -189,11 +189,11 @@ select results_eq(
   $$ select q ->> 'rule', (q ->> 'refundCents')::int, (q ->> 'returnMinutes')::int from (select booking_cancel_quote(pg_temp.id('guest'), '2030-01-14T12:00:00+11:00') q) x $$,
   $$ values ('full', 3000, 0) $$, 'exactly 24 h before: full refund');
 select results_eq(
-  $$ select q ->> 'rule', (q ->> 'refundCents')::int from (select booking_cancel_quote(pg_temp.id('guest'), '2030-01-14T12:00:01+11:00') q) x $$,
-  $$ values ('half', 1500) $$, 'just under 24 h: half');
+  $$ select q ->> 'allowed', q ->> 'reason' from (select booking_cancel_quote(pg_temp.id('guest'), '2030-01-14T12:00:01+11:00') q) x $$,
+  $$ values ('false', 'too_late') $$, 'just under 24 h: not allowed, no refund (D101)');
 select results_eq(
   $$ select q ->> 'allowed', q ->> 'reason' from (select booking_cancel_quote(pg_temp.id('guest'), '2030-01-15T10:00:01+11:00') q) x $$,
-  $$ values ('false', 'too_late') $$, 'under 2 h: not allowed');
+  $$ values ('false', 'too_late') $$, 'under 2 h: not allowed either');
 select is(booking_cancel_quote(pg_temp.id('guest'), '2030-01-15T11:59:00+11:00', true) ->> 'refundCents', '3000', 'venue fault: full refund any time');
 select is(booking_cancel_quote(pg_temp.id('late'), '2030-01-14T12:00:00+11:00') ->> 'reason', 'not_cancellable', 'an expired hold is not cancellable');
 
@@ -205,7 +205,7 @@ select throws_like($$ select booking_cancel(pg_temp.id('guest'), '{"now": "2030-
 select throws_like($$ select booking_cancel(pg_temp.id('guest'), '{"now": "2030-01-15T11:00:00+11:00", "venueFault": true}') $$,
   'RG:forbidden:%', 'a customer cannot claim venue fault');
 select throws_like($$ select booking_cancel(pg_temp.id('guest'), '{"now": "2030-01-15T11:00:00+11:00", "refundCents": 0}') $$,
-  'RG:too_late:%', 'a customer cannot cancel under 2 h');
+  'RG:too_late:%', 'a customer cannot cancel under 24 h');
 select is(booking_cancel(pg_temp.id('guest'), '{"now": "2030-01-14T11:00:00+11:00", "refundCents": 3000, "stripeRefundId": "re_bk_1"}') ->> 'rule', 'full', 'customer cancels 25 h ahead');
 select results_eq(
   $$ select b.status, b.refund_cents, b.cancelled_at, b.cancel_reason, r.amount_cents, r.stripe_refund_id
@@ -215,7 +215,7 @@ select results_eq(
 select throws_like($$ select booking_cancel(pg_temp.id('guest'), '{"now": "2030-01-14T11:00:00+11:00", "refundCents": 3000, "stripeRefundId": "re_bk_2"}') $$,
   'RG:not_cancellable:%', 'a booking is cancelled once');
 
-select is(booking_cancel(pg_temp.id('ref'), '{"now": "2030-01-15T06:00:00+11:00", "refundCents": 1250, "stripeRefundId": "re_bk_ref"}') ->> 'refundCents', '1250', 'half refund 10 h ahead');
+select is(booking_cancel(pg_temp.id('ref'), '{"now": "2030-01-14T11:00:00+11:00", "refundCents": 2500, "stripeRefundId": "re_bk_ref"}') ->> 'refundCents', '2500', 'full refund 29 h ahead');
 select is((select uses_count from referral_codes where id = '00000000-0000-0000-0000-0000000ee101'), 1, 'the referral use is not restored');
 
 select results_eq(
@@ -228,18 +228,16 @@ select throws_like($$ select booking_cancel(pg_temp.id('phone'), '{"now": "2030-
 select throws_like($$ select booking_cancel(pg_temp.id('phone'), '{"now": "2030-01-15T18:30:00+11:00", "staffId": "00000000-0000-0000-0000-00000000b001", "reason": "x", "overrideRefundCents": 3001, "stripeRefundId": "re_bk_o"}') $$,
   'RG:invalid:%', 'an override cannot exceed the amount paid');
 select is(booking_cancel(pg_temp.id('phone'), '{"now": "2030-01-15T18:30:00+11:00", "staffId": "00000000-0000-0000-0000-00000000b001", "reason": "Goodwill", "overrideRefundCents": 1000, "stripeRefundId": "re_bk_o"}') ->> 'rule',
-  'override', 'a superadmin can refund any amount, even under 2 h');
+  'override', 'a superadmin can refund any amount, even under 24 h');
 select results_eq(
   $$ select actor_staff_id, reason, after ->> 'refund_cents' from audit_log where action = 'booking.cancel' and entity_id = pg_temp.id('phone')::text $$,
   $$ values ('00000000-0000-0000-0000-00000000b001'::uuid, 'Goodwill', '1000') $$, 'staff cancellation audited with actor and reason');
 
--- A member booking part-paid with free minutes, cancelled 10 h ahead: half the money back, minutes kept.
+-- A member booking part-paid with free minutes, 10 h ahead: inside 24 hours, so no cancelling (D101).
 insert into ids select 'memhalf', (booking_hold(pg_temp.q('{"resourceId": "00000000-0000-0000-0000-0000000cc102", "memberId": "00000000-0000-0000-0000-00000000d101", "freeMinutes": 30, "totalCents": 1350, "gstCents": 123, "startsAt": "2030-01-15T17:00:00+11:00", "endsAt": "2030-01-15T18:00:00+11:00"}'))).id;
 select booking_confirm(pg_temp.id('memhalf'), '{"method": "stripe", "paymentIntentId": "pi_bk_memhalf", "amountPaidCents": 1350}');
-select results_eq(
-  $$ select (r ->> 'refundCents')::int, (r ->> 'minutesReturned')::int, pg_temp.bal()
-     from (select booking_cancel(pg_temp.id('memhalf'), '{"now": "2030-01-15T07:00:00+11:00", "refundCents": 675, "stripeRefundId": "re_bk_memhalf"}') r) x $$,
-  $$ values (675, 0, 60) $$, 'a 2–24 h cancel refunds half and keeps the free minutes used');
+select throws_like($$ select booking_cancel(pg_temp.id('memhalf'), '{"now": "2030-01-15T07:00:00+11:00", "refundCents": 0}') $$,
+  'RG:too_late:%', 'a 2–24 h cancel is refused: no half refund any more (D101)');
 
 -- ── Privileges ──────────────────────────────────────────────────────────────
 select function_privs_are('public', 'booking_hold', array['jsonb'], 'anon', array[]::text[], 'anonymous visitors cannot hold directly');

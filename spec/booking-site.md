@@ -74,8 +74,7 @@ Customers cancel through the signed link in their email.
 | Cancelled by | When | Refund | Free minutes | Referral use |
 |---|---|---|---|---|
 | Customer | ≥ 24 h before start | 100% | Returned | Not restored |
-| Customer | 2–24 h before | 50% | Not returned | Not restored |
-| Customer | < 2 h before | Cancel not offered; no refund | — | — |
+| Customer | < 24 h before | Cancel not offered; no refund (D101, the owner's terms) | — | — |
 | No-show | 15 min after start, marked at POS | None | Not returned | Not restored |
 | Venue (fault, closure) | Any time | 100% | Returned | Not restored |
 

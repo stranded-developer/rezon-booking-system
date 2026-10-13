@@ -336,7 +336,10 @@ test("the legal pages explain the rules", async ({ page }) => {
   await page.getByRole("link", { name: "Cancellations & refunds" }).click();
   await expect(page.getByRole("heading", { name: "Cancellations and refunds" })).toBeVisible();
   await expect(page.getByText(/24 hours or more before the start/)).toBeVisible();
-  await page.getByRole("link", { name: "Terms" }).click();
+  // D101: inside 24 hours there is no refund, and no 50% any more.
+  await expect(page.getByText(/Less than 24 hours before:/)).toBeVisible();
+  await expect(page.getByText(/50%/)).toHaveCount(0);
+  await page.getByRole("link", { name: "Terms", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
   await page.getByRole("link", { name: "Privacy" }).click();
   await expect(page.getByText(/Payments are handled by Stripe/)).toBeVisible();

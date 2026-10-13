@@ -104,7 +104,8 @@ export async function publicConfig(deps: AppDeps) {
     holdMinutes: settings.hold_ttl_minutes,
     noShowHoldMinutes: settings.no_show_hold_minutes,
     arriveEarlyMinutes: settings.arrive_early_minutes,
-    refundPolicy: { fullRefundHoursBefore: 24, halfRefundHoursBefore: 2 },
+    // D101: full refund 24 hours or more before; inside that, no online cancelling and no refund.
+    refundPolicy: { fullRefundHoursBefore: 24 },
     resourceTypes: types.data!.map((t) => {
       // The cheapest hourly rate anyone could pay, the same idea as an experience's "from" price:
       // a rate band in a happy-hour window is what makes a billiard table $20 rather than $25.
@@ -933,8 +934,8 @@ export async function cancelBooking(deps: AppDeps, b: BookingRow, opts: CancelOp
   } else {
     if (!quote.allowed) {
       throw isStaff
-        ? new ApiError(409, "too_late", "Less than 2 hours before the start: cancel as the venue's fault or set the refund amount.")
-        : new ApiError(409, "too_late", "Bookings can't be cancelled online less than 2 hours before the start. Please call the venue.");
+        ? new ApiError(409, "too_late", "Less than 24 hours before the start: cancel as the venue's fault or set the refund amount.")
+        : new ApiError(409, "too_late", "Bookings can't be cancelled online less than 24 hours before the start, and no refund applies. Please call the venue.");
     }
     refundCents = quote.refundCents ?? 0;
   }
@@ -1023,7 +1024,7 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
   const free = b.free_minutes_used > 0 ? `\nFree play used: ${b.free_minutes_used} min` : "";
   const setup = b.sim_setup ? `\nYour setup: ${simSetupText(b.sim_setup)}` : "";
   const link = token ? `\n\nView or cancel your booking: ${bookingLink(deps, b.ref, token)}` : "";
-  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session starts and ends at the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before, 50% from 24 to 2 hours before, no online cancellation within 2 hours.${link}\n\nRaceground`;
+  const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session starts and ends at the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before the start. Within 24 hours a booking can't be cancelled and no refund applies.${link}\n\nRaceground`;
   const ics = buildIcs({
     uid: `${b.id}@raceground`,
     start,
@@ -1144,7 +1145,7 @@ export async function sendDayBeforeReminders(deps: AppDeps) {
       template: "booking_reminder",
       to: b.customers.email,
       subject: `See you tomorrow at Racegrounds: ${s.time}`,
-      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start, 50% up to 2 hours before.\n\nRaceground`,
+      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start. Within 24 hours no refund applies.\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:reminder`,
     });

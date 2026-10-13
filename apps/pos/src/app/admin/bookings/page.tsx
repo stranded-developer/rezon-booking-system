@@ -207,7 +207,7 @@ function BookingDialog({ booking, onClose, onChanged }: { booking: BookingRow; o
             <p className="text-sm text-ink-400" data-testid="policy-refund">
               {policy?.allowed
                 ? `The policy refund right now is ${formatCents(policy.refundCents ?? 0)} of ${formatCents(paidCents)} (${policy.rule}, ${Math.floor(policy.hoursBefore)} h before the start).`
-                : `Less than 2 hours before the start: no refund applies unless it's the venue's fault or you set an amount.`}
+                : `Less than 24 hours before the start: no refund applies unless it's the venue's fault or you set an amount.`}
             </p>
 
             <label className="flex items-center gap-2 text-sm">

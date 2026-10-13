@@ -1,6 +1,6 @@
 # Decisions 14 — 2026-10-13: Explore, card wording, happy hour shown clearly, arrive early
 
-**Supersedes:** *Explore* → `/#explore` from D81 (D96); the experience cards' "from" price (D98).
+**Supersedes:** *Explore* → `/#explore` from D81 (D96); the experience cards' "from" price (D98); **the 50% refund between 2 and 24 hours before the start** (D101).
 
 ## D96 — Explore goes to the top of the home page ✅ owner 2026-10-13
 
@@ -38,6 +38,14 @@
 
 **Decision:** shown large, in capitals, on the last step before paying. The minutes come from the back office's arrive-early setting (D85, 15 at launch).
 
-## Open
+## D101 — No refund inside 24 hours ✅ owner 2026-10-13
 
-- **Terms and conditions:** the owner put a file at `assets/brand/tnc`, but it is empty (0 bytes). Waiting for the text.
+**From:** the owner's terms and conditions (`assets/brand/tnc.txt`, section 3): "Cancellations made more than 24 hours before the scheduled session start time are eligible for a full refund. Cancellations made within 24 hours of the scheduled session are generally non-refundable." The system gave 50% back between 2 and 24 hours. **Asked:** which is right? **Answer:** the terms.
+
+**Decision:** a customer cancelling **24 hours or more** before the start gets a full refund and their free-play minutes back. **Inside 24 hours** a booking can't be cancelled online and nothing is refunded. Staff can still cancel at any time as the venue's fault (full refund) or set a refund amount with a reason, as before. Exactly 24 hours before still counts as a full refund.
+
+## D102 — The owner's terms and conditions, with 15 minutes to arrive early ✅ owner 2026-10-13
+
+**Given:** `assets/brand/tnc.txt`, RACEGROUNDS PTY LTD's terms (16 sections). Sections 4 and 12 say to arrive "at least 10 minutes before"; the booking rules and the big notice (D100) say 15. **Asked:** which? **Answer:** 15.
+
+**Decision:** `/terms` shows the owner's text in full, with "at least 15 minutes" in sections 4 and 12 (from the back office's arrive-early setting, so they never disagree with the notice). Nothing else in the text is changed.

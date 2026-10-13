@@ -176,21 +176,20 @@ describe.skipIf(!stripeKey)("online booking payments with Stripe (test mode)", {
     expect((await ctx.db.from("refunds").select("stripe_refund_id").eq("payment_id", payment.id)).data).toEqual([{ stripe_refund_id: earlier.id }]);
   });
 
-  it("refunds half through Stripe when cancelled 10 hours before", async () => {
+  it("refuses a cancel 10 hours before, and refunds nothing through Stripe (D101)", async () => {
     const h = await hold("15:00");
     const pi = await pay(h.totalCents);
     await deliverCompleted(h.sessionId, pi.id);
     ctx.clock.set(new Date(localToInstant(day(), "15:00", TZ) - 10 * 3_600_000));
-    const half = Math.floor(h.totalCents / 2);
-    const stale = await api(`/bookings/${h.ref}/cancel`, { body: { token: h.token, expectedRefundCents: h.totalCents } });
-    expect(stale.status).toBe(409);
-    expect(stale.json.error).toMatchObject({ code: "refund_changed", details: { refundCents: half } });
+    const view = await api(`/bookings/${h.ref}?token=${h.token}`);
+    expect(view.json.booking.cancellation).toMatchObject({ allowed: false, reason: "too_late" });
+    for (const expectedRefundCents of [h.totalCents, Math.floor(h.totalCents / 2), 0]) {
+      const r = await api(`/bookings/${h.ref}/cancel`, { body: { token: h.token, expectedRefundCents } });
+      expect(r.status).toBe(409);
+      expect(r.json.error.code).toBe("too_late");
+    }
     expect((await stripe.refunds.list({ payment_intent: pi.id })).data).toHaveLength(0);
-    const r = await api(`/bookings/${h.ref}/cancel`, { body: { token: h.token, expectedRefundCents: half } });
-    expect(r.status, JSON.stringify(r.json)).toBe(200);
-    expect(r.json).toMatchObject({ rule: "half", refundCents: half });
-    const refunds = await stripe.refunds.list({ payment_intent: pi.id });
-    expect(refunds.data.map((x) => x.amount)).toEqual([half]);
+    expect((await ctx.db.from("bookings").select("status").eq("id", h.bookingId).single()).data!.status).toBe("confirmed");
     ctx.clock.real();
   });
 

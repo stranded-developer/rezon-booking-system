@@ -14,7 +14,8 @@ export interface PublicConfig {
   noShowHoldMinutes: number;
   /** How early a guest should arrive; the session still runs on the booked time (D85). */
   arriveEarlyMinutes: number;
-  refundPolicy: { fullRefundHoursBefore: number; halfRefundHoursBefore: number };
+  /** Full refund this many hours or more before the start; inside it, none (D101). */
+  refundPolicy: { fullRefundHoursBefore: number };
   resourceTypes: ResourceType[];
   openingHours: { dayOfWeek: number; open: string; close: string; closed: boolean }[];
   happyHours: { name: string; resourceTypeIds: string[] | null; daysOfWeek: number[]; startTime: string; endTime: string; discountBp: number }[];

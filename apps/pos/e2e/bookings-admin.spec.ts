@@ -46,8 +46,8 @@ test("a superadmin finds a booking and cancels it as the venue's fault", async (
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText(f.adminBooking.customer);
   await expect(dialog).toContainText(f.adminBooking.resourceLabel);
-  // 2–24 hours before the start, so the policy is the half refund…
-  await expect(dialog.getByTestId("policy-refund")).toContainText("half");
+  // Inside 24 hours of the start, so the policy refund is nothing (D101)…
+  await expect(dialog.getByTestId("policy-refund")).toContainText("Less than 24 hours before the start");
   await shot(page, "admin-07-booking");
 
   // A reason is required.
@@ -82,15 +82,15 @@ test("a superadmin finds a booking and cancels it as the venue's fault", async (
   await expect(page.getByRole("dialog")).toContainText("already cancelled");
   await page.keyboard.press("Escape");
 
-  // ── Inside 2 hours: the policy refuses, but the venue can still cancel ─────
+  // ── Inside 24 hours (here, 2): the policy refuses, but the venue can still cancel ─
   await page.getByRole("textbox", { name: "Day" }).fill(f.adminBookingSoon.date);
   await page.getByRole("row", { name: new RegExp(f.adminBookingSoon.ref) }).click();
   const soon = page.getByRole("dialog");
-  await expect(soon.getByTestId("policy-refund")).toContainText("Less than 2 hours before the start");
+  await expect(soon.getByTestId("policy-refund")).toContainText("Less than 24 hours before the start");
   await soon.getByLabel("Reason").fill("Power outage");
   // Without marking it as the venue's fault, the API refuses this close to the start.
   await soon.getByRole("button", { name: /Cancel booking and refund/ }).click();
-  await expect(soon.getByRole("alert")).toContainText(/2 hours/i);
+  await expect(soon.getByRole("alert")).toContainText(/24 hours/i);
   await soon.getByLabel("Our fault (full refund and free minutes back, whenever it is)").check();
   await soon.getByRole("button", { name: /Cancel booking and refund/ }).click();
   await expect(page.getByRole("row", { name: new RegExp(f.adminBookingSoon.ref) })).toContainText("cancelled");

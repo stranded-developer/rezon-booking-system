@@ -291,7 +291,7 @@ describe("back office bookings", () => {
     expect(r.status).toBe(403);
   });
 
-  it("under 2 hours needs a venue-fault cancel or a set refund, with a reason", async () => {
+  it("under 24 hours needs a venue-fault cancel or a set refund, with a reason (D101)", async () => {
     ctx.clock.set(at("10:00"));
     const quote = await admin(`/bookings/${booking.bookingId}/cancel-quote`);
     expect(quote.json.quote).toMatchObject({ allowed: false, reason: "too_late" });

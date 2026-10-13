@@ -345,11 +345,14 @@ describe("holds", () => {
     expect(wrong.status).toBe(404);
   });
 
-  it("refuses a customer cancel within 2 hours, then cancels ≥ 24 h ahead with an email", async () => {
-    ctx.clock.set(at("10:30", "2030-02-16"));
-    const late = await api(`/bookings/${freeBooking.ref}/cancel`, { body: { token: freeBooking.token, expectedRefundCents: 0 } });
-    expect(late.status).toBe(409);
-    expect(late.json.error.code).toBe("too_late");
+  it("refuses a customer cancel within 24 hours, then cancels ≥ 24 h ahead with an email", async () => {
+    // D101: no half refund any more; inside 24 hours, an hour before or a day before, it's refused.
+    for (const now of [at("10:30", "2030-02-16"), at("13:00", "2030-02-15")]) {
+      ctx.clock.set(now);
+      const late = await api(`/bookings/${freeBooking.ref}/cancel`, { body: { token: freeBooking.token, expectedRefundCents: 0 } });
+      expect(late.status).toBe(409);
+      expect(late.json.error.code).toBe("too_late");
+    }
     ctx.clock.set(at("09:00"));
     const r = await api(`/bookings/${freeBooking.ref}/cancel`, { body: { token: freeBooking.token, expectedRefundCents: 0 } });
     expect(r.status, JSON.stringify(r.json)).toBe(200);

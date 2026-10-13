@@ -92,8 +92,8 @@ export default async function globalSetup() {
   });
   if (bookingError) throw bookingError;
 
-  // Three hours from now on a table of its own: always inside the half-refund window (2–24 h),
-  // whatever time the suite runs, so the back office test sees a predictable policy.
+  // Three hours from now on a table of its own: always inside 24 hours, where the policy refund is
+  // nothing (D101), whatever time the suite runs, so the back office test sees a predictable policy.
   const adminLabel = `E2E Table B ${run}`;
   const { data: adminResource, error: adminResourceError } = await db
     .from("resources")
