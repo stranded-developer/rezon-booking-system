@@ -83,6 +83,13 @@ beforeAll(async () => {
     .select("id, name, experience_id");
   if (promoError) throw promoError;
   happyPromoId = promos.find((p) => p.experience_id === quickId && p.name === "Test Happy Hour")!.id;
+
+  // Booked by the hour, the rig is half price from 12:00 to 15:00 on Saturdays: a rate band, as
+  // the venue's billiards happy hour is (D74). Only this run's own type has it.
+  const { error: bandError } = await ctx.db
+    .from("rate_bands")
+    .insert({ resource_type_id: typeId, days_of_week: [6], start_time: "12:00", end_time: "15:00", rate_cents: 3000 });
+  if (bandError) throw bandError;
   studentPromoId = promos.find((p) => p.name === "Test Student")!.id;
 
   const { data: tournaments, error: tError } = await ctx.db
@@ -109,6 +116,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await restoreHours();
+  // The venue's own rate bands are checked elsewhere; this run's must not outlive it.
+  await ctx.db.from("rate_bands").delete().eq("resource_type_id", typeId);
   await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");
   await ctx.db.from("tournament_entries").update({ status: "expired" }).in("tournament_id", [tournamentId, freeTournamentId]).eq("status", "held");
   await ctx.db.from("experiences").update({ active: false }).in("id", [quickId, doubleId]);
@@ -184,6 +193,22 @@ describe("availability for an experience", () => {
     expect(dbl.json.slots.at(-1).time).toBe("20:00");
   });
 
+  it("marks the start times in happy hour, with the price then and otherwise (D99)", async () => {
+    const quick = await api(`/public/availability?experience=${quickKey}&date=${SAT}`);
+    const slot = (t: string) => quick.json.slots.find((s: { time: string }) => s.time === t);
+    expect(slot("12:00").happyHour).toEqual({ name: "Test Happy Hour", priceCents: 2900, normalCents: 3500 });
+    expect(slot("14:30").happyHour).toEqual({ name: "Test Happy Hour", priceCents: 2900, normalCents: 3500 });
+    expect(slot("15:00").happyHour).toBeNull();
+    // A price that has to be asked for (Test Student, all day) is not happy hour.
+    expect(slot("17:00").happyHour).toBeNull();
+
+    // By the hour, one session at the half-price rate band: $15 instead of $30.
+    const hourly = await api(`/public/availability?type=${typeId}&date=${SAT}`);
+    const hourlySlot = (t: string) => hourly.json.slots.find((s: { time: string }) => s.time === t);
+    expect(hourlySlot("13:00").happyHour).toEqual({ name: "Happy hour", priceCents: 1500, normalCents: 3000 });
+    expect(hourlySlot("17:00").happyHour).toBeNull();
+  });
+
   it("needs to be told what to look at", async () => {
     const r = await api(`/public/availability?date=${SAT}`);
     expect(r.status).toBe(422);
@@ -213,6 +238,21 @@ describe("quoting an experience", () => {
     // Inside Happy Hour the student price is still the only one to offer: Happy Hour is automatic.
     const inHappyHour = await quote({ startTime: "13:00" });
     expect(inHappyHour.json.quote.claimablePromos).toEqual([{ id: studentPromoId, name: "Test Student", priceCents: 3200 }]);
+  });
+
+  it("says when happy hour set the price, and what it would have been (D99)", async () => {
+    expect((await quote({ startTime: "13:00" })).json.quote.happyHour).toEqual({ name: "Test Happy Hour", priceCents: 2900, normalCents: 3500 });
+    expect((await quote()).json.quote.happyHour).toBeNull();
+    // The student price is a discount the customer asked for, not happy hour.
+    expect((await quote({ claimedPromoIds: [studentPromoId] })).json.quote.happyHour).toBeNull();
+
+    // By the hour, an hour from 14:30: half of it at the happy-hour rate. $15 + $30 instead of $60.
+    const hourly = await api("/public/quote", { body: { resourceTypeId: typeId, date: SAT, startTime: "14:30", durationMinutes: 60 } });
+    expect(hourly.status, JSON.stringify(hourly.json)).toBe(200);
+    expect(hourly.json.quote.totalCents).toBe(4500);
+    expect(hourly.json.quote.happyHour).toEqual({ name: "Happy hour", priceCents: 4500, normalCents: 6000 });
+    const evening = await api("/public/quote", { body: { resourceTypeId: typeId, date: SAT, startTime: "17:00", durationMinutes: 60 } });
+    expect(evening.json.quote.happyHour).toBeNull();
   });
 
   it("decides on the start time, so a Double Race started at 14:30 is still Happy Hour", async () => {

@@ -1,9 +1,10 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import Stripe from "stripe";
 import { formatCents, roundHalfUp, toLocal } from "@raceground/pricing";
-import type { Json } from "@raceground/db";
+import type { Db, Json } from "@raceground/db";
 import type { AppDeps } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
+import { selectAll } from "../lib/select-all.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import type { MemberSummary } from "./lookup.js";
 import { loadSettings } from "./venue.js";
@@ -42,6 +43,35 @@ export interface PublicTournament {
 }
 
 /** Published tournaments that have not started yet, soonest first, with spots left. */
+/** The ids go in the URL, so a long list of tournaments is asked about this many at a time. */
+const IDS_PER_REQUEST = 100;
+
+/**
+ * Spots taken per tournament: confirmed entries and holds that haven't run out. One request per
+ * 100 tournaments, each read in full, so neither a long list of tournaments nor more than 1000
+ * entries can make it fail or come up short.
+ */
+export async function takenSpots(db: Db, tournamentIds: string[], now: Date): Promise<Map<string, number>> {
+  const taken = new Map<string, number>();
+  for (let i = 0; i < tournamentIds.length; i += IDS_PER_REQUEST) {
+    const batch = tournamentIds.slice(i, i + IDS_PER_REQUEST);
+    const entries = await selectAll((from, to) =>
+      db
+        .from("tournament_entries")
+        .select("id, tournament_id, status, hold_expires_at")
+        .in("tournament_id", batch)
+        .in("status", ["held", "confirmed"])
+        .order("id")
+        .range(from, to),
+    );
+    for (const e of entries) {
+      if (e.status === "held" && !(e.hold_expires_at && new Date(e.hold_expires_at) > now)) continue;
+      taken.set(e.tournament_id, (taken.get(e.tournament_id) ?? 0) + 1);
+    }
+  }
+  return taken;
+}
+
 export async function listTournaments(deps: AppDeps): Promise<{ timeZone: string; tournaments: PublicTournament[] }> {
   const now = deps.clock.now();
   const settings = await loadSettings(deps.db);
@@ -55,21 +85,7 @@ export async function listTournaments(deps: AppDeps): Promise<{ timeZone: string
     .order("starts_at");
   if (error) throw mapDbError(error);
 
-  // One query for every live entry, rather than one call per tournament.
-  const ids = data.map((t) => t.id);
-  const taken = new Map<string, number>();
-  if (ids.length > 0) {
-    const { data: entries, error: entryError } = await deps.db
-      .from("tournament_entries")
-      .select("tournament_id, status, hold_expires_at")
-      .in("tournament_id", ids)
-      .in("status", ["held", "confirmed"]);
-    if (entryError) throw mapDbError(entryError);
-    for (const e of entries) {
-      if (e.status === "held" && !(e.hold_expires_at && new Date(e.hold_expires_at) > now)) continue;
-      taken.set(e.tournament_id, (taken.get(e.tournament_id) ?? 0) + 1);
-    }
-  }
+  const taken = await takenSpots(deps.db, data.map((t) => t.id), now);
 
   return {
     timeZone: settings.timezone,

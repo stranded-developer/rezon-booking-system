@@ -19,6 +19,7 @@ import { writeAudit } from "../lib/audit.js";
 import { buildIcs } from "../lib/ics.js";
 import { selectAll } from "../lib/select-all.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
+import { experienceHappyHour, sessionHappyHour, type HappyHourPrice } from "./happy-hour.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
 import { loadExperience, loadPricingContext, loadPromos, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
 import { listTiles } from "./site-tiles.js";
@@ -326,6 +327,9 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const closeAt = localToInstant(date, base.close!, tz);
   const earliest = now.getTime() + settings.online_cutoff_minutes * MINUTE_MS;
   const busy = await busyPeriods(deps, resources.map((r) => r.id), openAt, closeAt, now);
+  // D99: each start time says whether it is in happy hour, priced by the engine itself.
+  const pricingCtx = exp ? null : await loadPricingContext(deps.db, type.id, tz);
+  const happyHourAt = (t: number) => (exp ? experienceHappyHour(exp, t, tz) : sessionHappyHour(pricingCtx!, t, requiredMinutes));
 
   const slots = [];
   for (let t = openAt; t + requiredMinutes * MINUTE_MS <= closeAt; t += SLOT_MINUTES * MINUTE_MS) {
@@ -349,6 +353,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
       availableResources: lengths.filter((m) => m > 0).length,
       maxMinutes: Math.max(0, ...lengths),
       resourceMaxMinutes,
+      happyHour: happyHourAt(t),
     });
   }
   return { ...base, slots };
@@ -390,6 +395,8 @@ export interface BookingQuote {
   experience: { id: string; key: string; name: string; minutes: number; listPriceCents: number } | null;
   /** The promotional prices the customer could still ask for at this start time (D66). */
   claimablePromos: { id: string; name: string; priceCents: number }[];
+  /** Set when happy hour set this price: its name, and the price for this booking with and without it (D99). */
+  happyHour: HappyHourPrice | null;
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
@@ -471,6 +478,7 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   }
 
   let pricing: PriceResult;
+  let pricingCtx: Awaited<ReturnType<typeof loadPricingContext>> | null = null;
   try {
     if (exp) {
       pricing = priceExperience({
@@ -485,6 +493,7 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
       });
     } else {
       const ctx = await loadPricingContext(deps.db, type.id, tz);
+      pricingCtx = ctx;
       pricing = priceSession({
         startAt,
         endAt,
@@ -515,6 +524,13 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
         }
       : null,
     claimablePromos: exp ? claimableNow(exp.promos, startAt, tz) : [],
+    // D99: happy hour, when it set this price. A member's own price, when cheaper, wins instead (D82),
+    // and then this booking isn't a happy-hour one.
+    happyHour: exp
+      ? pricing.experience?.promo && !pricing.experience.promo.member && !exp.promos.find((p) => p.id === pricing.experience!.promo!.id)?.claimed
+        ? experienceHappyHour(exp, startAt, tz)
+        : null
+      : sessionHappyHour(pricingCtx!, startAt, durationMinutes),
     startsAt: new Date(startAt).toISOString(),
     endsAt: new Date(endAt).toISOString(),
     durationMinutes,

@@ -229,6 +229,13 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await card.getByRole("button", { name: "Book your first race" }).click();
   const panel = page.getByRole("dialog");
   await pickDay(panel, bookingDayLabel());
+  // D99: the start times in happy hour (12:00–15:00) say so; the others don't.
+  const timeButton = (label: string) => panel.getByRole("button").filter({ hasText: new RegExp(`^${label}`) });
+  await expect(timeButton("12:00 pm")).toContainText("Happy hour");
+  await expect(timeButton("2:30 pm")).toContainText("Happy hour");
+  await expect(timeButton("3:00 pm")).not.toContainText("Happy hour");
+  await expect(timeButton("6:00 pm")).not.toContainText("Happy hour");
+  await shot(page, "web-14a-times");
   await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();
 
   await expect(panel.getByLabel("Or another length")).toHaveCount(0);
@@ -300,6 +307,26 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
     await expect(total).not.toHaveText(listPrice!);
   }
   await shot(page, "web-14-experience");
+});
+
+test("in happy hour the summary says so, with the normal price struck through", async ({ page }) => {
+  await page.goto("/book");
+  await page.getByRole("button", { name: "Book your first race" }).click();
+  const panel = page.getByRole("dialog");
+  await pickDay(panel, bookingDayLabel());
+  await panel.getByRole("button").filter({ hasText: "Happy hour" }).filter({ hasText: /\d+ spots?/ }).first().click();
+  await panel.getByRole("button", { name: "No, continue as a guest" }).click();
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Happy Hour Guest");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-happy@raceground.test");
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
+
+  // D99: the pay step and the summary beside it both show the happy-hour price against the normal one.
+  const notes = panel.getByText("Happy Hour price");
+  await expect(notes).toHaveCount(2);
+  await expect(notes.first().locator("xpath=..")).toContainText(/\$29\.00\s*\$35\.00/);
+  await expect(panel.locator("s", { hasText: "$35.00" }).first()).toBeVisible();
+  await expect(panel.getByText("Total to pay").locator("xpath=following-sibling::span")).toHaveText("$29.00");
+  await shot(page, "web-14c-happy-hour");
 });
 
 test("the legal pages explain the rules", async ({ page }) => {

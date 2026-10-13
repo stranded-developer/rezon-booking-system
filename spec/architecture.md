@@ -60,8 +60,8 @@ logs/          README (index + status), planning/, decisions/, build/ (one file 
 ```
 Public
   GET  /public/config                 opening hours, types, resources, happy hours, tiers, venue contact details, photos
-  GET  /public/availability?type&date
-  POST /public/quote                  engine quote (member discount only with member JWT)
+  GET  /public/availability?type&date   each slot: spots left, and happyHour {name, priceCents, normalCents} or null (D99)
+  POST /public/quote                  engine quote (member discount only with member JWT); happyHour when it set the price (D99)
   POST /public/referral/check
   POST /bookings/hold                 → Stripe Checkout URL or confirmed ($0)
   GET  /bookings/:ref?token

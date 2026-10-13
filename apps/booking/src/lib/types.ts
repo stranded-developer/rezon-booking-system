@@ -161,6 +161,15 @@ export interface Slot {
   availableResources: number;
   maxMinutes: number;
   resourceMaxMinutes: Record<string, number>;
+  /** Set when this start time is in happy hour (D99). Optional: an older API has none. */
+  happyHour?: HappyHourPrice | null;
+}
+
+/** Happy hour's price for a booking, and what it would be otherwise (D99). */
+export interface HappyHourPrice {
+  name: string;
+  priceCents: number;
+  normalCents: number;
 }
 
 export interface Quote {
@@ -169,6 +178,8 @@ export interface Quote {
   experience: { id: string; key: string; name: string; minutes: number; listPriceCents: number } | null;
   /** Promotional prices the customer could still ask for at this start time (D66). */
   claimablePromos: { id: string; name: string; priceCents: number }[];
+  /** Set when happy hour set this price (D99). Optional: an older API has none. */
+  happyHour?: HappyHourPrice | null;
   startsAt: string;
   endsAt: string;
   durationMinutes: number;

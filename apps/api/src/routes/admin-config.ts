@@ -18,6 +18,7 @@ import { auditHeaders } from "../lib/audit-headers.js";
 import { selectAll } from "../lib/select-all.js";
 import { migrateTierSubscriptions } from "../services/billing.js";
 import { wallTime } from "../services/venue.js";
+import { takenSpots } from "../services/tournaments.js";
 import { addTile, clearTileImage, listTiles, removeTile, setTileImage, TILE_SECTIONS, updateTile } from "../services/site-tiles.js";
 import { addPhoto, listPhotos, MAX_PHOTO_BYTES, MAX_PHOTOS, removePhoto, reorderPhotos, updatePhotoCaption } from "../services/venue-photos.js";
 import { validate } from "../validate.js";
@@ -937,23 +938,10 @@ adminConfigRoutes.delete("/experience-promos/:id", validate("param", Id), valida
 
 adminConfigRoutes.get("/tournaments", async (c) => {
   const { db, clock } = c.get("deps");
-  const { data, error } = await db.from("tournaments").select("*").order("starts_at", { ascending: false });
-  if (error) throw mapDbError(error);
-  const ids = data.map((t) => t.id);
-  const taken = new Map<string, number>();
-  if (ids.length > 0) {
-    const { data: entries, error: entryError } = await db
-      .from("tournament_entries")
-      .select("tournament_id, status, hold_expires_at")
-      .in("tournament_id", ids)
-      .in("status", ["held", "confirmed"]);
-    if (entryError) throw mapDbError(entryError);
-    const now = clock.now();
-    for (const e of entries) {
-      if (e.status === "held" && !(e.hold_expires_at && new Date(e.hold_expires_at) > now)) continue;
-      taken.set(e.tournament_id, (taken.get(e.tournament_id) ?? 0) + 1);
-    }
-  }
+  const data = await selectAll((from, to) =>
+    db.from("tournaments").select("*").order("starts_at", { ascending: false }).order("id").range(from, to),
+  );
+  const taken = await takenSpots(db, data.map((t) => t.id), clock.now());
   return c.json({ tournaments: data.map((t) => ({ ...t, entries: taken.get(t.id) ?? 0, spots_left: Math.max(0, t.spots - (taken.get(t.id) ?? 0)) })) });
 });
 

@@ -10,7 +10,7 @@ import { SessionRules } from "@/components/session-rules";
 import { Badge, Button, ButtonLink, Field, Input, Notice, Row, Select, Spinner } from "@/components/ui";
 import { ApiRequestError, errorMessage } from "@/lib/api";
 import { formatCents, formatMinutes, formatRate, formatVenueDate, formatWallTime } from "@/lib/format";
-import type { Availability, Experience, Game, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, ResourceType, Slot } from "@/lib/types";
+import type { Availability, Experience, Game, HappyHourPrice, HoldResult, PublicConfig, Quote, QuoteResponse, ReferralCheck, ResourceType, Slot } from "@/lib/types";
 
 const ANY_RESOURCE = "any";
 const QUICK_MINUTES = [30, 60, 90, 120];
@@ -591,6 +591,9 @@ function DateStep({
                   }`}
                 >
                   <span className="display tnum block text-base">{formatWallTime(s.time)}</span>
+                  {s.happyHour ? (
+                    <span className="display my-0.5 inline-block rounded-full bg-violet px-2 py-0.5 text-[0.6rem] tracking-wide text-ink-950">Happy hour</span>
+                  ) : null}
                   <span className="block truncate text-xs text-ink-500">{targetName(target)}</span>
                   <span className={`block text-xs ${free ? "text-gold" : "text-ink-500"}`}>
                     {free ? `${s.availableResources} ${s.availableResources === 1 ? "spot" : "spots"}` : "Full"}
@@ -957,6 +960,8 @@ function PayStep({
             {setupLabel ? <Row label="Your setup" value={setupLabel} /> : null}
           </div>
 
+          {quote.happyHour ? <HappyHourNote happyHour={quote.happyHour} /> : null}
+
           <div className="rounded-xl bg-mist/60 p-4">
             <ul className="space-y-1 text-sm text-ink-600">
               {quote.explanation.map((line, i) => (
@@ -1014,6 +1019,19 @@ function PayStep({
   );
 }
 
+/** D99: when happy hour set the price, say so plainly, with the normal price struck through beside it. */
+function HappyHourNote({ happyHour }: { happyHour: HappyHourPrice }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-violet/25 px-4 py-3 ring-1 ring-violet">
+      <p className="display text-sm text-flag">{happyHour.name} price</p>
+      <p className="tnum text-right">
+        <span className="display text-lg text-ink-950">{formatCents(happyHour.priceCents)}</span>{" "}
+        <s className="text-sm text-ink-500">{formatCents(happyHour.normalCents)}</s>
+      </p>
+    </div>
+  );
+}
+
 // ── The panel beside the steps ───────────────────────────────────────────────
 function Summary({
   target,
@@ -1055,6 +1073,7 @@ function Summary({
             ? formatCents(target.experience.fromPriceCents)
             : formatRate(target.type.baseRateCents)}
       </p>
+      {quote?.happyHour ? <HappyHourNote happyHour={quote.happyHour} /> : null}
 
       <dl className="space-y-1 text-xs text-ink-600">
         <div className="flex justify-between gap-2">

@@ -66,6 +66,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (shiftOpened) await finishOpenWork(ctx, owner.id);
+  await ctx.db.from("tournaments").delete().like("name", `Bulk ${run} %`);
   if (experienceId) await ctx.db.from("experiences").update({ active: false }).eq("id", experienceId);
   for (const id of [tournamentId, counterTournamentId].filter(Boolean)) {
     await ctx.db.from("tournaments").update({ published: false }).eq("id", id);
@@ -244,6 +245,20 @@ describe("tournaments", () => {
     expect(tooFew.status).toBe(409);
     expect(tooFew.json.error.code).toBe("spots_below_entries");
     expect(tooFew.json.error.message).toMatch(/2 people are already signed up/);
+  });
+
+  it("still lists every tournament, with its sign-ups, past 100 of them", async () => {
+    // The sign-ups are looked up by tournament id in the URL; one request for all of them
+    // grew too long at about 200 tournaments and the page showed "Database error".
+    const startsAt = new Date(Date.now() + 40 * 86_400_000).toISOString();
+    const bulk = Array.from({ length: 150 }, (_, i) => ({ name: `Bulk ${run} ${i}`, starts_at: startsAt, spots: 4, entry_fee_cents: 0, published: false }));
+    const { error } = await ctx.db.from("tournaments").insert(bulk);
+    if (error) throw error;
+
+    const r = await admin("/tournaments");
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.tournaments.filter((t: { name: string }) => t.name.startsWith(`Bulk ${run} `))).toHaveLength(150);
+    expect(r.json.tournaments.find((t: { id: string }) => t.id === tournamentId)).toMatchObject({ entries: 2, spots_left: 0 });
   });
 
   it("adds someone at the counter, taking the fee on the open till (D75)", async () => {
