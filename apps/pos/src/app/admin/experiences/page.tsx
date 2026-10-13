@@ -32,6 +32,7 @@ interface Experience {
   resource_type_id: string;
   name: string;
   tagline: string | null;
+  button_label: string | null;
   bullets: string[];
   badges: string[];
   minutes: number;
@@ -266,6 +267,7 @@ function ExperienceDialog({
   const [name, setName] = useState(experience?.name ?? "");
   const [typeId, setTypeId] = useState(experience?.resource_type_id ?? types[0]?.id ?? "");
   const [tagline, setTagline] = useState(experience?.tagline ?? "");
+  const [buttonLabel, setButtonLabel] = useState(experience?.button_label ?? "");
   const [minutes, setMinutes] = useState(String(experience?.minutes ?? sessionMinutes));
   const [price, setPrice] = useState(experience ? centsToInput(experience.price_cents) : "");
   const [bullets, setBullets] = useState((experience?.bullets ?? []).join("\n"));
@@ -281,6 +283,7 @@ function ExperienceDialog({
     name: name.trim(),
     resourceTypeId: typeId,
     tagline: tagline.trim(),
+    buttonLabel: buttonLabel.trim(),
     minutes: minutesNumber,
     priceCents,
     bullets: bullets
@@ -322,8 +325,8 @@ function ExperienceDialog({
             <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="35.00" />
           </Field>
         </div>
-        <Field label="Tagline (optional)">
-          <Input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Single session" />
+        <Field label="Tagline (optional)" hint="The lime line under the name. The website prints it in capitals.">
+          <Input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Your first lap starts here." />
         </Field>
         <Field label="Bullet points" hint="One per line. These are the ticks on the card.">
           <textarea
@@ -333,6 +336,9 @@ function ExperienceDialog({
             className="w-full rounded-lg bg-ink-900 p-3 text-sm ring-1 ring-ink-700"
             placeholder={"Perfect for a first time behind the wheel\nOne 30-minute session"}
           />
+        </Field>
+        <Field label="Button text (optional)" hint={`Up to 40 characters. Empty shows "Book ${name.trim() || "<name>"}".`}>
+          <Input value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} maxLength={40} placeholder="Book your first race" />
         </Field>
         <Field label="Badges (optional)" hint="Separated by commas, e.g. Most popular, Save over 20%">
           <Input value={badges} onChange={(e) => setBadges(e.target.value)} />

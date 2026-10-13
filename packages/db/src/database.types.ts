@@ -434,6 +434,7 @@ export type Database = {
           active: boolean
           badges: string[]
           bullets: string[]
+          button_label: string | null
           created_at: string
           id: string
           key: string
@@ -449,6 +450,7 @@ export type Database = {
           active?: boolean
           badges?: string[]
           bullets?: string[]
+          button_label?: string | null
           created_at?: string
           id?: string
           key: string
@@ -464,6 +466,7 @@ export type Database = {
           active?: boolean
           badges?: string[]
           bullets?: string[]
+          button_label?: string | null
           created_at?: string
           id?: string
           key?: string

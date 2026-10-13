@@ -65,6 +65,8 @@ export interface Experience {
   tagline: string | null;
   bullets: string[];
   badges: string[];
+  /** The card's button (D98). Null = "Book <name>". Optional: an older API has none. */
+  buttonLabel?: string | null;
   minutes: number;
   priceCents: number;
   /** The cheapest price anyone could pay without asking for it. */

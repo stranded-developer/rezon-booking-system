@@ -49,13 +49,15 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(/sim racing/i);
 
   // Experiences are sold at a flat price for a fixed length (D65), straight from the database.
-  // Single Session and Double Session, with what each covers (D83).
+  // Single Session and Double Session (D83), in the wording of the owner's mockups (D98).
   const quick = page.getByRole("article").filter({ hasText: "Single Session" });
   await expect(quick.getByRole("heading", { name: "Single Session" })).toBeVisible();
-  await expect(quick).toContainText("Quick Race, Time trial, Drift, and more.");
-  await expect(quick).toContainText("30 min");
+  await expect(quick).toContainText("Your first lap starts here.");
+  await expect(quick).toContainText("30 minutes");
+  await expect(quick.getByRole("link", { name: "Book your first race" })).toHaveAttribute("href", "/book?experience=quick_race");
   const double = page.getByRole("article").filter({ hasText: "Double Session" });
-  await expect(double).toContainText("60 min");
+  await expect(double).toContainText("Twice the time. Twice the trash talk.");
+  await expect(double).toContainText("60 minutes");
   await expect(double).toContainText("Most popular");
 
   // Anything without an experience is still shown at its hourly rate, including this run's own
@@ -218,7 +220,13 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await page.goto("/book");
   // Single Session is a named package: a fixed 30 minutes at a flat price (D65), so the panel
   // never asks how long — the length is not the customer's to choose.
-  await page.getByRole("button", { name: "Book Single Session" }).click();
+  // D98: the card is the owner's mockup. The big price is the normal one; happy hour has its own line.
+  const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Single Session" }) });
+  await expect(card).toContainText("Your first lap starts here.");
+  await expect(card).toContainText("Never raced before? You're in the right place.");
+  await expect(card.getByText("$35.00", { exact: true })).toBeVisible();
+  await expect(card).toContainText(/Happy Hour\s*\$29\.00\s*12:00 pm–3:00 pm, every day/);
+  await card.getByRole("button", { name: "Book your first race" }).click();
   const panel = page.getByRole("dialog");
   await pickDay(panel, bookingDayLabel());
   await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();

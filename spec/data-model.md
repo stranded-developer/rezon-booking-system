@@ -81,9 +81,10 @@ experiences
   key              text unique      'quick_race' | 'leaderboard_challenge' | 'double_race'
   resource_type_id → resource_types
   name             text             'Quick Race'
-  tagline          text null        'Single session'
+  tagline          text null        'Your first lap starts here.' (printed in capitals)
   bullets          text[]           the lines on the card
   badges           text[]           'Most popular', 'Save over 20%'
+  button_label     text null        'Book your first race'; null = 'Book <name>' (D98)
   minutes          int  check (> 0 and minutes % 15 = 0)
   price_cents      int  check ≥ 0   -- flat, for the whole experience, incl. GST
   sort, active

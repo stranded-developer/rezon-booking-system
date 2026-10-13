@@ -123,7 +123,7 @@ describe("public config", () => {
     const r = await api("/public/config");
     expect(r.status).toBe(200);
     const quick = r.json.experiences.find((e: { key: string }) => e.key === quickKey);
-    expect(quick).toMatchObject({ name: "Test Quick Race", minutes: 30, priceCents: 3500, tagline: "Single session" });
+    expect(quick).toMatchObject({ name: "Test Quick Race", minutes: 30, priceCents: 3500, tagline: "Single session", buttonLabel: null });
     // "From" is the cheapest price anyone could pay without asking, so the claimed $32 is ignored.
     expect(quick.fromPriceCents).toBe(2900);
     expect(quick.promos).toHaveLength(2);

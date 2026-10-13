@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount } from "@/components/account-provider";
 import { BookingPanel, type BookTarget } from "@/components/book/booking-panel";
+import { ExperienceCard } from "@/components/experience-card";
 import { Reveal } from "@/components/reveal";
-import { Badge, Button, Notice, SectionTitle, Spinner } from "@/components/ui";
+import { Button, Notice, SectionTitle, Spinner } from "@/components/ui";
 import { errorMessage } from "@/lib/api";
-import { formatCents, formatMinutes, formatRate, formatWallTime } from "@/lib/format";
+import { formatMinutes, formatRate, formatWallTime } from "@/lib/format";
 import type { PublicConfig } from "@/lib/types";
 
 /**
@@ -75,47 +76,7 @@ export function BookView() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {config.experiences.map((exp, i) => (
             <Reveal key={exp.id} delayMs={i * 80}>
-              <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-paper/80 transition-transform duration-300 hover:-translate-y-1">
-                <div aria-hidden className="checkers-thin" />
-                <div className="flex flex-1 flex-col p-6">
-                  {exp.badges.length > 0 ? (
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {exp.badges.map((badge, b) => (
-                        <Badge key={badge} tone={b === 0 ? "flag" : "gold"}>
-                          {badge}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                  <h2 className="display text-2xl">{exp.name}</h2>
-                  {exp.tagline ? <p className="text-sm text-ink-500">{exp.tagline}</p> : null}
-                  <p className="mt-4 flex items-baseline gap-2">
-                    {exp.fromPriceCents < exp.priceCents ? <span className="display text-sm text-ink-500">from</span> : null}
-                    <span className="display tnum text-4xl text-flag">{formatCents(exp.fromPriceCents)}</span>
-                    <span className="text-sm text-ink-500">· {formatMinutes(exp.minutes)}</span>
-                  </p>
-                  {exp.fromPriceCents < exp.priceCents ? (
-                    <p className="tnum mt-1 text-sm text-ink-500">normally {formatCents(exp.priceCents)}</p>
-                  ) : null}
-                  {exp.bullets.length > 0 ? (
-                    <ul className="mt-4 flex-1 space-y-2 text-sm text-ink-600">
-                      {exp.bullets.map((bullet) => (
-                        <li key={bullet} className="flex gap-2">
-                          <span aria-hidden className="text-flag">
-                            ✓
-                          </span>
-                          {bullet}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="flex-1" />
-                  )}
-                  <Button variant="primary" className="mt-6 w-full" onClick={() => setTarget({ kind: "experience", experience: exp })}>
-                    Book {exp.name}
-                  </Button>
-                </div>
-              </article>
+              <ExperienceCard exp={exp} onBook={() => setTarget({ kind: "experience", experience: exp })} />
             </Reveal>
           ))}
         </div>

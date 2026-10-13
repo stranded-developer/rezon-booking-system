@@ -55,6 +55,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | The till locks after 1 hour idle; 1000 tracks and cars per game (45) | ✅ Built and verified |
 | The owner's logo in the booking site and POS (46) | ✅ Built and verified |
 | Explore → top of home; "x FREE RACES PER MONTH" (47) | ✅ Built and verified |
+| Experience cards follow the owner's mockups; normal price big, happy hour boxed (48) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -112,6 +113,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 45 | The till locks after an hour; games can list 1000 tracks and cars | [build/45-idle-lock-game-lists.md](build/45-idle-lock-game-lists.md) |
 | 46 | The owner's logo everywhere | [build/46-logo.md](build/46-logo.md) |
 | 47 | Explore goes to the top; "x FREE RACES PER MONTH" | [build/47-explore-free-races.md](build/47-explore-free-races.md) |
+| 48 | The experience cards follow the owner's mockups | [build/48-experience-cards.md](build/48-experience-cards.md) |
 
 ## Decisions
 

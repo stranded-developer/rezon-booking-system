@@ -5,10 +5,10 @@ select plan(18);
 
 -- ── Single Session and Double Session ───────────────────────────────────────
 select results_eq(
-  $$ select key, name, tagline from public.experiences where key in ('quick_race', 'double_race') order by sort $$,
-  $$ values ('quick_race', 'Single Session', 'Quick Race, Time trial, Drift, and more.'),
-            ('double_race', 'Double Session', 'Full Experience, Double Race, Drift, Free Roam, and more') $$,
-  'the two sessions carry their new names and what they cover (D83)');
+  $$ select key, name, tagline, button_label from public.experiences where key in ('quick_race', 'double_race') order by sort $$,
+  $$ values ('quick_race', 'Single Session', 'Your first lap starts here.', 'Book your first race'),
+            ('double_race', 'Double Session', 'Twice the time. Twice the trash talk.', 'Book the full experience') $$,
+  'the two sessions carry their names (D83) and the wording of the owner''s mockups (D98)');
 
 -- ── The poster's member prices ──────────────────────────────────────────────
 select results_eq(

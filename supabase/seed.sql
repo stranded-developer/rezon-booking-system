@@ -72,25 +72,26 @@ select id, monthly_price_cents from public.membership_tiers;
 -- Billiards keeps the hourly rate, and every walk-in stays hourly. Double Race is listed
 -- second (D78).
 
-insert into public.experiences (key, resource_type_id, name, tagline, bullets, badges, minutes, price_cents, sort)
-select v.key, rt.id, v.name, v.tagline, v.bullets, v.badges, v.minutes, v.price_cents, v.sort
+insert into public.experiences (key, resource_type_id, name, tagline, bullets, badges, button_label, minutes, price_cents, sort)
+select v.key, rt.id, v.name, v.tagline, v.bullets, v.badges, v.button_label, v.minutes, v.price_cents, v.sort
 from (values
-  ('quick_race', 'sim', 'Single Session', 'Quick Race, Time trial, Drift, and more.', array[
-    'Perfect for a first time behind the wheel',
-    'One 30-minute session',
-    'Race on your own or against your friends'
-  ], array[]::text[], 30, 35_00, 1),
-  ('leaderboard_challenge', 'sim', 'Leaderboard Challenge', 'Time attack', array[
-    'Set your fastest lap against the board',
-    'One 30-minute qualifying session',
-    'Monthly prizes for the top three drivers'
-  ], array[]::text[], 30, 35_00, 3),
-  ('double_race', 'sim', 'Double Session', 'Full Experience, Double Race, Drift, Free Roam, and more', array[
-    'Two races, twice the fun',
-    'A full hour on the simulator',
-    'The best value on the grid'
-  ], array['Most popular', 'Save over 20%'], 60, 58_00, 2)
-) as v (key, type_key, name, tagline, bullets, badges, minutes, price_cents, sort)
+  -- The wording is the owner's mockups', word for word (D98).
+  ('quick_race', 'sim', 'Single Session', 'Your first lap starts here.', array[
+    'Never raced before? You''re in the right place.',
+    'Jump in, hit the track, and find your pace.',
+    'Race solo or challenge your mates.'
+  ], array[]::text[], 'Book your first race', 30, 35_00, 1),
+  ('leaderboard_challenge', 'sim', 'Leaderboard Challenge', 'One lap. One leaderboard. Can you top it?', array[
+    'Chase the fastest lap and claim your spot.',
+    'Put your name above your friends'' names.',
+    'Monthly prizes for the top three drivers.'
+  ], array[]::text[], 'Take on the leaderboard', 30, 35_00, 3),
+  ('double_race', 'sim', 'Double Session', 'Twice the time. Twice the trash talk.', array[
+    'More laps. More battles. More bragging rights.',
+    'Master the track, then push for your fastest lap.',
+    'The perfect session to challenge your mates.'
+  ], array['Most popular', 'Save over 20%'], 'Book the full experience', 60, 58_00, 2)
+) as v (key, type_key, name, tagline, bullets, badges, button_label, minutes, price_cents, sort)
 join public.resource_types rt on rt.key = v.type_key;
 
 -- Happy Hour applies by itself; the student price only when the customer asks for it.

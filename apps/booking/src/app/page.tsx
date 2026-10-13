@@ -2,11 +2,12 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { api } from "@/lib/api";
 import { dayName, formatCents, formatRate, formatWallTime } from "@/lib/format";
-import type { Experience, PublicConfig } from "@/lib/types";
+import type { PublicConfig } from "@/lib/types";
 import { Chevron, DrivingTiles, EventTiles, HighlightTiles, SectionHeading } from "@/components/home-tiles";
+import { ExperienceCard } from "@/components/experience-card";
 import { Reveal } from "@/components/reveal";
 import { RigGallery } from "@/components/rig-gallery";
-import { Badge, ButtonLink, Notice } from "@/components/ui";
+import { ButtonLink, Notice } from "@/components/ui";
 
 /**
  * The home page in the owner's mockup (D88). Every word that isn't a heading, and every number,
@@ -114,7 +115,7 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {experiences.map((exp, i) => (
             <Reveal key={exp.id} delayMs={i * 80}>
-              <ExperienceCard exp={exp} />
+              <ExperienceCard exp={exp} href={`/book?experience=${exp.key}`} />
             </Reveal>
           ))}
         </div>
@@ -151,64 +152,6 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
         </Reveal>
       ))}
     </section>
-  );
-}
-
-/** The mockup's experience card; the most popular one is the violet, featured card. */
-function ExperienceCard({ exp }: { exp: Experience }) {
-  const featured = exp.badges.length > 0;
-  return (
-    <article
-      className={`flex h-full flex-col rounded-xl border p-5 sm:p-6 ${
-        featured ? "border-violet bg-gradient-to-br from-violet to-violet-deep shadow-[0_20px_60px_-25px_var(--color-violet)]" : "border-line bg-paper/70"
-      }`}
-    >
-      {featured ? (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {exp.badges.map((badge, b) => (
-            <Badge key={badge} tone={b === 0 ? "flag" : "quiet"}>
-              {badge}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-      <h3 className="display text-xl">{exp.name}</h3>
-      {exp.tagline ? <p className={`mt-1 text-xs sm:text-sm ${featured ? "text-ink-800" : "text-ink-500"}`}>{exp.tagline}</p> : null}
-
-      <p className="kicker mt-5 text-ink-950!">From</p>
-      <div className="mt-1 flex items-baseline justify-between gap-3">
-        <p className="flex items-baseline gap-2">
-          <span className={`display tnum text-3xl ${featured ? "text-flag" : ""}`}>{formatCents(exp.fromPriceCents)}</span>
-          <span className="text-xs text-ink-500">{exp.minutes} min</span>
-        </p>
-        {/* A "from" price is the cheapest anyone could pay; say what it usually costs too. */}
-        {exp.fromPriceCents < exp.priceCents ? <span className="tnum text-xs text-ink-500">normally {formatCents(exp.priceCents)}</span> : null}
-      </div>
-
-      {exp.bullets.length > 0 ? (
-        <ul className={`mt-5 flex-1 space-y-2 border-t pt-5 text-xs sm:text-sm ${featured ? "border-white/15 text-ink-800" : "border-line text-ink-600"}`}>
-          {exp.bullets.map((bullet) => (
-            <li key={bullet} className="flex gap-3">
-              <span aria-hidden className={featured ? "text-flag" : "text-violet"}>
-                •
-              </span>
-              {bullet}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="flex-1" />
-      )}
-
-      <Link
-        href={`/book?experience=${exp.key}`}
-        className={`kicker mt-6 flex h-11 items-center justify-between rounded-lg px-4 transition ${
-          featured ? "bg-flag text-on-flag! hover:bg-flag-bright" : "border border-line text-ink-950! hover:border-flag"
-        }`}
-      >
-        Book now <Chevron />
-      </Link>
-    </article>
   );
 }
 

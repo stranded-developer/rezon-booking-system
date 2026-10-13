@@ -122,6 +122,15 @@ describe("experiences", () => {
     expect((audit!.after as { price_cents: number }).price_cents).toBe(3900);
   });
 
+  it("sets the card's button text, clears it, and refuses one too long (D98)", async () => {
+    const set = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { buttonLabel: "  Book your first race " } });
+    expect(set.status).toBe(200);
+    expect(set.json.experience.button_label).toBe("Book your first race");
+    expect((await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { buttonLabel: "x".repeat(41) } })).status).toBe(422);
+    const cleared = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { buttonLabel: "" } });
+    expect(cleared.json.experience.button_label).toBeNull();
+  });
+
   it("refuses an edit that would leave a length off the session grid", async () => {
     const r = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { minutes: 50 } });
     expect(r.status).toBe(422);

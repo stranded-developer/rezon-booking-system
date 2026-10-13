@@ -154,6 +154,8 @@ export async function publicConfig(deps: AppDeps) {
         tagline: e.tagline,
         bullets: e.bullets,
         badges: e.badges,
+        // The card's button (D98); null = "Book <name>".
+        buttonLabel: e.button_label,
         minutes: e.minutes,
         priceCents: e.price_cents,
         // What the card shows as "from": the cheapest price anyone could pay today.
