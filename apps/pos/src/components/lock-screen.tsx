@@ -49,7 +49,7 @@ export function LockScreen() {
   return (
     <main className="flex min-h-dvh flex-col">
       <header className="flex items-center justify-between px-6 py-4">
-        <Wordmark className="text-xl" />
+        <Wordmark className="w-48" />
         <div className="flex items-center gap-3 text-sm text-ink-400">
           <span>Device: {session?.user.email}</span>
           <Button variant="ghost" size="sm" onClick={() => void signOutDevice()}>

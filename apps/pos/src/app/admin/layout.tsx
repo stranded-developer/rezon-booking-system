@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-ink-800 bg-ink-950 p-4 md:flex">
-        <Wordmark className="px-2 text-lg" />
+        <Wordmark className="mx-2 w-40" />
         <p className="mb-6 px-2 text-xs uppercase tracking-widest text-ink-400">Back office</p>
         <nav className="flex flex-col gap-1">
           {NAV.map((item) => (

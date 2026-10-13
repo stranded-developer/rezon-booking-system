@@ -49,7 +49,7 @@ export function SiteHeader() {
       <div className="mx-auto max-w-6xl rounded-xl border border-line bg-deep/85 shadow-lg shadow-black/30 backdrop-blur-md">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <Link href="/" aria-label="Racegrounds home" className="shrink-0">
-            <Wordmark className="text-xs sm:text-sm" />
+            <Wordmark className="w-36 sm:w-44" />
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">

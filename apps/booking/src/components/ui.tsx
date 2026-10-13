@@ -1,5 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import logo from "@/assets/racegrounds-logo.png";
 
 type Variant = "primary" | "gold" | "secondary" | "ghost" | "danger";
 
@@ -95,17 +97,9 @@ export function Row({ label, value, strong = false }: { label: ReactNode; value:
   );
 }
 
-/**
- * The logo as it is on the rigs' screens: thin, widely spaced capitals, with the A drawn as a Λ
- * (D88). Screen readers get the name, not the letter shapes.
- */
+/** The owner's logo (white on transparent, so dark backgrounds only). Size it with a width class. */
 export function Wordmark({ className = "" }: { className?: string }) {
-  return (
-    <span className={`whitespace-nowrap font-[family-name:var(--font-display)] font-light uppercase tracking-[0.42em] ${className}`}>
-      <span className="sr-only">Racegrounds</span>
-      <span aria-hidden>RΛCEGROUNDS</span>
-    </span>
-  );
+  return <Image src={logo} alt="Racegrounds" loading="eager" className={`h-auto ${className}`} />;
 }
 
 export function Spinner({ label }: { label: string }) {

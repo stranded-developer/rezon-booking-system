@@ -53,6 +53,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Sizes and spacing matched to the mockup video (8t, part 2) | ✅ Built and verified |
 | Garet Book (300) / Heavy (850) on the booking site (8u) | ✅ Built and verified |
 | The till locks after 1 hour idle; 1000 tracks and cars per game (45) | ✅ Built and verified |
+| The owner's logo in the booking site and POS (46) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -108,6 +109,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 43 | The rig is smaller; what the spacing check found (8t, part 1) | [build/43-smaller-rig.md](build/43-smaller-rig.md) |
 | 44 | Garet, and the sizes from the owner's video (8u, 8t part 2) | [build/44-garet-and-sizes.md](build/44-garet-and-sizes.md) |
 | 45 | The till locks after an hour; games can list 1000 tracks and cars | [build/45-idle-lock-game-lists.md](build/45-idle-lock-game-lists.md) |
+| 46 | The owner's logo everywhere | [build/46-logo.md](build/46-logo.md) |
 
 ## Decisions
 

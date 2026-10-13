@@ -37,8 +37,8 @@ export function LoginScreen() {
     <main className="grid min-h-dvh place-items-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-2xl bg-ink-900 p-8 ring-1 ring-ink-800">
         <div>
-          <Wordmark className="text-3xl" />
-          <p className="mt-1 text-sm text-ink-400">Sign in this counter device</p>
+          <Wordmark className="w-64" />
+          <p className="mt-3 text-sm text-ink-400">Sign in this counter device</p>
         </div>
         <Field label="Staff email">
           <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />

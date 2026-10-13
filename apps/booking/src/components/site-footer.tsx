@@ -9,7 +9,7 @@ export function SiteFooter({ venue }: { venue: PublicConfig["venue"] | null }) {
       <div className="border-t border-line bg-night">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-x-6 gap-y-10 px-4 py-14 lg:grid-cols-4">
           <div className="col-span-2 lg:col-span-1">
-            <Wordmark className="text-base" />
+            <Wordmark className="w-48" />
             <p className="mt-3 max-w-xs text-sm text-ink-600">Billiards, driving simulators and VR in Sydney.</p>
           </div>
 

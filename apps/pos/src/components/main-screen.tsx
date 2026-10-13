@@ -39,7 +39,7 @@ export function MainScreen() {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-ink-800 bg-ink-950/95 px-5 py-3 backdrop-blur">
-        <Wordmark className="text-lg" />
+        <Wordmark className="w-40" />
         <span className="tnum text-sm text-ink-400">{clockIn(new Date(now), tz)}</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button
