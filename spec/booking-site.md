@@ -115,7 +115,7 @@ Customers cancel through the signed link in their email.
 - **Errors the customer can hit** are handled: the price changed (shows the new total and asks again), the slot was taken (reloads the timetable), a used-up or unknown referral code, no email or phone given.
 - **After Stripe:** the success URL returns to `/booking/<ref>?token=…&paid=1`, which polls for up to a minute while the webhook confirms. The cancel URL returns with `&abandoned=1`, which releases the hold straight away.
 - **The booking page and cancel page need the link token**; without it, or with a wrong one, they say "Booking not found".
-- **Legal pages** are drafted below and finished in Phase 7.
+- **Legal pages:** `/terms` is the owner's terms and conditions (D102, `apps/booking/src/lib/terms.ts` from `assets/brand/tnc.txt`), with the arrive-early minutes from the back office. The privacy page is still the draft below.
 
 **Round of 2026-10-01 (D81–D87)**
 - **Bottom bar** on every page, fixed to the bottom of the screen: *Book now* → `/book`, *Events* → `/tournaments`, *Explore* → the top of the home page, scrolling up if already there (D96). Under the booking panel and pop-up; the page is padded so the footer is never hidden.
@@ -141,5 +141,5 @@ Customers cancel through the signed link in their email.
 
 ## 8. Legal pages content (drafted in Phase 7)
 
-- **Terms:** booking rules and the refund policy above, conduct, and the fact that walk-in time is charged in 15-minute blocks, rounded up (D91).
+- **Terms:** the owner's text, RACEGROUNDS PTY LTD, ABN 64 700 493 723, 16 sections (D102). Section 3 (no refund inside 24 hours) is the policy in §4 above (D101); sections 4 and 12 use the arrive-early setting (15 minutes). The cancellation policy page sums up §4 and links to the terms.
 - **Privacy policy:** name, email and phone collected. Payments are handled by Stripe, and no card data is stored.

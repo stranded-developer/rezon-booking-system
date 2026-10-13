@@ -340,7 +340,17 @@ test("the legal pages explain the rules", async ({ page }) => {
   await expect(page.getByText(/Less than 24 hours before:/)).toBeVisible();
   await expect(page.getByText(/50%/)).toHaveCount(0);
   await page.getByRole("link", { name: "Terms", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Terms" })).toBeVisible();
-  await page.getByRole("link", { name: "Privacy" }).click();
+  // D102: the owner's terms, all 16 sections, with the venue's arrive-early minutes in them.
+  await expect(page.getByRole("heading", { level: 1, name: "Terms & Conditions" })).toBeVisible();
+  await expect(page.getByText("Operated by RACEGROUNDS PTY LTD · ABN 64 700 493 723")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: /^\d+\. / })).toHaveCount(16);
+  await expect(page.getByRole("heading", { name: "Additional Venue Conditions" })).toBeVisible();
+  await expect(page.getByText(/Cancellations made more than 24 hours before the scheduled session start time are eligible for a full refund/)).toBeVisible();
+  await expect(page.getByText(/^Customers must arrive at least \d+ minutes before their scheduled session/)).toHaveCount(2);
+  await expect(page.getByText(/at least 10 minutes/)).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Contents" }).getByRole("link", { name: "12. Late Arrivals" }).click();
+  await expect(page).toHaveURL(/#section-12$/);
+  await shot(page, "web-16-terms");
+  await page.getByRole("link", { name: "Privacy", exact: true }).click();
   await expect(page.getByText(/Payments are handled by Stripe/)).toBeVisible();
 });
