@@ -2,8 +2,10 @@
  * Create a staff account (sign-in + staff row + PIN) directly with the service key.
  * Used to bootstrap the first superadmin; later staff are added in the back office.
  *
- *   pnpm --filter @raceground/api staff:create -- --email owner@example.com --name "Owner" \
+ *   pnpm --filter @raceground/api staff:create --email owner@example.com --name "Owner" \
  *     --role superadmin --pin 1234 --password 'a-strong-password'
+ *
+ * A "--" before the options (as `npm run` needs) is ignored rather than refused.
  */
 import { parseArgs } from "node:util";
 import { createServiceClient } from "@raceground/db";
@@ -11,6 +13,7 @@ import { loadEnv } from "../src/env.js";
 import { createStaff } from "../src/services/staff.js";
 
 const { values } = parseArgs({
+  args: process.argv.slice(2).filter((arg) => arg !== "--"),
   options: {
     email: { type: "string" },
     name: { type: "string" },

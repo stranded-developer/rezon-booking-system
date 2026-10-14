@@ -103,6 +103,22 @@ test("a counter member signs up, gets their membership, books with the discount 
     await page.waitForURL(/\/account/);
   });
 
+  // D103: signing up again with the same, now confirmed, email says the account exists, instead
+  // of claiming a confirmation link was sent (Supabase sends nothing in that case).
+  {
+    const stranger = await (await browser.newContext()).newPage();
+    await stranger.goto("/signup");
+    await appReady(stranger);
+    await fillLive(stranger.getByLabel("Name"), f.counterMember.name);
+    await fillLive(stranger.getByRole("textbox", { name: /^Email/ }), f.counterMember.email);
+    await fillLive(stranger.getByLabel("Password"), f.password);
+    await stranger.getByRole("button", { name: "Create account" }).click();
+    await expect(stranger.getByText(`There's already an account with ${f.counterMember.email}.`)).toBeVisible({ timeout: 30_000 });
+    await expect(stranger.getByRole("link", { name: "reset your password" })).toHaveAttribute("href", "/forgot-password");
+    await expect(stranger.getByText(/We've sent a confirmation link/)).toHaveCount(0);
+    await stranger.context().close();
+  }
+
   // ── The counter membership is now on the account (D56), with its QR (D57) ──
   await expect(page.getByRole("heading", { name: `${f.counterMember.tierName} membership` })).toBeVisible();
   await expect(page.getByText(f.counterMember.memberNo)).toBeVisible();

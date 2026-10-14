@@ -96,12 +96,15 @@ export function SignUpForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  /** The email already has a confirmed account (D103). */
+  const [exists, setExists] = useState(false);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function signUp() {
     setBusy(true);
     setError(null);
-    const { error: authError } = await supabase().auth.signUp({
+    setExists(false);
+    const { data, error: authError } = await supabase().auth.signUp({
       email: form.email.trim(),
       password: form.password,
       options: {
@@ -110,6 +113,14 @@ export function SignUpForm() {
       },
     });
     setBusy(false);
+    // D103: an email that already has a confirmed account. Depending on the project's settings,
+    // Supabase either refuses it ("User already registered") or answers as if it worked but sends
+    // nothing (an account with no new identities). Either way, say so rather than "check your email".
+    const alreadyRegistered = authError?.code === "user_already_exists" || /already registered/i.test(authError?.message ?? "");
+    if (alreadyRegistered || (!authError && data.user && data.user.identities?.length === 0)) {
+      setExists(true);
+      return;
+    }
     if (authError) {
       setError(authError.message.toLowerCase().includes("password") ? "Please use a password of at least 8 characters." : message(authError));
       return;
@@ -161,6 +172,19 @@ export function SignUpForm() {
             <Input type="password" autoComplete="new-password" minLength={8} value={form.password} onChange={set("password")} required />
           </Field>
           {error ? <Notice tone="error">{error}</Notice> : null}
+          {exists ? (
+            <Notice tone="warn">
+              There&apos;s already an account with {form.email.trim()}.{" "}
+              <Link href="/login" className="underline">
+                Log in
+              </Link>
+              , or{" "}
+              <Link href="/forgot-password" className="underline">
+                reset your password
+              </Link>{" "}
+              if you&apos;ve forgotten it.
+            </Notice>
+          ) : null}
           <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy}>
             {busy ? "Creating your account…" : "Create account"}
           </Button>

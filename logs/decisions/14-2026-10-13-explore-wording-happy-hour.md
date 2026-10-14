@@ -49,3 +49,11 @@
 **Given:** `assets/brand/tnc.txt`, RACEGROUNDS PTY LTD's terms (16 sections). Sections 4 and 12 say to arrive "at least 10 minutes before"; the booking rules and the big notice (D100) say 15. **Asked:** which? **Answer:** 15.
 
 **Decision:** `/terms` shows the owner's text in full, with "at least 15 minutes" in sections 4 and 12 (from the back office's arrive-early setting, so they never disagree with the notice). Nothing else in the text is changed.
+
+## D103 — Signing up with an email that already has an account says so ✅ owner 2026-10-14
+
+**Asked:** "if account already existing then it doesnt say?? … silently swallowed?"
+
+**Answer:** it was. For an email with a confirmed account, Supabase either refuses the sign-up ("User already registered", which the page showed word for word) or, with other project settings, answers as if it worked and sends nothing — and the page then said "We've sent a confirmation link".
+
+**Decision:** in both cases the sign-up page says "There's already an account with <email>. Log in, or reset your password if you've forgotten it." This tells someone typing an email whether it has an account here; for a venue's member site that's the clearer choice, and logging in still needs the password.
