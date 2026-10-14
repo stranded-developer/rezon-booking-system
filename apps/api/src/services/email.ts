@@ -7,6 +7,7 @@ export type EmailTemplate =
   | "membership_ended"
   | "membership_price_change"
   | "booking_confirmed"
+  | "booking_alert"
   | "booking_cancelled"
   | "booking_payment_refunded"
   | "booking_reminder"

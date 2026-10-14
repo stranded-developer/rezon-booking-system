@@ -1012,7 +1012,6 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
   const { data, error } = await deps.db.from("bookings").select(BOOKING_SELECT).eq("id", bookingId).single();
   if (error) throw mapDbError(error);
   const b = data as unknown as BookingRow;
-  if (!b.customers.email) return { sent: false };
   const settings = await loadSettings(deps.db);
   const { start, end } = parseRange(b.period);
   const s = venueText(start, settings.timezone);
@@ -1023,6 +1022,21 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
     : "Paid: $0.00";
   const free = b.free_minutes_used > 0 ? `\nFree play used: ${b.free_minutes_used} min` : "";
   const setup = b.sim_setup ? `\nYour setup: ${simSetupText(b.sim_setup)}` : "";
+
+  // D105: the venue hears about every confirmed online booking, whether or not the customer gave an email.
+  if (settings.booking_alert_email) {
+    const contact = [b.customers.email, b.customers.phone].filter(Boolean).join(" · ") || "no contact details";
+    await deps.email.send({
+      template: "booking_alert",
+      to: settings.booking_alert_email,
+      subject: `New booking ${b.ref}: ${s.date} ${s.time}, ${what}`,
+      text: `New booking confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup.replace("Your setup", "Setup")}\n${paid}${free}\n\nCustomer: ${b.customers.name}\n${contact}\n\nIt is in the back office under Bookings.`,
+      entity: "bookings",
+      entityId: `${b.id}:alert`,
+    });
+  }
+
+  if (!b.customers.email) return { sent: false };
   const link = token ? `\n\nView or cancel your booking: ${bookingLink(deps, b.ref, token)}` : "";
   const text = `Hi ${b.customers.name},\n\nYour booking is confirmed.\n\nBooking code: ${b.ref}\n${what}\n${s.date}, ${s.time}–${endTime} (Sydney time)${setup}\n${paid}${free}\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session starts and ends at the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\n\nCancellations: full refund up to 24 hours before the start. Within 24 hours a booking can't be cancelled and no refund applies.${link}\n\nRaceground`;
   const ics = buildIcs({

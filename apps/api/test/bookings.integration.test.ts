@@ -319,6 +319,34 @@ describe("holds", () => {
     expect(ics?.content.split("\r\n").every((l) => Buffer.byteLength(l) <= 75)).toBe(true);
   });
 
+  it("emails the venue every confirmed booking, with the customer's details, when an alert address is set (D105)", async () => {
+    const { data: before } = await ctx.db.from("venue_settings").select("booking_alert_email").eq("id", 1).single();
+    const alertTo = `alerts-${run}@raceground.test`;
+    // Its own $0 code, so the shared one's three uses are left for the tests that count them.
+    const { data: code } = await ctx.db.from("referral_codes").insert({ discount_type: "fixed", discount_value: 10_000, max_uses: 2 }).select("code").single();
+    try {
+      await ctx.db.from("venue_settings").update({ booking_alert_email: alertTo }).eq("id", 1);
+      const r = await api("/bookings/hold", { body: holdBody({ startTime: "16:00", referralCode: code!.code, expectedTotalCents: 0, customer: { name: "Alert Al", email: `al-${run}@raceground.test`, phone: "0400111222" } }) });
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      const alert = ctx.email.outbox.find((m) => m.template === "booking_alert" && m.entityId === `${r.json.bookingId}:alert`);
+      expect(alert?.to).toBe(alertTo);
+      expect(alert?.subject).toContain(`New booking ${r.json.ref}`);
+      for (const part of [r.json.ref, "Sat 16 Feb 2030, 16:00–17:00", "Alert Al", `al-${run}@raceground.test`, "0400111222", "Paid: $0.00"]) {
+        expect(alert?.text).toContain(part);
+      }
+      // The customer still gets their own confirmation.
+      expect(ctx.email.outbox.some((m) => m.template === "booking_confirmed" && m.entityId === `${r.json.bookingId}:confirmed`)).toBe(true);
+
+      // No address, no alert.
+      await ctx.db.from("venue_settings").update({ booking_alert_email: null }).eq("id", 1);
+      const quiet = await api("/bookings/hold", { body: holdBody({ startTime: "17:00", referralCode: code!.code, expectedTotalCents: 0 }) });
+      expect(quiet.status, JSON.stringify(quiet.json)).toBe(201);
+      expect(ctx.email.outbox.some((m) => m.template === "booking_alert" && m.entityId === `${quiet.json.bookingId}:alert`)).toBe(false);
+    } finally {
+      await ctx.db.from("venue_settings").update({ booking_alert_email: before!.booking_alert_email }).eq("id", 1);
+    }
+  });
+
   it("puts the next customer for the same time on the next free resource, then says it's taken", async () => {
     const second = await api("/bookings/hold", { body: holdBody({ referralCode: fixedCode, expectedTotalCents: 0 }) });
     expect(second.status, JSON.stringify(second.json)).toBe(201);

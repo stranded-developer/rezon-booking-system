@@ -1852,6 +1852,7 @@ export type Database = {
           address: string | null
           arrive_early_minutes: number
           balance_forfeit_days: number
+          booking_alert_email: string | null
           booking_window_days: number
           business_name: string | null
           cash_variance_threshold_cents: number
@@ -1874,6 +1875,7 @@ export type Database = {
           address?: string | null
           arrive_early_minutes?: number
           balance_forfeit_days?: number
+          booking_alert_email?: string | null
           booking_window_days?: number
           business_name?: string | null
           cash_variance_threshold_cents?: number
@@ -1896,6 +1898,7 @@ export type Database = {
           address?: string | null
           arrive_early_minutes?: number
           balance_forfeit_days?: number
+          booking_alert_email?: string | null
           booking_window_days?: number
           business_name?: string | null
           cash_variance_threshold_cents?: number

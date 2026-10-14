@@ -101,7 +101,7 @@ Customers cancel through the signed link in their email.
 - **Booking link token:** 32 random bytes; only its sha256 is stored. It is carried in the Checkout session metadata so the webhook can email the link.
 - **Late payment:** if the hold is gone (or the amount differs) when `checkout.session.completed` arrives, the full payment is refunded through Stripe, audited, and the customer is emailed. Retries never refund twice (idempotency key per booking).
 - **Customer cancel:** refund quote → Stripe refund (idempotency key per booking + amount; an earlier refund made for this cancel is reused) → `booking_cancel` with the refund id → email.
-- **Emails** (console transport until Resend): confirmation with `.ics` invite, check-in code `rg:b:<ref>` and link; cancellation with refund amount; late-payment refund.
+- **Emails** (console transport until Resend): confirmation with `.ics` invite, check-in code `rg:b:<ref>` and link; cancellation with refund amount; late-payment refund. **Booking alert to the venue** (D105): every confirmed online booking is emailed to `venue_settings.booking_alert_email` (back office; racegrounds@gmail.com) with the code, what, when, setup, paid, and the customer's name, email and phone. Empty = none.
 
 ## 7. Website implementation notes (Phase 6c)
 

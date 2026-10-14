@@ -97,6 +97,8 @@ describe("contact details", () => {
       intro: "Pool tables, driving sims and VR.",
       instagramUrl: "https://www.instagram.com/raceground/",
     });
+    // Where booking alerts go is the venue's business, not the public's (D105).
+    expect(JSON.stringify(config.json)).not.toMatch(/booking_alert|bookingAlert/);
   });
 
   it("empty text clears a field", async () => {
@@ -106,7 +108,7 @@ describe("contact details", () => {
   });
 
   it("refuses bad values and cashiers", async () => {
-    for (const body of [{ phone: "call me" }, { contactEmail: "nope" }, { instagramUrl: "https://evil.example/raceground" }, { intro: "x".repeat(1001) }]) {
+    for (const body of [{ phone: "call me" }, { contactEmail: "nope" }, { bookingAlertEmail: "nope" }, { instagramUrl: "https://evil.example/raceground" }, { intro: "x".repeat(1001) }]) {
       const r = await admin("/settings", { method: "PATCH", body });
       expect(r.status, JSON.stringify(body)).toBe(422);
     }

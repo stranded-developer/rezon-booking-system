@@ -100,8 +100,16 @@ test("a superadmin uses the back office: referral codes, complimentary member, b
   await page.getByRole("link", { name: "Venue & hours", exact: true }).click();
   const businessName = `Raceground E2E ${f.run}`;
   await page.getByLabel("Business name").fill(businessName);
+  // D105: where booking alerts go is set here too; put back what was there afterwards.
+  const { data: alertBefore } = await localSupabase().from("venue_settings").select("booking_alert_email").single();
+  const alertBox = page.getByLabel("Booking alerts to");
+  await expect(alertBox).toHaveValue(alertBefore!.booking_alert_email ?? "");
+  await alertBox.fill(`alerts-${f.run}@raceground.test`);
   await page.getByRole("button", { name: "Save settings" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
+  const { data: alertAfter } = await localSupabase().from("venue_settings").select("booking_alert_email").single();
+  expect(alertAfter!.booking_alert_email).toBe(`alerts-${f.run}@raceground.test`);
+  await localSupabase().from("venue_settings").update({ booking_alert_email: alertBefore!.booking_alert_email }).eq("id", 1);
 
   // Booking website details and a photo (D58): saved, shown to the public, then removed.
   await page.getByLabel("Address").fill(`E2E ${f.run} Test St, Sydney NSW 2000`);

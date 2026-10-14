@@ -63,6 +63,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | The owner's terms and conditions on `/terms` (53) | ✅ Built and verified |
 | Sign-up says when the email already has an account; Stripe account switch script (54) | ✅ Built and verified |
 | Bookings open about 3 months ahead (55) | ✅ Built and verified — **`supabase db push` before deploying** |
+| Booking alert email to the venue (56) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -128,6 +129,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 53 | The owner's terms and conditions | [build/53-terms.md](build/53-terms.md) |
 | 54 | Sign-up with an existing account; switching Stripe accounts | [build/54-existing-account-stripe-switch.md](build/54-existing-account-stripe-switch.md) |
 | 55 | Bookings open about 3 months ahead | [build/55-three-months-ahead.md](build/55-three-months-ahead.md) |
+| 56 | The venue gets an email for every confirmed booking | [build/56-booking-alerts.md](build/56-booking-alerts.md) |
 
 ## Decisions
 

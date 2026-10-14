@@ -21,6 +21,7 @@ interface Settings {
   address: string | null;
   phone: string | null;
   contact_email: string | null;
+  booking_alert_email: string | null;
   intro: string | null;
   instagram_url: string | null;
 }
@@ -247,6 +248,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
     walkinLastOpenMinutes: String(settings.walkin_last_open_minutes),
     variance: centsToInput(settings.cash_variance_threshold_cents),
     balanceForfeitDays: String(settings.balance_forfeit_days),
+    bookingAlertEmail: settings.booking_alert_email ?? "",
   });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => {
     setDone(false);
@@ -294,6 +296,9 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
             <Input inputMode="numeric" value={f.balanceForfeitDays} onChange={set("balanceForfeitDays")} />
           </Field>
         </div>
+        <Field label="Booking alerts to" hint="Every confirmed online booking is emailed here. Leave empty for none.">
+          <Input type="email" value={f.bookingAlertEmail} onChange={set("bookingAlertEmail")} placeholder="racegrounds@gmail.com" />
+        </Field>
         <ErrorNote error={action.error} />
         <Button
           variant="primary"
@@ -314,6 +319,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
                   walkinLastOpenMinutes: numbers[3],
                   balanceForfeitDays: numbers[4],
                   cashVarianceThresholdCents: variance,
+                  bookingAlertEmail: f.bookingAlertEmail.trim(),
                 },
               });
               setDone(true);

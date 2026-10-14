@@ -93,6 +93,14 @@ const SettingsBody = z
       .nullable()
       .optional(),
     intro: OptionalText(1000),
+    // D105: every confirmed online booking is emailed here. Empty = no alerts.
+    bookingAlertEmail: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(z.email("Enter a valid email address").max(254).nullable())
+      .nullable()
+      .optional(),
     instagramUrl: z
       .string()
       .trim()
@@ -121,6 +129,7 @@ adminConfigRoutes.patch("/settings", validate("json", SettingsBody), async (c) =
     ...(b.phone !== undefined ? { phone: b.phone } : {}),
     ...(b.contactEmail !== undefined ? { contact_email: b.contactEmail } : {}),
     ...(b.intro !== undefined ? { intro: b.intro } : {}),
+    ...(b.bookingAlertEmail !== undefined ? { booking_alert_email: b.bookingAlertEmail } : {}),
     ...(b.instagramUrl !== undefined ? { instagram_url: b.instagramUrl } : {}),
   };
   const { data, error } = await auditHeaders(c.get("deps").db.from("venue_settings").update(patch).eq("id", 1), c.get("operator").id, reason)
