@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { api } from "@/lib/api";
-import { dayName, formatCents, formatRate, formatWallTime } from "@/lib/format";
+import { dayName, formatBookingWindow, formatCents, formatRate, formatWallTime } from "@/lib/format";
 import type { PublicConfig } from "@/lib/types";
 import { Chevron, DrivingTiles, EventTiles, HighlightTiles, SectionHeading } from "@/components/home-tiles";
 import { ExperienceCard } from "@/components/experience-card";
@@ -212,7 +212,7 @@ function Hours({ openingHours, bookingWindowDays }: { openingHours: PublicConfig
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
       <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr]">
-        <SectionHeading kicker="When we're open" title="Hours" sub={`All times are Sydney time. You can book up to ${bookingWindowDays} days ahead.`} />
+        <SectionHeading kicker="When we're open" title="Hours" sub={`All times are Sydney time. You can book up to ${formatBookingWindow(bookingWindowDays)} ahead.`} />
         <Reveal>
           <ul className="divide-y divide-line border-y border-line">
             {openingHours.map((day) => (

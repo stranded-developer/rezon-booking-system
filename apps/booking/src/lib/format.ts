@@ -12,6 +12,15 @@ export function formatMinutes(minutes: number): string {
   return `${h} h ${m} min`;
 }
 
+/** How far ahead bookings open, as a person would say it: "7 days", "3 months" (D104). */
+export function formatBookingWindow(days: number): string {
+  if (days >= 56) {
+    const months = Math.round(days / 30.4);
+    return months === 1 ? "1 month" : `${months} months`;
+  }
+  return days === 1 ? "1 day" : `${days} days`;
+}
+
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 export const dayName = (isoDayOfWeek: number) => DAY_NAMES[isoDayOfWeek - 1] ?? "";
 

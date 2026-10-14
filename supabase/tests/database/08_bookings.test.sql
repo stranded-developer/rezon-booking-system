@@ -7,6 +7,8 @@ select plan(82);
 -- Setting the hours here — and rolling them back with the rest of the transaction — keeps them
 -- working whatever the owner sets in the back office (D73).
 update public.opening_hours set open_time = '10:00', close_time = '21:00', closed = false;
+-- The same for how far ahead bookings open (D104: 92 days at launch); these dates assume 7.
+update public.venue_settings set booking_window_days = 7;
 
 
 -- ── Fixtures (rolled back) ──────────────────────────────────────────────────

@@ -143,7 +143,8 @@ describe("config and availability", () => {
     expect(r.status).toBe(200);
     expect(r.json.today).toBe("2030-02-11");
     expect(r.json.timeZone).toBe("Australia/Sydney");
-    expect(r.json.bookingWindowDays).toBe(7);
+    // The window is the venue's own setting (D104); the availability test below follows it.
+    expect(r.json.bookingWindowDays).toBeGreaterThan(0);
     const type = r.json.resourceTypes.find((t: { id: string }) => t.id === typeId);
     expect(type).toMatchObject({ baseRateCents: 4000, minMinutes: 15, resources: [{ label: "Bay A" }, { label: "Bay B" }] });
     expect(JSON.stringify(r.json)).not.toMatch(/stripe_price_id|pin_hash/);
@@ -190,11 +191,14 @@ describe("config and availability", () => {
     expect((await api("/public/config")).json.sessionMinutes).toBe(30);
   });
 
-  it("accepts the type key too, and shows nothing outside the 7-day window", async () => {
-    const key = await api(`/public/availability?type=test_bk_${run}&date=2030-02-18`);
+  it("accepts the type key too, and shows nothing outside the booking window", async () => {
+    // The last bookable day is today + the venue's window, whatever the back office has it at.
+    const { bookingWindowDays } = (await api("/public/config")).json as { bookingWindowDays: number };
+    const day = (n: number) => new Date(Date.UTC(2030, 1, 11 + n)).toISOString().slice(0, 10);
+    const key = await api(`/public/availability?type=test_bk_${run}&date=${day(bookingWindowDays)}`);
     expect(key.json.inWindow).toBe(true);
-    expect(key.json.slots.length).toBeGreaterThan(0);
-    const late = await api(`/public/availability?type=${typeId}&date=2030-02-19`);
+    expect(key.json.lastDate).toBe(day(bookingWindowDays));
+    const late = await api(`/public/availability?type=${typeId}&date=${day(bookingWindowDays + 1)}`);
     expect(late.json).toMatchObject({ inWindow: false, slots: [] });
     const past = await api(`/public/availability?type=${typeId}&date=2030-02-10`);
     expect(past.json).toMatchObject({ inWindow: false, slots: [] });

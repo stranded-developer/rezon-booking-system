@@ -62,6 +62,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | No refund inside 24 hours, as the owner's terms say (52) | ✅ Built and verified — **`supabase db push` before deploying** |
 | The owner's terms and conditions on `/terms` (53) | ✅ Built and verified |
 | Sign-up says when the email already has an account; Stripe account switch script (54) | ✅ Built and verified |
+| Bookings open about 3 months ahead (55) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -126,6 +127,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 52 | No refund inside 24 hours | [build/52-no-refund-inside-24h.md](build/52-no-refund-inside-24h.md) |
 | 53 | The owner's terms and conditions | [build/53-terms.md](build/53-terms.md) |
 | 54 | Sign-up with an existing account; switching Stripe accounts | [build/54-existing-account-stripe-switch.md](build/54-existing-account-stripe-switch.md) |
+| 55 | Bookings open about 3 months ahead | [build/55-three-months-ahead.md](build/55-three-months-ahead.md) |
 
 ## Decisions
 
@@ -138,7 +140,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
-| [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D103: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice, **no refund inside 24 hours (supersedes the 50% refund)**, the owner's terms, an existing account is named on sign-up |
+| [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D106: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice, **no refund inside 24 hours (supersedes the 50% refund)**, the owner's terms, an existing account is named on sign-up, booking 3 months ahead, booking alerts to the venue, group bookings |
 | [13 — 2026-10-11](decisions/13-2026-10-11-idle-lock-game-lists.md) | D94–D95: **the till locks after 1 hour idle (was 5 min)**, up to 1000 tracks and 1000 cars per game (was 200) |
 | [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, **Garet Book/Heavy (supersedes D88's fonts)** |
 | [11 — 2026-10-05](decisions/11-2026-10-05-mockup-layout-racegrounds.md) | D88–D89: the owner's mockup — lime on purple, Unbounded, the new home page and header, the rig renders (**supersedes D76's look**); the name Racegrounds |

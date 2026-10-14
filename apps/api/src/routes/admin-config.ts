@@ -69,7 +69,7 @@ const SettingsBody = z
       .max(240)
       .refine((m) => m % 15 === 0, "A session must be a whole number of quarter hours")
       .optional(),
-    bookingWindowDays: z.number().int().min(0).max(60).optional(),
+    bookingWindowDays: z.number().int().min(0).max(365).optional(),
     onlineCutoffMinutes: z.number().int().min(0).max(1440).optional(),
     noShowHoldMinutes: z.number().int().min(0).max(120).optional(),
     arriveEarlyMinutes: z.number().int().min(0).max(120).optional(),

@@ -57,3 +57,24 @@
 **Answer:** it was. For an email with a confirmed account, Supabase either refuses the sign-up ("User already registered", which the page showed word for word) or, with other project settings, answers as if it worked and sends nothing — and the page then said "We've sent a confirmation link".
 
 **Decision:** in both cases the sign-up page says "There's already an account with <email>. Log in, or reset your password if you've forgotten it." This tells someone typing an email whether it has an account here; for a venue's member site that's the clearer choice, and logging in still needs the password.
+
+## D104 — Bookings open about 3 months ahead ✅ owner 2026-10-14
+
+**Asked:** "for the booking availability it shows can only be up to next week make it up to next 3 months."
+
+**Decision:** the back office's "Book ahead (days)" setting goes from 7 to **92** (about 3 months); the back office now accepts up to 365 (it stopped at 60). The home page says "up to 3 months ahead".
+
+## D105 — The venue gets an email for every confirmed booking ✅ owner 2026-10-14
+
+**Asked:** "whenever a booking is confirmed, send an email confirmation to racegrounds@gmail.com with the booking details." **Asked back:** fixed, or a back-office setting? **Answer:** a setting.
+
+**Decision:** a back-office setting "Booking alerts to", set to racegrounds@gmail.com. Every confirmed online booking sends it the booking's details. Empty = no alerts.
+
+## D106 — A simulator booking can be for several people ✅ owner 2026-10-14
+
+**Asked:** "they can book for x person (more than 1, thus multiplying the price to pay with the x number of person)."
+
+**Answers:**
+- Each person gets **their own simulator, side by side, at the same time**; the price is × people and it needs that many free spots; one payment.
+- **Billiards stays per table**: no number of people asked.
+- A **member booking for a group gets the member price for everyone**; free play covers the member's own place only.

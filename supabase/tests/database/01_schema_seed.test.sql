@@ -31,7 +31,7 @@ select is(
 );
 
 select is((select timezone from venue_settings), 'Australia/Sydney', 'venue timezone');
-select is((select booking_window_days from venue_settings), 7, 'booking window 7 days');
+select is((select booking_window_days from venue_settings), 92, 'booking window about 3 months (D104)');
 select is((select online_cutoff_minutes from venue_settings), 30, 'online cutoff 30 min');
 
 select results_eq(

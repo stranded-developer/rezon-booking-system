@@ -15,7 +15,7 @@ venue_settings            -- single row (id = 1)
   timezone                 text      'Australia/Sydney'
   business_name            text      null until provided
   abn                      text      null until provided
-  booking_window_days      int       7
+  booking_window_days      int       92 (about 3 months, D104; back office up to 365)
   online_cutoff_minutes    int       30
   no_show_hold_minutes     int       15
   hold_ttl_minutes         int       30     -- matches Stripe Checkout minimum expiry

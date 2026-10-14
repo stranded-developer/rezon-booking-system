@@ -331,6 +331,34 @@ test("in happy hour the summary says so, with the normal price struck through", 
   await shot(page, "web-14c-happy-hour");
 });
 
+test("bookings open as far ahead as the venue's setting, about 3 months at launch", async ({ page }) => {
+  // D104: the window is the back office's "Book ahead" setting; read it rather than assume it.
+  const { data: settings } = await localSupabase().from("venue_settings").select("booking_window_days").single();
+  const days = settings!.booking_window_days as number;
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const last = new Date(Date.UTC(get("year"), get("month") - 1, get("day") + days));
+  const label = (d: Date) => new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(d).replace(/,/g, "");
+  const after = new Date(last.getTime() + 86_400_000);
+
+  await page.goto("/");
+  await expect(page.getByText(/You can book up to \d+ (days|months?) ahead\./)).toBeVisible();
+  if (days >= 84) await expect(page.getByText("You can book up to 3 months ahead.")).toBeVisible();
+
+  await page.goto("/book");
+  await page.getByRole("button", { name: "Book your first race" }).click();
+  const panel = page.getByRole("dialog");
+  const next = panel.getByRole("button", { name: "Next month" });
+  // Page forward to the month of the last bookable day: that day can be picked, the next one can't.
+  const lastDay = panel.getByRole("button", { name: new RegExp(`^${label(last)}`) });
+  for (let i = 0; i < 14 && (await lastDay.count()) === 0; i++) await next.click();
+  // A closed weekday is greyed out even inside the window.
+  if (!(await lastDay.getAttribute("aria-label"))?.includes("closed")) await expect(lastDay).toBeEnabled();
+  const dayAfter = panel.getByRole("button", { name: new RegExp(`^${label(after)}`) });
+  if (await dayAfter.count()) await expect(dayAfter).toBeDisabled();
+  await expect(panel.getByText(`Booking is open to`)).toBeVisible();
+});
+
 test("the legal pages explain the rules", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Cancellations & refunds" }).click();
