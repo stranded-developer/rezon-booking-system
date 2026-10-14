@@ -30,7 +30,7 @@ The back office lives in the POS app under `/admin` and needs a superadmin opera
 | **Business details** (Venue & hours) | Business name, ABN (shown on receipts / tax invoices), variance threshold. |
 | **Booking website** (Venue & hours, D58) | Address, phone, contact email, Instagram link and a short intro for the home page; an empty field is hidden. **Photos:** upload (JPEG/PNG/WebP up to 5 MB, file type checked from its contents), caption, reorder, remove; at most 12. All changes audited. |
 | **Sales** | A day's closed and voided sessions: receipt reprint, **partial refund** (cash/card, reason, needs an open till), void (full refund of what's left, free minutes returned). |
-| **Bookings** | Search, view, cancel with refund (policy amount pre-filled, override allowed with reason). Arrives with the booking site (Phase 6). |
+| **Bookings** | Search, view, cancel with refund (policy amount pre-filled, override allowed with reason). Arrives with the booking site (Phase 6). A group (D106) shows as its lead ("Group of 3 · pays for all", cancelling it cancels everyone) and one row per other simulator ("With group ABC234", changed through the lead). |
 | **Shifts** | List, flagged shifts, shift report. |
 | **Reports** | See below. |
 | **Audit log** | Filter by actor, entity, action, date. Read-only. |

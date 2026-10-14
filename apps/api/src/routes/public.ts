@@ -42,6 +42,8 @@ const Booking = z
     referralCode: z.string().trim().min(1).max(32).optional(),
     freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
     claimedPromoIds: z.array(z.uuid()).max(10).optional(),
+    // D106: people on a simulator session, each on their own simulator.
+    partySize: z.number().int().min(1).max(20).optional(),
   })
   .refine((v) => v.experienceKey || (v.resourceTypeId && v.durationMinutes), "Choose what you'd like to book");
 

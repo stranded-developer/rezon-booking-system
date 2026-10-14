@@ -84,6 +84,8 @@ export function BookingPanel({
   const [resourceId, setResourceId] = useState<string>(ANY_RESOURCE);
   const [freeMinutesChoice, setFreeMinutesChoice] = useState<number | null>(null);
   const [claimedPromoIds, setClaimedPromoIds] = useState<string[]>([]);
+  /** D106: people on a simulator session, each on their own simulator. */
+  const [partySize, setPartySize] = useState(1);
 
   const [customer, setCustomer] = useState<Customer>({ name: "", email: "", phone: "" });
   const [simPick, setSimPick] = useState<SimPick>({ on: false, gameId: null, trackId: null, carId: null });
@@ -107,6 +109,8 @@ export function BookingPanel({
   /** Games are offered for whatever is being booked — the simulators, at launch. */
   const typeId = target.kind === "experience" ? target.experience.resourceTypeId : target.type.id;
   const games = useMemo(() => (config.games ?? []).filter((g) => g.resourceTypeId === typeId), [config.games, typeId]);
+  /** D106: a simulator session can be for as many people as there are simulators; billiards is per table. */
+  const maxPeople = isExperience ? Math.max(1, config.resourceTypes.find((t) => t.id === typeId)?.resources.length ?? 1) : 1;
   const pickedGame = simPick.on ? (games.find((g) => g.id === simPick.gameId) ?? null) : null;
   const setupLabel = pickedGame
     ? [pickedGame.name, pickedGame.tracks.find((t) => t.id === simPick.trackId)?.name, pickedGame.cars.find((c) => c.id === simPick.carId)?.name].filter(Boolean).join(" · ")
@@ -204,9 +208,10 @@ export function BookingPanel({
       ...(referral && !member ? { referralCode: referral.code } : {}),
       ...(freeMinutes > 0 ? { freeMinutes } : {}),
       ...(claimedPromoIds.length > 0 ? { claimedPromoIds } : {}),
+      ...(partySize > 1 ? { partySize } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tKey, date, startTime, durationMinutes, referral, member, freeMinutes, claimedPromoIds]);
+  }, [tKey, date, startTime, durationMinutes, referral, member, freeMinutes, claimedPromoIds, partySize]);
 
   const quoteKey = quoteRequest ? JSON.stringify(quoteRequest) : null;
   useEffect(() => {
@@ -264,7 +269,7 @@ export function BookingPanel({
       const result = await request<HoldResult>("/bookings/hold", {
         body: {
           ...quoteRequest,
-          ...(resourceId === ANY_RESOURCE ? {} : { resourceId }),
+          ...(resourceId === ANY_RESOURCE || partySize > 1 ? {} : { resourceId }),
           ...(pickedGame
             ? {
                 simSetup: {
@@ -302,6 +307,14 @@ export function BookingPanel({
           setPayError(null);
           return;
         }
+      }
+      if (err instanceof ApiRequestError && err.code === "not_enough_spots") {
+        setSelection(null);
+        setStep("date");
+        setPayError(err.message);
+        setAvailabilityState(null);
+        setReloadSlots((n) => n + 1);
+        return;
       }
       if (err instanceof ApiRequestError && err.code === "slot_taken") {
         setSelection(null);
@@ -394,6 +407,13 @@ export function BookingPanel({
                   setPayError(null);
                 }}
                 onBackToCalendar={() => setDate(null)}
+                partySize={partySize}
+                maxPeople={maxPeople}
+                onPartySize={(n) => {
+                  setPartySize(n);
+                  // A time with too few spots for the new group has to be picked again.
+                  if (slot && slot.availableResources < n) setSelection(null);
+                }}
                 onPickTime={(time) => {
                   setSelection({ key: dayKey, time });
                   setStep("details");
@@ -410,6 +430,7 @@ export function BookingPanel({
                 durationMinutes={durationMinutes}
                 onDuration={setDurationChoice}
                 freeResources={freeResources}
+                partySize={partySize}
                 resourceId={resourceId}
                 onResource={setResourceId}
                 member={member}
@@ -453,7 +474,9 @@ export function BookingPanel({
                 date={date}
                 startTime={startTime}
                 setupLabel={setupLabel}
-                resourceLabel={resourceId === ANY_RESOURCE ? "Any available" : (freeResources.find((r) => r.id === resourceId)?.label ?? "")}
+                resourceLabel={
+                  partySize > 1 ? `${partySize} people, a simulator each` : resourceId === ANY_RESOURCE ? "Any available" : (freeResources.find((r) => r.id === resourceId)?.label ?? "")
+                }
                 quote={quote}
                 quoting={quoting}
                 quoteError={currentQuoteError}
@@ -471,7 +494,7 @@ export function BookingPanel({
 
           {/* What you're booking, always in view — the reference keeps this beside the steps. */}
           <aside className="border-t border-line bg-night/40 p-5 text-sm sm:border-l sm:border-t-0">
-            <Summary target={target} config={config} date={date} startTime={startTime} durationMinutes={durationMinutes} quote={quote} />
+            <Summary target={target} config={config} date={date} startTime={startTime} durationMinutes={durationMinutes} partySize={partySize} quote={quote} />
           </aside>
         </div>
 
@@ -515,6 +538,9 @@ function DateStep({
   onPickDate,
   onBackToCalendar,
   onPickTime,
+  partySize,
+  maxPeople,
+  onPartySize,
 }: {
   config: PublicConfig;
   target: BookTarget;
@@ -528,6 +554,9 @@ function DateStep({
   onPickDate: (date: string) => void;
   onBackToCalendar: () => void;
   onPickTime: (time: string) => void;
+  partySize: number;
+  maxPeople: number;
+  onPartySize: (n: number) => void;
 }) {
   if (!date) {
     return (
@@ -568,12 +597,15 @@ function DateStep({
 
       {availability && availability.slots.length > 0 ? (
         <>
+          {maxPeople > 1 ? <PeoplePicker value={partySize} max={maxPeople} onChange={onPartySize} /> : null}
           <p className="mb-3 text-sm text-ink-500">
-            Choose a start time. Each shows how many {target.kind === "experience" ? "spots" : "are"} free.
+            Choose a start time. Each shows how many {target.kind === "experience" ? "spots" : "are"} free
+            {partySize > 1 ? `; you need ${partySize}` : ""}.
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {availability.slots.map((s) => {
-              const free = s.availableResources > 0;
+              // D106: a group needs a free simulator each.
+              const free = s.availableResources >= partySize;
               const selected = s.time === startTime;
               return (
                 <button
@@ -596,7 +628,7 @@ function DateStep({
                   ) : null}
                   <span className="block truncate text-xs text-ink-500">{targetName(target)}</span>
                   <span className={`block text-xs ${free ? "text-gold" : "text-ink-500"}`}>
-                    {free ? `${s.availableResources} ${s.availableResources === 1 ? "spot" : "spots"}` : "Full"}
+                    {s.availableResources === 0 ? "Full" : `${s.availableResources} ${s.availableResources === 1 ? "spot" : "spots"}`}
                   </span>
                 </button>
               );
@@ -644,6 +676,7 @@ function DetailsStep({
   onReferralInput,
   onApplyReferral,
   onRemoveReferral,
+  partySize,
 }: {
   config: PublicConfig;
   target: BookTarget;
@@ -652,6 +685,7 @@ function DetailsStep({
   durationMinutes: number;
   onDuration: (m: number) => void;
   freeResources: { id: string; label: string }[];
+  partySize: number;
   resourceId: string;
   onResource: (id: string) => void;
   member: NonNullable<NonNullable<ReturnType<typeof useAccount>["account"]>["member"]> | null;
@@ -741,7 +775,11 @@ function DetailsStep({
         </>
       ) : null}
 
-      {isExperience ? (
+      {isExperience && partySize > 1 ? (
+        <p className="rounded-xl border border-line bg-mist/40 px-4 py-3 text-sm text-ink-600">
+          {partySize} people: each of you gets your own simulator, side by side. We&apos;ll have them ready when you arrive.
+        </p>
+      ) : isExperience ? (
         <Field label={`Which ${config.resourceTypes.find((t) => t.id === target.experience.resourceTypeId)?.name ?? "one"}?`} hint={pickHint(freeResources)}>
           <Select value={resourceId} onChange={(e) => onResource(e.target.value)}>
             <option value={ANY_RESOURCE}>Any available</option>
@@ -957,6 +995,7 @@ function PayStep({
             <Row label={targetName(target)} value={resourceLabel} />
             <Row label="When" value={`${formatVenueDate(date!)}, ${formatWallTime(startTime!)}`} />
             <Row label="How long" value={formatMinutes(quote.durationMinutes)} />
+            {quote.partySize && quote.partySize > 1 ? <Row label="People" value={String(quote.partySize)} /> : null}
             {setupLabel ? <Row label="Your setup" value={setupLabel} /> : null}
           </div>
 
@@ -1020,6 +1059,30 @@ function PayStep({
   );
 }
 
+/** D106: how many people, each on their own simulator. */
+function PeoplePicker({ value, max, onChange }: { value: number; max: number; onChange: (n: number) => void }) {
+  const button = "grid size-10 place-items-center rounded-full border border-line text-lg transition hover:border-flag disabled:opacity-30 disabled:hover:border-line";
+  return (
+    <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-line bg-mist/40 px-4 py-3">
+      <div>
+        <p className="display text-sm">How many people?</p>
+        <p className="text-xs text-ink-500">A simulator each, side by side.</p>
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="button" aria-label="Fewer people" className={button} disabled={value <= 1} onClick={() => onChange(value - 1)}>
+          −
+        </button>
+        <output aria-live="polite" aria-label="People" className="display tnum w-6 text-center text-xl">
+          {value}
+        </output>
+        <button type="button" aria-label="More people" className={button} disabled={value >= max} onClick={() => onChange(value + 1)}>
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** D99: when happy hour set the price, say so plainly, with the normal price struck through beside it. */
 function HappyHourNote({ happyHour }: { happyHour: HappyHourPrice }) {
   return (
@@ -1040,6 +1103,7 @@ function Summary({
   date,
   startTime,
   durationMinutes,
+  partySize,
   quote,
 }: {
   target: BookTarget;
@@ -1047,6 +1111,7 @@ function Summary({
   date: string | null;
   startTime: string | null;
   durationMinutes: number;
+  partySize: number;
   quote: Quote | null;
 }) {
   const exp = target.kind === "experience" ? target.experience : null;
@@ -1081,6 +1146,12 @@ function Summary({
           <dt>Length</dt>
           <dd className="tnum">{durationMinutes ? formatMinutes(durationMinutes) : exp ? formatMinutes(exp.minutes) : "—"}</dd>
         </div>
+        {partySize > 1 ? (
+          <div className="flex justify-between gap-2">
+            <dt>People</dt>
+            <dd className="tnum">{partySize}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-2">
           <dt>Day</dt>
           <dd>{date ? formatVenueDate(date, { year: false }) : "—"}</dd>

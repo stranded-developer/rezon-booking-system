@@ -29,6 +29,10 @@ interface BookingRow {
   payment: { method: string; amountCents: number } | null;
   holdExpiresAt: string | null;
   cancelledAt: string | null;
+  /** D106: people on the booking (the group's lead); 1 otherwise. Optional: an older API has none. */
+  partySize?: number;
+  /** D106: on one simulator of a group, the lead's code: that's the booking to change. */
+  groupLeadRef?: string | null;
 }
 
 interface CancelQuote {
@@ -126,6 +130,8 @@ export default function BookingsPage() {
               <Td>
                 <span className="block">{b.resourceType}</span>
                 <span className="text-xs text-ink-400">{b.resource}</span>
+                {b.partySize && b.partySize > 1 ? <span className="block text-xs text-flag">Group of {b.partySize} · pays for all</span> : null}
+                {b.groupLeadRef ? <span className="block text-xs text-ink-400">With group {b.groupLeadRef}</span> : null}
                 {b.simSetup ? <span className="block text-xs text-flag">{setupText(b.simSetup)}</span> : null}
               </Td>
               <Td>
@@ -176,7 +182,8 @@ function BookingDialog({ booking, onClose, onChanged }: { booking: BookingRow; o
   const policy = quote.data?.quote;
   const overrideCents = parseDollars(amount);
   const paidCents = policy?.paidCents ?? booking.payment?.amountCents ?? booking.totalCents ?? 0;
-  const cancellable = booking.status === "confirmed" || booking.status === "arrived";
+  // D106: one simulator of a group is changed through the group's lead booking.
+  const cancellable = (booking.status === "confirmed" || booking.status === "arrived") && !booking.groupLeadRef;
   const refundCents = (override ? overrideCents : policy?.refundCents) ?? 0;
 
   return (
@@ -184,6 +191,7 @@ function BookingDialog({ booking, onClose, onChanged }: { booking: BookingRow; o
       <div className="space-y-4">
         <div className="space-y-1">
           <Row label="What" value={`${booking.resourceType} · ${booking.resource}`} />
+          {booking.partySize && booking.partySize > 1 ? <Row label="Group" value={`${booking.partySize} people, a simulator each; cancelling this cancels all of them`} /> : null}
           {booking.simSetup ? <Row label="Setup" value={setupText(booking.simSetup)} /> : null}
           <Row label="When" value={`${booking.venueDate}, ${booking.venueStartTime}–${booking.venueEndTime}`} />
           <Row label="Customer" value={booking.customer.name} />
@@ -198,7 +206,11 @@ function BookingDialog({ booking, onClose, onChanged }: { booking: BookingRow; o
 
         {!cancellable ? (
           <p className="rounded-lg bg-ink-850 px-3 py-2 text-sm text-ink-400">
-            {booking.status === "cancelled" ? "This booking is already cancelled." : "Only confirmed bookings can be cancelled here."}
+            {booking.groupLeadRef
+              ? `This simulator is part of group booking ${booking.groupLeadRef}. Open that booking to cancel the group.`
+              : booking.status === "cancelled"
+                ? "This booking is already cancelled."
+                : "Only confirmed bookings can be cancelled here."}
           </p>
         ) : (
           <div className="space-y-3 border-t border-ink-800 pt-4">

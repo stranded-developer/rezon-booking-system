@@ -279,9 +279,13 @@ export function priceExperience(input: PriceExperienceInput): PriceResult {
     parseWallTime(promo.endTime);
   }
 
+  const partySize = input.partySize ?? 1;
+  assertInteger(partySize, "partySize", 1);
   const minutes = experience.minutes;
+  // Free play covers one place: the member's own (D106).
   const freeMinutes = Math.min(input.freeMinutes ?? 0, minutes);
   const paidMinutes = minutes - freeMinutes;
+  const extraPlaces = partySize - 1;
 
   // The cheapest promotion that matches wins. Nothing more is needed to make
   // "the student price is not included in Happy Hour" true: $29 beats $32 (D66).
@@ -316,11 +320,15 @@ export function priceExperience(input: PriceExperienceInput): PriceResult {
     listPriceCents: experience.priceCents,
     priceCents,
     promo: chosen,
+    partySize,
   };
 
-  // Free play covers its pro-rata share of the flat price; kept exact over `minutes`.
+  // Free play covers its pro-rata share of the flat price; kept exact over `minutes`. Everyone
+  // else in the group pays the same per-person price in full (D106).
   const denominator = BigInt(minutes);
-  const subtotalExact = BigInt(priceCents) * BigInt(paidMinutes);
+  const ownExact = BigInt(priceCents) * BigInt(paidMinutes);
+  const othersExact = BigInt(priceCents) * BigInt(minutes) * BigInt(extraPlaces);
+  const subtotalExact = ownExact + othersExact;
   const subtotalCents = roundHalfUp(subtotalExact, denominator);
   // The membership is already in the price above, so no percentage comes off it again (D82).
   const { totalCents, discount } = applyDiscount(subtotalExact, denominator, subtotalCents, undefined, referral);
@@ -328,7 +336,9 @@ export function priceExperience(input: PriceExperienceInput): PriceResult {
 
   const drafts: { startIndex: number; count: number; free: boolean; numerator: bigint }[] = [];
   if (freeMinutes > 0) drafts.push({ startIndex: 0, count: freeMinutes, free: true, numerator: 0n });
-  if (paidMinutes > 0) drafts.push({ startIndex: freeMinutes, count: paidMinutes, free: false, numerator: subtotalExact });
+  if (paidMinutes > 0) drafts.push({ startIndex: freeMinutes, count: paidMinutes, free: false, numerator: ownExact });
+  // The rest of the group: one segment over the whole length, for all their places together.
+  if (extraPlaces > 0) drafts.push({ startIndex: 0, count: minutes, free: false, numerator: othersExact });
   const allocated = allocateLargestRemainder(drafts.map((d) => d.numerator), denominator, subtotalCents);
 
   const segments: PriceSegment[] = drafts.map((d, i) => {
@@ -383,11 +393,22 @@ function explain(r: Omit<PriceResult, "explanation">): string[] {
         ? `${exp.name} · ${exp.minutes} min · ${exp.promo.name} ${formatCents(exp.priceCents)} (normally ${formatCents(exp.listPriceCents)})`
         : `${exp.name} · ${exp.minutes} min · ${formatCents(exp.listPriceCents)}`,
     );
-    for (const s of r.segments) {
-      if (s.free) {
-        lines.push(`${span(s)}  ${s.minutes} min free play (member balance)  ${formatCents(0)}`);
-      } else if (r.freeMinutes > 0) {
-        lines.push(`${span(s)}  ${s.minutes} of ${exp.minutes} min  ${formatCents(s.amountCents)}`);
+    const group = exp.partySize > 1;
+    if (group && r.freeMinutes === 0) {
+      // D106: everyone pays the same, so one line says it all.
+      lines.push(`${exp.partySize} people × ${formatCents(exp.priceCents)}  ${formatCents(r.subtotalCents)}`);
+    } else {
+      // Free play covers the member's own place; the segments after it are the rest of the group.
+      const others = exp.partySize - 1;
+      for (const [i, s] of r.segments.entries()) {
+        const isOthers = group && i === r.segments.length - 1;
+        if (isOthers) {
+          lines.push(`${others} more ${others === 1 ? "person" : "people"} × ${formatCents(exp.priceCents)}  ${formatCents(s.amountCents)}`);
+        } else if (s.free) {
+          lines.push(`${span(s)}  ${s.minutes} min free play (member balance)${group ? ", your place" : ""}  ${formatCents(0)}`);
+        } else if (r.freeMinutes > 0) {
+          lines.push(`${span(s)}  ${s.minutes} of ${exp.minutes} min${group ? ", your place" : ""}  ${formatCents(s.amountCents)}`);
+        }
       }
     }
     lines.push(`Subtotal  ${formatCents(r.subtotalCents)}`);

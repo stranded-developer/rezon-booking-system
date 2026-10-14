@@ -8,6 +8,8 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { AppDeps } from "../src/context.js";
+import { bookingsForDay } from "../src/services/bookings.js";
 import { call, testContext, useOpeningHours, type CallOptions, type TestContext } from "./helpers.js";
 
 const at = (hhmm: string, day = "2030-02-11") => `${day}T${hhmm}:00+11:00`;
@@ -324,6 +326,81 @@ describe("booking an experience", () => {
     expect(view.json.booking).toMatchObject({ what: "Test Quick Race", durationMinutes: 30 });
     expect(view.json.booking.experience).toMatchObject({ key: quickKey });
     await ctx.db.from("experiences").update({ price_cents: 3500 }).eq("id", quickId);
+  });
+});
+
+describe("a group on the simulators (D106)", () => {
+  it("prices everyone: × people, Happy Hour for all, one line that says so", async () => {
+    const evening = await quote({ partySize: 2 });
+    expect(evening.status, JSON.stringify(evening.json)).toBe(200);
+    expect(evening.json.quote).toMatchObject({ partySize: 2, totalCents: 7000, happyHour: null });
+    expect(evening.json.quote.explanation).toContain("2 people × $35.00  $70.00");
+    const happy = await quote({ partySize: 2, startTime: "13:00" });
+    expect(happy.json.quote).toMatchObject({ totalCents: 5800, happyHour: { name: "Test Happy Hour", priceCents: 5800, normalCents: 7000 } });
+  });
+
+  it("refuses more people than simulators, and a group on something booked by the table", async () => {
+    const tooMany = await quote({ partySize: 3 });
+    expect(tooMany.status).toBe(422);
+    expect(tooMany.json.error.message).toMatch(/up to 2 people/);
+    const hourly = await api("/public/quote", { body: { resourceTypeId: typeId, date: SAT, startTime: "17:00", durationMinutes: 60, partySize: 2 } });
+    expect(hourly.status).toBe(422);
+    expect((await quote({ partySize: 0 })).status).toBe(422);
+  });
+
+  it("holds a simulator each, confirms them together, shows the group once, and cancels it together", async () => {
+    await ctx.db.from("experiences").update({ price_cents: 0 }).eq("id", quickId);
+    try {
+      const r = await api("/bookings/hold", {
+        body: { experienceKey: quickKey, date: SAT, startTime: "20:00", partySize: 2, customer: { name: `Zara ${run}`, email: `zara-${run}@raceground.test` }, expectedTotalCents: 0, acceptTerms: true },
+      });
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(r.json.status).toBe("confirmed");
+
+      // Both rigs are taken at 20:00.
+      const grid = await api(`/public/availability?experience=${quickKey}&date=${SAT}`);
+      expect(grid.json.slots.find((sl: { time: string }) => sl.time === "20:00")?.availableResources ?? 0).toBe(0);
+
+      const rows = (await ctx.db.from("bookings").select("id, status, resource_id, group_lead_id, party_size").or(`id.eq.${r.json.bookingId},group_lead_id.eq.${r.json.bookingId}`)).data!;
+      expect(rows.map((x) => x.status)).toEqual(["confirmed", "confirmed"]);
+      expect(new Set(rows.map((x) => x.resource_id))).toEqual(new Set(resourceIds));
+
+      const view = await api(`/bookings/${r.json.ref}?token=${encodeURIComponent(r.json.token)}`);
+      expect(view.json.booking).toMatchObject({ partySize: 2, resources: ["Rig A", "Rig B"], resource: "Rig A, Rig B" });
+      const mail = ctx.email.outbox.find((m) => m.template === "booking_confirmed" && m.entityId === `${r.json.bookingId}:confirmed`);
+      expect(mail?.text).toContain("Test Quick Race · 2 people · Rig A, Rig B");
+      expect(ctx.email.outbox.filter((m) => m.template === "booking_confirmed" && m.text.includes(`Zara ${run}`))).toHaveLength(1);
+
+      // The back office lists both simulators: the lead says it's a group, the other names the lead.
+      const deps = { env: ctx.env, db: ctx.db, clock: ctx.clock, stripe: ctx.stripe, email: ctx.email } as AppDeps;
+      const listed = await bookingsForDay(deps, SAT, `Zara ${run}`);
+      expect(listed.map((b) => [b.ref === r.json.ref, b.partySize, b.groupLeadRef]).sort()).toEqual([
+        [false, 1, r.json.ref],
+        [true, 2, null],
+      ]);
+
+      const cancel = await api(`/bookings/${r.json.ref}/cancel`, { body: { token: r.json.token, expectedRefundCents: 0 } });
+      expect(cancel.status, JSON.stringify(cancel.json)).toBe(200);
+      const after = (await ctx.db.from("bookings").select("status").or(`id.eq.${r.json.bookingId},group_lead_id.eq.${r.json.bookingId}`)).data!;
+      expect(after.map((x) => x.status)).toEqual(["cancelled", "cancelled"]);
+    } finally {
+      await ctx.db.from("experiences").update({ price_cents: 3500 }).eq("id", quickId);
+    }
+  });
+
+  it("says so when there aren't enough free simulators for everyone", async () => {
+    // Rig A is busy 17:00–17:45 (the availability test above), so only Rig B is free at 17:00.
+    await ctx.db.from("experiences").update({ price_cents: 0 }).eq("id", quickId);
+    try {
+      const r = await api("/bookings/hold", {
+        body: { experienceKey: quickKey, date: SAT, startTime: "17:00", partySize: 2, customer: { name: `Yuri ${run}`, email: `yuri-${run}@raceground.test` }, expectedTotalCents: 0, acceptTerms: true },
+      });
+      expect(r.status).toBe(409);
+      expect(r.json.error).toMatchObject({ code: "not_enough_spots", details: { free: 1 } });
+      expect(r.json.error.message).toMatch(/Only 1 spot is free at that time for 2 people/);
+    } finally {
+      await ctx.db.from("experiences").update({ price_cents: 3500 }).eq("id", quickId);
+    }
   });
 });
 

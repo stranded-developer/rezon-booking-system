@@ -123,6 +123,7 @@ export function BookingView({
         <div className="mt-5 space-y-1">
           <Row label="What" value={`${booking.resourceType} · ${booking.resource}`} />
           <Row label="When" value={`${booking.venueDate}, ${booking.venueStartTime}–${booking.venueEndTime}`} />
+          {booking.partySize && booking.partySize > 1 ? <Row label="People" value={`${booking.partySize}, a simulator each`} /> : null}
           <Row label="How long" value={formatMinutes(booking.durationMinutes)} />
           {booking.simSetup ? <Row label="Your setup" value={[booking.simSetup.game, booking.simSetup.track, booking.simSetup.car].filter(Boolean).join(" · ")} /> : null}
           <Row label="Name" value={booking.customerName} />

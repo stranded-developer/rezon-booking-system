@@ -76,10 +76,12 @@ export type Database = {
           customer_id: string
           experience_id: string | null
           free_minutes_used: number
+          group_lead_id: string | null
           gst_cents: number | null
           hold_expires_at: string | null
           id: string
           member_id: string | null
+          party_size: number
           period: unknown
           pricing_snapshot: Json | null
           ref: string
@@ -102,10 +104,12 @@ export type Database = {
           customer_id: string
           experience_id?: string | null
           free_minutes_used?: number
+          group_lead_id?: string | null
           gst_cents?: number | null
           hold_expires_at?: string | null
           id?: string
           member_id?: string | null
+          party_size?: number
           period: unknown
           pricing_snapshot?: Json | null
           ref?: string
@@ -128,10 +132,12 @@ export type Database = {
           customer_id?: string
           experience_id?: string | null
           free_minutes_used?: number
+          group_lead_id?: string | null
           gst_cents?: number | null
           hold_expires_at?: string | null
           id?: string
           member_id?: string | null
+          party_size?: number
           period?: unknown
           pricing_snapshot?: Json | null
           ref?: string
@@ -165,6 +171,13 @@ export type Database = {
             columns: ["experience_id"]
             isOneToOne: false
             referencedRelation: "experiences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_group_lead_id_fkey"
+            columns: ["group_lead_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
           {
@@ -2022,10 +2035,12 @@ export type Database = {
           customer_id: string
           experience_id: string | null
           free_minutes_used: number
+          group_lead_id: string | null
           gst_cents: number | null
           hold_expires_at: string | null
           id: string
           member_id: string | null
+          party_size: number
           period: unknown
           pricing_snapshot: Json | null
           ref: string
@@ -2202,10 +2217,12 @@ export type Database = {
           customer_id: string
           experience_id: string | null
           free_minutes_used: number
+          group_lead_id: string | null
           gst_cents: number | null
           hold_expires_at: string | null
           id: string
           member_id: string | null
+          party_size: number
           period: unknown
           pricing_snapshot: Json | null
           ref: string

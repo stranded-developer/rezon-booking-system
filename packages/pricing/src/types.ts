@@ -141,6 +141,12 @@ export interface PriceExperienceInput {
   referral?: ReferralDiscount;
   /** Requested free-play minutes from the member balance; covers a pro-rata share of the price. */
   freeMinutes?: number;
+  /**
+   * How many people, each on their own simulator at the same time (D106). The price is per person;
+   * a member's price covers everyone, free play covers one place only, and a referral comes off the
+   * whole group's subtotal once. Default 1.
+   */
+  partySize?: number;
 }
 
 export interface AppliedExperience {
@@ -153,4 +159,6 @@ export interface AppliedExperience {
   priceCents: number;
   /** What set the price, if not the list price. `member` is true for the member's flat price (D82). */
   promo: { id: string; name: string; priceCents: number; member?: boolean } | null;
+  /** People booked together, each on their own simulator (D106); `priceCents` is per person. */
+  partySize: number;
 }

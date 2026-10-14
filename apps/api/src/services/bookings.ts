@@ -388,6 +388,8 @@ export interface BookingRequest {
   freeMinutes?: number | undefined;
   /** The customer has asked for a price that has to be claimed, e.g. the student price (D66). */
   claimedPromoIds?: string[] | undefined;
+  /** D106: people on a simulator session, each on their own simulator. Default 1. */
+  partySize?: number | undefined;
 }
 
 export interface BookingQuote {
@@ -398,6 +400,8 @@ export interface BookingQuote {
   claimablePromos: { id: string; name: string; priceCents: number }[];
   /** Set when happy hour set this price: its name, and the price for this booking with and without it (D99). */
   happyHour: HappyHourPrice | null;
+  /** People, each on their own simulator (D106). */
+  partySize: number;
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
@@ -442,6 +446,14 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     throw new ApiError(422, "invalid_time", "That time doesn't exist on this day (daylight saving change)");
   }
   const endAt = startAt + durationMinutes * MINUTE_MS;
+  // D106: a group is for simulator sessions (experiences); billiards stays one table per booking.
+  const partySize = req.partySize ?? 1;
+  if (!Number.isInteger(partySize) || partySize < 1) throw new ApiError(422, "validation_failed", "How many people?");
+  if (partySize > 1) {
+    if (!exp) throw new ApiError(422, "validation_failed", `A ${type.name} is booked as one, not per person`);
+    const places = (await activeResources(deps, type.id)).length;
+    if (partySize > places) throw new ApiError(422, "validation_failed", `We have ${places} ${type.name.toLowerCase()}s, so up to ${places} people`);
+  }
   if (member && req.referralCode) throw new ApiError(422, "member_and_referral", "A membership and a referral code cannot be used together");
   if (member && !member.eligible) throw new ApiError(409, "member_inactive", "This membership is not active");
 
@@ -491,6 +503,7 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
         ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
         ...(memberPriceCents !== undefined ? { memberPriceCents } : {}),
         ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
+        partySize,
       });
     } else {
       const ctx = await loadPricingContext(deps.db, type.id, tz);
@@ -524,12 +537,13 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
           listPriceCents: exp.experience.priceCents,
         }
       : null,
+    partySize,
     claimablePromos: exp ? claimableNow(exp.promos, startAt, tz) : [],
     // D99: happy hour, when it set this price. A member's own price, when cheaper, wins instead (D82),
     // and then this booking isn't a happy-hour one.
     happyHour: exp
       ? pricing.experience?.promo && !pricing.experience.promo.member && !exp.promos.find((p) => p.id === pricing.experience!.promo!.id)?.claimed
-        ? experienceHappyHour(exp, startAt, tz)
+        ? groupOf(experienceHappyHour(exp, startAt, tz), partySize)
         : null
       : sessionHappyHour(pricingCtx!, startAt, durationMinutes),
     startsAt: new Date(startAt).toISOString(),
@@ -545,6 +559,11 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     member: member && { id: member.id, memberNo: member.memberNo, tierName: member.tierName, discountBp: member.discountBp, balanceMinutes: member.balanceMinutes },
     maxFreeMinutes: member ? Math.min(member.balanceMinutes, durationMinutes) : 0,
   };
+}
+
+/** Happy hour for the whole group: the per-person prices × people (D99, D106). */
+function groupOf(happy: HappyHourPrice | null, partySize: number): HappyHourPrice | null {
+  return happy && { ...happy, priceCents: happy.priceCents * partySize, normalCents: happy.normalCents * partySize };
 }
 
 /** The promotions the customer could tick at this start time, so the site can offer them. */
@@ -607,11 +626,32 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
     experience: quote.experience,
   };
 
+  // D106: a group needs a simulator each. The lead is the one asked for (or the first free); the
+  // rest are the next free ones. Only what is free right now is tried, so a group isn't sent to the
+  // database with a simulator that is already taken.
+  let attempts: { lead: (typeof candidates)[number]; extras: string[] }[] = candidates.map((lead) => ({ lead, extras: [] }));
+  if (quote.partySize > 1) {
+    const startMs = Date.parse(quote.startsAt);
+    const endMs = Date.parse(quote.endsAt);
+    const busy = await busyPeriods(deps, resources.map((r) => r.id), startMs, endMs, now);
+    const free = resources.filter((r) => !busy.some((b) => b.resourceId === r.id && b.start < endMs && b.end > startMs));
+    const lead = req.resourceId ? free.find((r) => r.id === req.resourceId) : free[0];
+    if (!lead) throw new ApiError(409, "slot_taken", "That time has just been booked. Please choose another.");
+    const extras = free.filter((r) => r.id !== lead.id).slice(0, quote.partySize - 1);
+    if (extras.length < quote.partySize - 1) {
+      throw new ApiError(409, "not_enough_spots", `Only ${free.length} ${free.length === 1 ? "spot is" : "spots are"} free at that time for ${quote.partySize} people. Please choose another time.`, {
+        free: free.length,
+      });
+    }
+    attempts = [{ lead, extras: extras.map((r) => r.id) }];
+  }
+
   let booking: { id: string; ref: string; hold_expires_at: string | null; resource_id: string } | null = null;
-  for (const [i, resource] of candidates.entries()) {
+  for (const [i, { lead: resource, extras }] of attempts.entries()) {
     const { data, error } = await deps.db.rpc("booking_hold", {
       p: {
         resourceId: resource.id,
+        extraResourceIds: extras,
         startsAt: quote.startsAt,
         endsAt: quote.endsAt,
         now: now.toISOString(),
@@ -632,7 +672,7 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
       break;
     }
     const mapped = mapDbError(error);
-    if (mapped.code === "slot_taken" && i < candidates.length - 1) continue;
+    if (mapped.code === "slot_taken" && i < attempts.length - 1) continue;
     throw mapped;
   }
   if (!booking) throw new ApiError(409, "slot_taken", "That time has just been booked. Please choose another.");
@@ -663,7 +703,11 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
                 currency: "aud",
                 unit_amount: quote.totalCents,
                 product_data: {
-                  name: quote.experience ? `${quote.experience.name} · ${resourceLabel}` : `${quote.resourceTypeName} · ${resourceLabel}`,
+                  name: quote.experience
+                    ? quote.partySize > 1
+                      ? `${quote.experience.name} · ${quote.partySize} people`
+                      : `${quote.experience.name} · ${resourceLabel}`
+                    : `${quote.resourceTypeName} · ${resourceLabel}`,
                   description: `${start.date}, ${start.time}–${end.time} (Sydney time) · booking ${booking.ref}`,
                 },
               },
@@ -790,7 +834,26 @@ type BookingRow = {
   customers: { name: string; email: string | null; phone: string | null };
   experiences: { name: string; key: string } | null;
   sim_setup: SimSetup | null;
+  /** D106: people on the booking (the lead's); 1 on a linked booking. */
+  party_size: number;
+  /** D106: set on a linked booking, the group's lead. */
+  group_lead_id: string | null;
 };
+
+/** D106: every simulator of a group, the lead's first. Just the one for anything else. */
+async function groupLabels(deps: AppDeps, b: BookingRow): Promise<string[]> {
+  if (b.party_size <= 1) return [b.resources.label];
+  const { data, error } = await deps.db.from("bookings").select("resources!inner(label)").eq("group_lead_id", b.id);
+  if (error) throw mapDbError(error);
+  const others = (data as unknown as { resources: { label: string } }[]).map((r) => r.resources.label).sort((x, y) => x.localeCompare(y, "en", { numeric: true }));
+  return [b.resources.label, ...others];
+}
+
+/** "Single Session · Sim 3", or for a group "Single Session · 3 people · Sim 1, Sim 2, Sim 3" (D106). */
+function whatAndWhere(b: BookingRow, labels: string[]) {
+  const name = b.experiences?.name ?? b.resources.resource_types.name;
+  return b.party_size > 1 ? `${name} · ${b.party_size} people · ${labels.join(", ")}` : `${name} · ${labels[0]}`;
+}
 
 /** What the customer asked to drive, by name at the time of booking (D80). */
 export interface SimSetup {
@@ -847,14 +910,18 @@ export async function describeBooking(deps: AppDeps, b: BookingRow) {
   const settings = await loadSettings(deps.db);
   const quote = b.status === "confirmed" ? await cancelQuote(deps, b.id, now) : null;
   const s = venueText(start, settings.timezone);
+  const labels = await groupLabels(deps, b);
   return {
     ref: b.ref,
     status: b.status,
+    // D106: people, each on their own simulator; `resources` names every one of them.
+    partySize: b.party_size,
+    resources: labels,
     // What the customer bought: the experience if there was one, otherwise the kind of resource.
     what: b.experiences?.name ?? b.resources.resource_types.name,
     experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
-    resource: b.resources.label,
+    resource: labels.join(", "),
     simSetup: b.sim_setup,
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
@@ -1016,7 +1083,7 @@ export async function sendBookingConfirmation(deps: AppDeps, bookingId: string, 
   const { start, end } = parseRange(b.period);
   const s = venueText(start, settings.timezone);
   const endTime = venueText(end, settings.timezone).time;
-  const what = `${b.experiences?.name ?? b.resources.resource_types.name} · ${b.resources.label}`;
+  const what = whatAndWhere(b, await groupLabels(deps, b));
   const paid = b.total_cents
     ? `Paid: ${formatCents(b.total_cents)} (incl. GST ${formatCents(b.gst_cents ?? 0)})`
     : "Paid: $0.00";
@@ -1073,6 +1140,7 @@ function summarize(b: BookingRow, timeZone: string) {
     experience: b.experiences && { name: b.experiences.name, key: b.experiences.key },
     resourceType: b.resources.resource_types.name,
     resource: b.resources.label,
+    partySize: b.party_size,
     simSetup: b.sim_setup,
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
@@ -1093,6 +1161,8 @@ export async function customerBookings(deps: AppDeps, customerId: string) {
     .select(BOOKING_SELECT)
     .eq("customer_id", customerId)
     .neq("status", "expired")
+    // D106: a group shows once, as its lead.
+    .is("group_lead_id", null)
     .order("period", { ascending: false })
     .limit(100);
   if (error) throw mapDbError(error);
@@ -1118,8 +1188,10 @@ export async function bookingsForDay(deps: AppDeps, date: string, q?: string) {
       return start >= from && start < to;
     })
     .filter((b) => !needle || [b.ref, b.customers.name, b.customers.email ?? "", b.customers.phone ?? ""].some((v) => v.toLowerCase().includes(needle)))
-    .map((b) => ({
+    .map((b, _, all) => ({
       ...summarize(b, tz),
+      // D106: a linked booking names its group's lead, which is where it is changed.
+      groupLeadRef: b.group_lead_id ? (all.find((x) => x.id === b.group_lead_id)?.ref ?? null) : null,
       customer: b.customers,
       memberNo: b.members?.member_no ?? null,
       payment: b.payments[0] ? { method: b.payments[0].method, amountCents: b.payments[0].amount_cents } : null,
@@ -1143,6 +1215,8 @@ export async function sendDayBeforeReminders(deps: AppDeps) {
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("status", "confirmed")
+    // D106: one reminder per group, from its lead.
+    .is("group_lead_id", null)
     .overlaps("period", `[${new Date(from).toISOString()},${new Date(to).toISOString()})`);
   if (error) throw mapDbError(error);
   let sent = 0;
@@ -1159,7 +1233,7 @@ export async function sendDayBeforeReminders(deps: AppDeps) {
       template: "booking_reminder",
       to: b.customers.email,
       subject: `See you tomorrow at Racegrounds: ${s.time}`,
-      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${b.resources.resource_types.name} · ${b.resources.label}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start. Within 24 hours no refund applies.\n\nRaceground`,
+      text: `Hi ${b.customers.name},\n\nA reminder of your booking tomorrow.\n\nBooking code: ${b.ref}\n${whatAndWhere(b, await groupLabels(deps, b))}\n${s.date}, ${s.time}–${venueText(end, tz).time} (Sydney time)\n\nPlease arrive ${settings.arrive_early_minutes} minutes before your session and show your booking code at the counter. Your session runs on the booked time: arriving late does not extend it. We hold your spot for ${settings.no_show_hold_minutes} minutes after the start time.\nCan't make it? Cancel with the link in your confirmation email: full refund up to 24 hours before the start. Within 24 hours no refund applies.\n\nRaceground`,
       entity: "bookings",
       entityId: `${b.id}:reminder`,
     });

@@ -331,6 +331,64 @@ test("in happy hour the summary says so, with the normal price struck through", 
   await shot(page, "web-14c-happy-hour");
 });
 
+test("a group of 3 books a simulator each, pays once, and is cancelled together (D106)", async ({ page }) => {
+  // A one-use code that makes the booking free, so no Stripe is involved.
+  const db = localSupabase();
+  const { data: code } = await db.from("referral_codes").insert({ discount_type: "fixed", discount_value: 1_000_00, max_uses: 1 }).select("code").single();
+
+  await page.goto("/book");
+  await page.getByRole("button", { name: "Book your first race" }).click();
+  const panel = page.getByRole("dialog");
+  await pickDay(panel, bookingDayLabel());
+
+  // Up to 3 people: the times with fewer than 3 free simulators can't be picked.
+  await expect(panel.getByRole("button", { name: "Fewer people" })).toBeDisabled();
+  await panel.getByRole("button", { name: "More people" }).click();
+  await panel.getByRole("button", { name: "More people" }).click();
+  await expect(panel.getByLabel("People", { exact: true })).toHaveText("3");
+  await expect(panel.getByText(/you need 3/)).toBeVisible();
+  const slots = panel.getByRole("button").filter({ hasText: /\d+ spots?|Full/ });
+  for (const slot of await slots.all()) {
+    const spots = Number(/(\d+) spots?/.exec((await slot.textContent()) ?? "")?.[1] ?? 0);
+    if (spots < 3) await expect(slot).toBeDisabled();
+  }
+  await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).and(panel.locator(":enabled")).first().click();
+
+  await panel.getByRole("button", { name: "No, continue as a guest" }).click();
+  // No simulator to pick for a group: they're given side by side.
+  await expect(panel.getByText("3 people: each of you gets your own simulator, side by side.")).toBeVisible();
+  await expect(panel.getByLabel(/^Which /)).toHaveCount(0);
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Group Gus");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-group@raceground.test");
+  await panel.getByLabel("Referral code").fill(code!.code as string);
+  await panel.getByRole("button", { name: "Apply" }).click();
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
+
+  // The price is per person × 3, then the code comes off the whole of it once.
+  await expect(panel.getByText(/^3 people × \$\d+\.\d{2}/)).toBeVisible();
+  await expect(panel.getByText("People", { exact: true }).first()).toBeVisible();
+  await expect(panel.getByText("Total to pay").locator("xpath=following-sibling::span")).toHaveText("$0.00");
+  await panel.getByRole("checkbox").check();
+  await panel.getByRole("button", { name: /Confirm booking/ }).click();
+
+  await expect(page.getByText("Your booking is confirmed")).toBeVisible();
+  await expect(page.getByText("3, a simulator each")).toBeVisible();
+  const ref = (await page.getByTestId("booking-ref").textContent())!.trim();
+  await shot(page, "web-17-group");
+
+  const { data: lead } = await db.from("bookings").select("id, party_size, status").eq("ref", ref).single();
+  expect(lead).toMatchObject({ party_size: 3, status: "confirmed" });
+  const { data: others } = await db.from("bookings").select("status, resource_id").eq("group_lead_id", lead!.id);
+  expect(others!.map((o) => o.status)).toEqual(["confirmed", "confirmed"]);
+
+  // Cancelling the one code frees all three simulators.
+  await page.getByRole("link", { name: "Cancel this booking" }).click();
+  await page.getByRole("button", { name: /Cancel and refund/ }).click();
+  await expect(page.getByText(`Booking ${ref} is cancelled`)).toBeVisible();
+  const { data: after } = await db.from("bookings").select("status").or(`id.eq.${lead!.id},group_lead_id.eq.${lead!.id}`);
+  expect(after!.map((o) => o.status)).toEqual(["cancelled", "cancelled", "cancelled"]);
+});
+
 test("bookings open as far ahead as the venue's setting, about 3 months at launch", async ({ page }) => {
   // D104: the window is the back office's "Book ahead" setting; read it rather than assume it.
   const { data: settings } = await localSupabase().from("venue_settings").select("booking_window_days").single();

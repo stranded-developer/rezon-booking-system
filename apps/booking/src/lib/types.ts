@@ -181,6 +181,8 @@ export interface Quote {
   claimablePromos: { id: string; name: string; priceCents: number }[];
   /** Set when happy hour set this price (D99). Optional: an older API has none. */
   happyHour?: HappyHourPrice | null;
+  /** D106: people, each on their own simulator. Optional: an older API has none. */
+  partySize?: number;
   startsAt: string;
   endsAt: string;
   durationMinutes: number;
@@ -211,6 +213,8 @@ export interface Booking {
   what: string;
   experience: { name: string; key: string } | null;
   resourceType: string;
+  /** D106: people, each on their own simulator; `resource` names all of them. Optional: an older API has none. */
+  partySize?: number;
   resource: string;
   /** What they asked to drive (D80). */
   simSetup: { game: string; track?: string; car?: string } | null;

@@ -247,6 +247,10 @@ bookings
   experience_id    → experiences null -- set when sold as an experience (D65)
   sim_setup        jsonb null        -- {game, track?, car?} by name at booking time (D80);
                                      --   the API checks it against the lists, the hold stores it
+  party_size       int 1..20 default 1 -- people on the lead booking, each on their own simulator (D106)
+  group_lead_id    → bookings null   -- on a linked booking: the group's lead. A linked booking has no price,
+                                     --   payment, member, referral or free play; it follows the lead's status
+                                     --   (trigger) and can't be confirmed or cancelled on its own (part_of_group)
 
   EXCLUDE USING gist (resource_id WITH =, period WITH &&)
     WHERE (status IN ('held','confirmed','arrived'))

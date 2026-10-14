@@ -30,6 +30,7 @@ describe("priceExperience — the list price", () => {
       listPriceCents: 35_00,
       priceCents: 35_00,
       promo: null,
+      partySize: 1,
     });
   });
 
@@ -274,5 +275,66 @@ describe("priceExperience — what the customer reads", () => {
   it("X22 marks its segments as experience segments, not time segments", () => {
     const r = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: quickRace }));
     expect(r.segments.every((s) => s.kind === "experience")).toBe(true);
+  });
+});
+
+/** D106: several people, each on their own simulator at the same time. */
+describe("priceExperience — a group", () => {
+  const at = aest("2026-09-16T16:00");
+
+  it("X23 multiplies the per-person price by the people, and says so in one line", () => {
+    const r = priceExperience(experience({ startAt: at, partySize: 3 }));
+    expect(r.subtotalCents).toBe(105_00);
+    expect(r.totalCents).toBe(105_00);
+    expect(r.gstCents).toBe(955); // 10500 / 11 = 954.5 → 955
+    expect(r.experience).toMatchObject({ priceCents: 35_00, partySize: 3 });
+    expect(r.explanation).toContain("3 people × $35.00  $105.00");
+    expect(r.segments.reduce((sum, seg) => sum + seg.amountCents, 0)).toBe(r.subtotalCents);
+  });
+
+  it("X24 gives everyone the Happy Hour price inside its window", () => {
+    const r = priceExperience(experience({ startAt: aest("2026-09-16T13:00"), partySize: 3 }));
+    expect(r.totalCents).toBe(87_00);
+    expect(r.experience?.promo?.name).toBe("Happy Hour");
+  });
+
+  it("X25 gives the whole group the member's price (owner's choice)", () => {
+    const r = priceExperience(experience({ startAt: at, member: gold, memberPriceCents: 28_00, partySize: 3 }));
+    expect(r.totalCents).toBe(84_00);
+    expect(r.explanation).toContain("3 people × $28.00  $84.00");
+  });
+
+  it("X26 spends free play on the member's own place only", () => {
+    const r = priceExperience(
+      experience({ startAt: at, experience: doubleRace, member: { tierName: "Gold", discountBp: 0 }, freeMinutes: 30, partySize: 3 }),
+    );
+    // Their own hour is half free ($29); the other two pay $58 each.
+    expect(r.subtotalCents).toBe(29_00 + 2 * 58_00);
+    expect(r.segments.map((seg) => [seg.minutes, seg.free, seg.amountCents])).toEqual([
+      [30, true, 0],
+      [30, false, 29_00],
+      [60, false, 116_00],
+    ]);
+    expect(r.explanation).toEqual(expect.arrayContaining([expect.stringContaining("free play (member balance), your place"), "2 more people × $58.00  $116.00"]));
+  });
+
+  it("X27 a whole place of free play still leaves the others to pay", () => {
+    const r = priceExperience(experience({ startAt: at, member: gold, memberPriceCents: 28_00, freeMinutes: 30, partySize: 2 }));
+    expect(r.totalCents).toBe(28_00);
+    expect(r.explanation).toContain("1 more person × $28.00  $28.00");
+  });
+
+  it("X28 takes a referral off the group's total once, not once per person", () => {
+    const r = priceExperience(experience({ startAt: at, partySize: 3, referral: { code: "ABC234", type: "fixed", value: 10_00 } }));
+    expect(r.subtotalCents).toBe(105_00);
+    expect(r.totalCents).toBe(95_00);
+    const pct = priceExperience(experience({ startAt: at, partySize: 2, referral: { code: "ABC234", type: "percent", value: 1000 } }));
+    expect(pct.totalCents).toBe(63_00);
+  });
+
+  it("X29 refuses no people, part of a person, or a negative group", () => {
+    for (const partySize of [0, 1.5, -2]) {
+      expect(() => priceExperience(experience({ startAt: at, partySize }))).toThrow(PricingError);
+    }
   });
 });
