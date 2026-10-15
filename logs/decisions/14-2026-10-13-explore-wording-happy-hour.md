@@ -78,3 +78,21 @@
 - Each person gets **their own simulator, side by side, at the same time**; the price is × people and it needs that many free spots; one payment.
 - **Billiards stays per table**: no number of people asked.
 - A **member booking for a group gets the member price for everyone**; free play covers the member's own place only.
+
+## D107 — The happy-hour price is in each happy-hour time slot ✅ owner 2026-10-15
+
+**Asked:** "when booking in the timetable if its happy hour have a small price under it showing the happy hour price (inside each timeslot under the happy hour text)." Also: "Sim racing" in lime and "VR lounge" in the normal colour on the home page heading.
+
+**Decision:** under the Happy hour tag, the happy-hour price for one person ("$29.00"; "$29.00 each" for a group). The hero swaps its lime from "VR lounge" to "Sim racing".
+
+## D108 — Every tier lists "SPECIAL MEMBERS NIGHTS ONLY EVENTS" ✅ owner 2026-10-15
+
+**Decision:** added once to the end of every tier's listed perks, in the owner's words and capitals. Still editable per tier in the back office.
+
+## D109 — The site icon is the RG badge ✅ owner 2026-10-15
+
+**Asked:** "fill in logo raceground for the small icon in google search." **Asked back:** the logo is a long word, unreadable at icon size; which square mark? **Answer:** the RG badge.
+
+**Decision:** the hexagon RG badge from the membership poster, lime on near-black, in Garet Heavy: the browser tab, phone home-screen and search-result icon for the booking site and the POS. Google shows it after it next visits the site.
+
+**Not done (owner):** "Stripe log in" — "ignore this one".

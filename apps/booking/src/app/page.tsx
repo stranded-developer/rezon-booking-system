@@ -62,9 +62,9 @@ function Hero({ intro, simulators }: { intro: string | null; simulators: number 
           </p>
           <h1 className="display mt-5">
             <span className="block text-lg sm:text-2xl">Sydney&apos;s</span>
-            <span className="mt-1 block text-[2.6rem] leading-[0.95] sm:text-6xl">Sim racing,</span>
+            <span className="mt-1 block text-[2.6rem] leading-[0.95] text-flag sm:text-6xl">Sim racing,</span>
             <span className="mt-1 block text-2xl sm:text-4xl">Billiards and</span>
-            <span className="mt-1 block text-[2.6rem] leading-[0.95] text-flag sm:text-7xl">VR lounge</span>
+            <span className="mt-1 block text-[2.6rem] leading-[0.95] sm:text-7xl">VR lounge</span>
           </h1>
           <p className="mt-7 max-w-md text-ink-600">{intro ?? "Pick a time, pay online and show your booking code at the counter."}</p>
           <div className="mt-5 flex flex-wrap items-center gap-5">

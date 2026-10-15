@@ -33,11 +33,11 @@ select throws_ok(
   '23505', null, 'one price per tier per experience');
 
 -- ── The poster's wording ────────────────────────────────────────────────────
-select is((select perks from public.membership_tiers where name = 'Silver'), array['Monday - Friday'], 'Silver''s lines (D84)');
+select is((select perks from public.membership_tiers where name = 'Silver'), array['Monday - Friday', 'SPECIAL MEMBERS NIGHTS ONLY EVENTS'], 'Silver''s lines (D84), and the members'' nights (D108)');
 select is((select perks from public.membership_tiers where name = 'Gold'),
-  array['Monday - Sunday', 'Free 2 Hours Billiard Tables Every Month', '20% Off for additional food and drinks', 'Early Access Registration / promos'],
+  array['Monday - Sunday', 'Free 2 Hours Billiard Tables Every Month', '20% Off for additional food and drinks', 'Early Access Registration / promos', 'SPECIAL MEMBERS NIGHTS ONLY EVENTS'],
   'Gold''s lines, word for word with the spelling fixed');
-select is((select cardinality(perks) from public.membership_tiers where name = 'Diamond'), 8, 'Diamond lists eight lines');
+select is((select cardinality(perks) from public.membership_tiers where name = 'Diamond'), 9, 'Diamond lists eight lines, and the members'' nights (D108)');
 select results_eq(
   $$ select name::text, monthly_price_cents, discount_bp, monthly_free_minutes / 30 from public.membership_tiers where name in ('Silver', 'Gold', 'Diamond') order by sort $$,
   $$ values ('Silver', 4800, 1000, 2), ('Gold', 7800, 2000, 4), ('Diamond', 12800, 2000, 8) $$,

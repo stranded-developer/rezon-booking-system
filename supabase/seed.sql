@@ -133,3 +133,5 @@ update public.membership_tiers set perks = array[
   'Exclusive events for Diamond Members only',
   'Birthday FREE 1 session play and Exclusive promo if you host your birthday with us'
 ], monthly_free_tournaments = 1 where name = 'Diamond';
+-- Every tier also lists the members' nights (D108), as migration 20261015003600 does for a live venue.
+update public.membership_tiers set perks = perks || array['SPECIAL MEMBERS NIGHTS ONLY EVENTS'];

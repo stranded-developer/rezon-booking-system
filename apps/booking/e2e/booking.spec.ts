@@ -123,6 +123,10 @@ test("clothing is coming soon, and the membership page is the poster", async ({ 
   const gold = page.getByRole("article").filter({ hasText: "Gold" });
   await expect(gold).toContainText("Most popular");
   await expect(gold.getByText("4 FREE RACES PER MONTH")).toBeVisible();
+  // D108: every tier lists the members' nights.
+  for (const tier of ["Silver", "Gold", "Diamond"]) {
+    await expect(page.getByRole("article").filter({ hasText: `${tier} Tier` })).toContainText("SPECIAL MEMBERS NIGHTS ONLY EVENTS");
+  }
   await expect(gold).toContainText("(Only $19.50 per race)");
   await expect(gold).toContainText("20% off next bookings");
   // The race prices are the poster's flat member prices (D82), not a percentage of the list price.
@@ -232,6 +236,9 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   // D99: the start times in happy hour (12:00–15:00) say so; the others don't.
   const timeButton = (label: string) => panel.getByRole("button").filter({ hasText: new RegExp(`^${label}`) });
   await expect(timeButton("12:00 pm")).toContainText("Happy hour");
+  // D107: with its happy-hour price under the tag (Single Session, from the launch data).
+  await expect(timeButton("12:00 pm").getByTestId("slot-happy-price")).toHaveText("$29.00");
+  await expect(timeButton("6:00 pm").getByTestId("slot-happy-price")).toHaveCount(0);
   await expect(timeButton("2:30 pm")).toContainText("Happy hour");
   await expect(timeButton("3:00 pm")).not.toContainText("Happy hour");
   await expect(timeButton("6:00 pm")).not.toContainText("Happy hour");

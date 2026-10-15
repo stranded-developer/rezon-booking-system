@@ -624,7 +624,14 @@ function DateStep({
                 >
                   <span className="display tnum block text-base">{formatWallTime(s.time)}</span>
                   {s.happyHour ? (
-                    <span className="display my-0.5 inline-block rounded-full bg-violet px-2 py-0.5 text-[0.6rem] tracking-wide text-ink-950">Happy hour</span>
+                    <>
+                      <span className="display my-0.5 inline-block rounded-full bg-violet px-2 py-0.5 text-[0.6rem] tracking-wide text-ink-950">Happy hour</span>
+                      {/* D107: what happy hour costs at this time; per person for a group. */}
+                      <span className="tnum block text-xs text-flag" data-testid="slot-happy-price">
+                        {formatCents(s.happyHour.priceCents)}
+                        {partySize > 1 ? " each" : ""}
+                      </span>
+                    </>
                   ) : null}
                   <span className="block truncate text-xs text-ink-500">{targetName(target)}</span>
                   <span className={`block text-xs ${free ? "text-gold" : "text-ink-500"}`}>
