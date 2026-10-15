@@ -228,9 +228,8 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Single Session" }) });
   await expect(card).toContainText("Your first lap starts here.");
   await expect(card).toContainText("Never raced before? You're in the right place.");
-  // D112: the price reads "from $29.00 · 30 min", then "normally $35.00".
-  await expect(card).toContainText(/from\s*\$29\.00\s*· 30 min/);
-  await expect(card.getByText("normally $35.00")).toBeVisible();
+  // D112: the price reads "FROM $29.00 · 30 min, normally $35.00", on one line.
+  await expect(card).toContainText(/from\s*\$29\.00\s*· 30 min, normally \$35\.00/);
   await expect(card).toContainText(/Happy Hour\s*\$29\.00\s*12:00 pm–3:00 pm, every day/);
   await card.getByRole("button", { name: "Book your first race" }).click();
   const panel = page.getByRole("dialog");

@@ -116,3 +116,11 @@
 **Asked:** "change the single session, double session and leaderboard challenge ui to the older version which shows from $xx . 30 min … keep the current ui just change that part."
 
 **Decision:** on each experience card only the price lines change back: "from" + the cheapest price anyone can pay without asking (Happy Hour at launch) + "· 30 min", then "normally $35.00" underneath. The rest of the card — wording, colours, badges, the happy-hour box, the button — stays as D98 made it.
+
+## D113 — The site icon is the owner's "logo for web"; the price reads "FROM $29.00 · 30 min, normally $35.00" ✅ owner 2026-10-15
+
+**Supersedes:** D109's RG badge icon; D112's two price lines.
+
+**Asked:** "change the logo icon in the small web icon into logo for web.jpg, for text do: FROM $29.00 · 30 min, normally $35.00."
+
+**Decision:** the icon is `assets/brand/racegrounds-logo-for-web.jpg` (the RACEGROUNDS wordmark with "SYDNEY SIM RACING LOUNGE", white on black), with the empty black border trimmed so the word is as large as it can be. Told the owner it reads well at phone and search sizes but is a grey line at browser-tab size; the RG badge is kept in `assets/brand/racegrounds-rg-badge-512.png` to switch back. The price line is one sentence, "FROM $29.00 · 30 min, normally $35.00"; on a card too narrow for it the part after the price wraps under it.

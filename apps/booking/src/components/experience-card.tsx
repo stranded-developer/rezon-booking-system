@@ -42,13 +42,15 @@ export function ExperienceCard({ exp, href, onBook }: { exp: Experience; href?: 
       </div>
       {exp.tagline ? <p className="display mt-2 text-sm text-flag">{exp.tagline}</p> : null}
 
-      {/* D112: the price as it was before D98 — "from" the cheapest price, then what it normally costs. */}
-      <p className="mt-4 flex items-baseline gap-2">
+      {/* D112: "FROM $29.00 · 30 min, normally $35.00" — the cheapest price, then what it normally costs. */}
+      <p className="mt-4 flex flex-wrap items-baseline gap-x-2">
         {exp.fromPriceCents < exp.priceCents ? <span className="display text-sm text-ink-500">from</span> : null}
         <span className="display tnum text-4xl text-flag">{formatCents(exp.fromPriceCents)}</span>
-        <span className="text-sm text-ink-500">· {formatMinutes(exp.minutes)}</span>
+        <span className="tnum text-sm text-ink-500">
+          · {formatMinutes(exp.minutes)}
+          {exp.fromPriceCents < exp.priceCents ? `, normally ${formatCents(exp.priceCents)}` : ""}
+        </span>
       </p>
-      {exp.fromPriceCents < exp.priceCents ? <p className="tnum mt-1 text-sm text-ink-500">normally {formatCents(exp.priceCents)}</p> : null}
 
       {happy ? (
         <div className="mt-3 rounded-lg bg-violet/25 px-3 py-2 ring-1 ring-violet">
