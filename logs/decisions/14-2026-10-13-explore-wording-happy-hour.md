@@ -102,3 +102,9 @@
 **Asked:** "allow bookings starting from 7 november onwards (can book now but then only from 7 november onwards date), just disable dates before that."
 
 **Decision:** a back-office setting "Bookings open from", set to Sat 7 Nov 2026. Customers can book now, but only for that day or later; the calendar opens on November with the earlier days greyed out and says "Bookings start on Sat 7 Nov 2026". The API and the database refuse earlier dates too. Empty = from today. Walk-ins at the counter aren't affected.
+
+## D111 — Picking the game, track and car is for 1-hour sessions ✅ owner 2026-10-15
+
+**Asked:** "for 30minutes gamau ada opsi pick your games. Kalau 1 hour baru adaa" (no "pick your game" for 30 minutes; only for 1 hour).
+
+**Decision:** the game/track/car picker is offered only for bookings of 60 minutes or more (Double Session at launch). A 30-minute session (Single Session, Leaderboard Challenge) starts on whatever is set up. The API refuses a pick on a shorter booking, and tells the site the length (`pickGameFromMinutes`), so the two never disagree.

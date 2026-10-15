@@ -19,6 +19,7 @@ let typeId: string;
 let otherTypeId: string;
 const resourceIds: string[] = [];
 let experienceId: string;
+let shortExperienceId: string;
 const expKey = `test_games_${run}`;
 
 let accId: string;
@@ -44,10 +45,10 @@ async function admin(path: string, opts: { method?: string; body?: unknown } = {
 
 let startHour = 10;
 /** Each booking at its own hour, so they never compete for the one rig. */
-const hold = (simSetup?: Record<string, string>) =>
+const hold = (simSetup?: Record<string, string>, key = expKey) =>
   api("/bookings/hold", {
     body: {
-      experienceKey: expKey,
+      experienceKey: key,
       date: SAT,
       startTime: `${String(startHour++).padStart(2, "0")}:00`,
       resourceId: resourceIds[0],
@@ -83,11 +84,19 @@ beforeAll(async () => {
 
   const { data: exp, error: expError } = await ctx.db
     .from("experiences")
-    .insert({ key: expKey, resource_type_id: typeId, name: "Test Game Race", minutes: 30, price_cents: 0, sort: 1 })
+    // An hour: picking the game is for an hour or more (D111).
+    .insert({ key: expKey, resource_type_id: typeId, name: "Test Game Race", minutes: 60, price_cents: 0, sort: 1 })
     .select("id")
     .single();
   if (expError) throw expError;
   experienceId = exp.id;
+  const { data: short, error: shortError } = await ctx.db
+    .from("experiences")
+    .insert({ key: `${expKey}_short`, resource_type_id: typeId, name: "Test Short Race", minutes: 30, price_cents: 0, sort: 2 })
+    .select("id")
+    .single();
+  if (shortError) throw shortError;
+  shortExperienceId = short.id;
 
   const { data: games, error: gameError } = await ctx.db
     .from("games")
@@ -133,7 +142,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await restoreHours?.();
   await ctx.db.from("games").update({ active: false }).in("id", [accId, f1Id, otherTypeGameId]);
-  await ctx.db.from("experiences").update({ active: false }).eq("id", experienceId);
+  await ctx.db.from("experiences").update({ active: false }).in("id", [experienceId, shortExperienceId]);
   await ctx.db.from("resources").update({ active: false }).in("id", resourceIds);
   await ctx.db.from("resource_types").update({ active: false }).in("id", [typeId, otherTypeId]);
   await cleanupTestData(ctx);
@@ -165,6 +174,14 @@ describe("booking with a pick", () => {
     const again = await api(`/bookings/${r.json.ref}?token=${encodeURIComponent(r.json.token)}`);
     expect(again.json.booking.simSetup.car).toBe("Ferrari 296 GT3");
     await ctx.db.from("game_cars").update({ name: "Ferrari 296 GT3" }).eq("id", ids["car:Ferrari 296 GT3"]!);
+  });
+
+  it("refuses a game on a 30-minute session, which takes what's set up (D111)", async () => {
+    const r = await hold({ gameId: f1Id }, `${expKey}_short`);
+    expect(r.status).toBe(422);
+    expect(r.json.error.message).toBe("Picking your game, track and car is for 1-hour sessions");
+    expect((await hold(undefined, `${expKey}_short`)).status).toBe(201);
+    expect((await api("/public/config")).json.pickGameFromMinutes).toBe(60);
   });
 
   it("takes a game on its own", async () => {

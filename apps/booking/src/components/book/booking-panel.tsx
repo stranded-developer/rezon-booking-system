@@ -270,7 +270,7 @@ export function BookingPanel({
         body: {
           ...quoteRequest,
           ...(resourceId === ANY_RESOURCE || partySize > 1 ? {} : { resourceId }),
-          ...(pickedGame
+          ...(pickedGame && durationMinutes >= (config.pickGameFromMinutes ?? 60)
             ? {
                 simSetup: {
                   gameId: pickedGame.id,
@@ -860,7 +860,8 @@ function DetailsStep({
         </fieldset>
       ) : null}
 
-      {games.length > 0 ? <SimPicker games={games} pick={simPick} onPick={onSimPick} /> : null}
+      {/* D111: only for an hour or more; a 30-minute session starts on what's set up. */}
+      {games.length > 0 && durationMinutes >= (config.pickGameFromMinutes ?? 60) ? <SimPicker games={games} pick={simPick} onPick={onSimPick} /> : null}
 
       <div className={`grid gap-4 sm:grid-cols-2 ${session ? "hidden" : ""}`}>
         <div className="sm:col-span-2">

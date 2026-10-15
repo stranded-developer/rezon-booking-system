@@ -256,6 +256,41 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   // The VR rigs are simulators, offered alongside the others at the same price (D77).
   await expect(panel.getByLabel("Which Driving Simulator?").locator("option", { hasText: "VR Sim" }).first()).toBeAttached();
 
+  // D111: a 30-minute session has no game, track or car to pick; that's for an hour or more.
+  await expect(panel.getByRole("checkbox", { name: /pick your game, track and car/ })).toHaveCount(0);
+
+
+  // The student price has to be asked for; ticking it changes the total (D66).
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Experience Guest");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-experience@raceground.test");
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
+  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
+  const listPrice = await total.textContent();
+  // D85: the rules are there before paying. D100: and the owner's big notice, above the pay button.
+  await expect(panel.getByText("Before you arrive")).toBeVisible();
+  await expect(panel.getByRole("note")).toHaveText(/^Please come \d+ minutes before your booking time to choose cars, tracks and games$/);
+  await expect(panel.getByRole("note").locator("p")).toHaveCSS("text-transform", "uppercase");
+  await expect(panel.getByText(/Arriving late does not extend it/)).toBeVisible();
+  await expect(panel.getByText("Your setup")).toHaveCount(0);
+
+  await panel.getByRole("button", { name: "Details", exact: true }).click();
+  const student = panel.getByRole("checkbox", { name: /Student price/ });
+  if (await student.count()) {
+    await student.check();
+    await panel.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(total).not.toHaveText(listPrice!);
+  }
+  await shot(page, "web-14-experience");
+});
+
+test("a 1-hour session can pick its game, track and car (D80, D111)", async ({ page }) => {
+  await page.goto("/book");
+  await page.getByRole("button", { name: "Book the full experience" }).click();
+  const panel = page.getByRole("dialog");
+  await pickDay(panel, bookingDayLabel());
+  await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).and(panel.locator(":enabled")).first().click();
+  await panel.getByRole("button", { name: "No, continue as a guest" }).click();
+
   // ── Pick your game, track and car (D80) ───────────────────────────────────
   // Read from the database rather than typed in: the list is the owner's to change.
   const db = localSupabase();
@@ -293,29 +328,12 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await expect(carBox).toHaveValue(game!.game_cars[0]!.name);
   await shot(page, "web-14b-pick-game");
 
-  // The student price has to be asked for; ticking it changes the total (D66).
-  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Experience Guest");
-  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-experience@raceground.test");
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Setup Guest");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-setup@raceground.test");
   await panel.getByRole("button", { name: "Continue", exact: true }).click();
-  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
-  const listPrice = await total.textContent();
-  // D85: the rules are there before paying. D100: and the owner's big notice, above the pay button.
-  await expect(panel.getByText("Before you arrive")).toBeVisible();
-  await expect(panel.getByRole("note")).toHaveText(/^Please come \d+ minutes before your booking time to choose cars, tracks and games$/);
-  await expect(panel.getByRole("note").locator("p")).toHaveCSS("text-transform", "uppercase");
-  await expect(panel.getByText(/Arriving late does not extend it/)).toBeVisible();
   await expect(panel.getByText("Your setup").locator("xpath=following-sibling::span")).toHaveText(
     `${game!.name} · ${game!.game_tracks[1]!.name} · ${game!.game_cars[0]!.name}`,
   );
-
-  await panel.getByRole("button", { name: "Details", exact: true }).click();
-  const student = panel.getByRole("checkbox", { name: /Student price/ });
-  if (await student.count()) {
-    await student.check();
-    await panel.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(total).not.toHaveText(listPrice!);
-  }
-  await shot(page, "web-14-experience");
 });
 
 test("in happy hour the summary says so, with the normal price struck through", async ({ page }) => {

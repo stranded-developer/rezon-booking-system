@@ -100,6 +100,8 @@ export async function publicConfig(deps: AppDeps) {
     today: toLocal(clock.now().getTime(), settings.timezone).date,
     sessionMinutes: settings.session_minutes,
     bookingWindowDays: settings.booking_window_days,
+    // D111: the site offers the game picker from this length, the same rule the hold applies.
+    pickGameFromMinutes: PICK_GAME_FROM_MINUTES,
     // D110: the first date that can be booked online, or null for from today.
     bookingsOpenFrom: settings.bookings_open_from,
     onlineCutoffMinutes: settings.online_cutoff_minutes,
@@ -240,6 +242,9 @@ async function resolveSimSetup(deps: AppDeps, pick: SimSetupRequest, resourceTyp
   if (pick.carId && !car) throw new ApiError(422, "validation_failed", `That car isn't available in ${game.name}`);
   return { game: game.name, ...(track ? { track: track.name } : {}), ...(car ? { car: car.name } : {}) };
 }
+
+/** D111: a 30-minute session is too short to set up a chosen game, track and car; an hour isn't. */
+export const PICK_GAME_FROM_MINUTES = 60;
 
 // ── Availability ─────────────────────────────────────────────────────────────
 interface Busy {
@@ -618,6 +623,10 @@ export async function holdBooking(deps: AppDeps, req: HoldRequest, member: Membe
   if (!member && !guest) throw new ApiError(422, "validation_failed", "Your name and an email or phone number are required");
   if (quote.totalCents > 0) requireStripe(deps);
 
+  // D111: picking the game, track and car is for sessions of an hour or more.
+  if (req.simSetup && quote.durationMinutes < PICK_GAME_FROM_MINUTES) {
+    throw new ApiError(422, "validation_failed", "Picking your game, track and car is for 1-hour sessions");
+  }
   const simSetup = req.simSetup ? await resolveSimSetup(deps, req.simSetup, quote.resourceTypeId) : null;
 
   const resources = await activeResources(deps, quote.resourceTypeId);
