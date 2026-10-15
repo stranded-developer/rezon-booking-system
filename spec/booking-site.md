@@ -21,7 +21,7 @@ The timetable is a grid per resource type for a chosen date, with a column per *
 
 **A start time is offered only if:**
 - it is on the session grid of the venue's clock: minutes since midnight are a whole number of sessions, so :00 and :30 (D90)
-- the date is within `today … today + booking_window_days` (venue-local dates, inclusive)
+- the date is within `max(today, bookings_open_from) … today + booking_window_days` (venue-local dates, inclusive; D110: before `bookings_open_from` → `not_open_yet`)
 - `start ≥ now + online_cutoff_minutes`
 - `start ≥ open_time` and `end ≤ close_time` on that date, and the day isn't closed
 - no `held` (unexpired), `confirmed` or `arrived` booking overlaps on that resource

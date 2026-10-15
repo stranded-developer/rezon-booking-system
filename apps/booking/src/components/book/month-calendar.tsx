@@ -36,6 +36,7 @@ export function MonthCalendar({
   closedWeekdays,
   value,
   onSelect,
+  opensOn = null,
 }: {
   today: string;
   lastDate: string;
@@ -43,6 +44,8 @@ export function MonthCalendar({
   closedWeekdays: number[];
   value: string | null;
   onSelect: (date: string) => void;
+  /** D110: the day bookings open, when that is after today; `today` is then that day. */
+  opensOn?: string | null;
 }) {
   const start = partsOf(today);
   const [shown, setShown] = useState({ year: start.year, month: start.month });
@@ -137,6 +140,9 @@ export function MonthCalendar({
       </div>
 
       <p className="mt-4 text-center text-xs text-ink-500">
+        {opensOn ? (
+          <strong className="display block text-sm text-flag">Bookings start on {formatVenueDate(opensOn)}</strong>
+        ) : null}
         Booking is open to {formatVenueDate(lastDate)}. All times are Sydney time.
       </p>
     </div>

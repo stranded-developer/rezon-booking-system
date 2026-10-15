@@ -567,7 +567,14 @@ function DateStep({
           </div>
         ) : null}
         <h3 className="display mb-4 text-lg">Pick a day</h3>
-        <MonthCalendar today={config.today} lastDate={lastBookableDate(config)} closedWeekdays={closedWeekdays} value={date} onSelect={onPickDate} />
+        <MonthCalendar
+          today={firstBookableDate(config)}
+          opensOn={firstBookableDate(config) > config.today ? firstBookableDate(config) : null}
+          lastDate={lastBookableDate(config)}
+          closedWeekdays={closedWeekdays}
+          value={date}
+          onSelect={onPickDate}
+        />
       </div>
     );
   }
@@ -1196,6 +1203,11 @@ function pickHint(resources: { label: string }[]): string {
 }
 
 /** today + the booking window, as a venue date. */
+/** D110: the first day that can be booked: today, or the day bookings open if that is later. */
+function firstBookableDate(config: PublicConfig): string {
+  return config.bookingsOpenFrom && config.bookingsOpenFrom > config.today ? config.bookingsOpenFrom : config.today;
+}
+
 function lastBookableDate(config: PublicConfig): string {
   const [y, m, d] = config.today.split("-").map(Number);
   const at = new Date(Date.UTC(y!, m! - 1, d! + config.bookingWindowDays));

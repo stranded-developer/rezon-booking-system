@@ -5,6 +5,7 @@ export default async function globalTeardown() {
   const db = localSupabase();
   const f = loadFixture();
   await db.from("opening_hours").upsert(f.originalHours, { onConflict: "day_of_week" });
+  await db.from("venue_settings").update({ bookings_open_from: f.originalOpenFrom }).eq("id", 1);
   await db
     .from("bookings")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancel_reason: "e2e teardown" })

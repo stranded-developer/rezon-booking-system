@@ -424,6 +424,31 @@ test("bookings open as far ahead as the venue's setting, about 3 months at launc
   await expect(panel.getByText(`Booking is open to`)).toBeVisible();
 });
 
+test("nothing can be booked before the day bookings open (D110)", async ({ page }) => {
+  // Opening day: four days out. Put back to "from today" afterwards, as the rest of the suite expects.
+  const db = localSupabase();
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const day = (n: number) => new Date(Date.UTC(get("year"), get("month") - 1, get("day") + n));
+  const label = (d: Date) => new Intl.DateTimeFormat("en-AU", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(d).replace(/,/g, "");
+  await db.from("venue_settings").update({ bookings_open_from: day(4).toISOString().slice(0, 10) }).eq("id", 1);
+  try {
+    await page.goto("/book");
+    await page.getByRole("button", { name: "Book your first race" }).click();
+    const panel = page.getByRole("dialog");
+    await expect(panel.getByText(new RegExp(`^Bookings start on ${label(day(4))}`))).toBeVisible();
+    const next = panel.getByRole("button", { name: "Next month" });
+    for (const [n, open] of [[3, false], [4, true]] as const) {
+      const button = panel.getByRole("button", { name: new RegExp(`^${label(day(n))}`) });
+      if ((await button.count()) === 0) await next.click();
+      if (open) await expect(button).toBeEnabled();
+      else await expect(button).toBeDisabled();
+    }
+  } finally {
+    await db.from("venue_settings").update({ bookings_open_from: null }).eq("id", 1);
+  }
+});
+
 test("the legal pages explain the rules", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Cancellations & refunds" }).click();

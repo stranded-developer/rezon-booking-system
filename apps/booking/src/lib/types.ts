@@ -9,6 +9,8 @@ export interface PublicConfig {
   /** A session: the smallest block that can be booked (D63). */
   sessionMinutes: number;
   bookingWindowDays: number;
+  /** D110: the first date that can be booked online; null = from today. Optional: an older API has none. */
+  bookingsOpenFrom?: string | null;
   onlineCutoffMinutes: number;
   holdMinutes: number;
   noShowHoldMinutes: number;

@@ -96,3 +96,9 @@
 **Decision:** the hexagon RG badge from the membership poster, lime on near-black, in Garet Heavy: the browser tab, phone home-screen and search-result icon for the booking site and the POS. Google shows it after it next visits the site.
 
 **Not done (owner):** "Stripe log in" — "ignore this one".
+
+## D110 — Online bookings from 7 November 2026 ✅ owner 2026-10-15
+
+**Asked:** "allow bookings starting from 7 november onwards (can book now but then only from 7 november onwards date), just disable dates before that."
+
+**Decision:** a back-office setting "Bookings open from", set to Sat 7 Nov 2026. Customers can book now, but only for that day or later; the calendar opens on November with the earlier days greyed out and says "Bookings start on Sat 7 Nov 2026". The API and the database refuse earlier dates too. Empty = from today. Walk-ins at the counter aren't affected.

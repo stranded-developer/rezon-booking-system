@@ -100,6 +100,8 @@ export async function publicConfig(deps: AppDeps) {
     today: toLocal(clock.now().getTime(), settings.timezone).date,
     sessionMinutes: settings.session_minutes,
     bookingWindowDays: settings.booking_window_days,
+    // D110: the first date that can be booked online, or null for from today.
+    bookingsOpenFrom: settings.bookings_open_from,
     onlineCutoffMinutes: settings.online_cutoff_minutes,
     holdMinutes: settings.hold_ttl_minutes,
     noShowHoldMinutes: settings.no_show_hold_minutes,
@@ -297,6 +299,8 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
   const resources = await activeResources(deps, type.id);
   const today = toLocal(now.getTime(), tz).date;
   const lastDate = addDaysToDate(today, settings.booking_window_days);
+  // D110: nothing can be booked before the day bookings open.
+  const firstDate = settings.bookings_open_from && settings.bookings_open_from > today ? settings.bookings_open_from : today;
   const dayOfWeek = toLocal(localToInstant(date, "12:00", tz), tz).isoDayOfWeek;
   const { data: hours, error } = await deps.db.from("opening_hours").select("*").eq("day_of_week", dayOfWeek).maybeSingle();
   if (error) throw mapDbError(error);
@@ -309,6 +313,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
     date,
     timeZone: tz,
     today,
+    firstDate,
     lastDate,
     sessionMinutes,
     requiredMinutes,
@@ -320,7 +325,7 @@ export async function availability(deps: AppDeps, typeIdOrKey: string, date: str
     open: hours ? wallTime(hours.open_time) : null,
     close: hours ? wallTime(hours.close_time) : null,
     closed: !hours || hours.closed,
-    inWindow: date >= today && date <= lastDate,
+    inWindow: date >= firstDate && date <= lastDate,
   };
   if (base.closed || !base.inWindow || resources.length === 0) return { ...base, slots: [] };
 
@@ -446,6 +451,10 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     throw new ApiError(422, "invalid_time", "That time doesn't exist on this day (daylight saving change)");
   }
   const endAt = startAt + durationMinutes * MINUTE_MS;
+  // D110: the quote says so before the hold would.
+  if (settings.bookings_open_from && req.date < settings.bookings_open_from) {
+    throw new ApiError(422, "not_open_yet", `Bookings start on ${venueText(new Date(localToInstant(settings.bookings_open_from, "12:00", tz)), tz).date}`);
+  }
   // D106: a group is for simulator sessions (experiences); billiards stays one table per booking.
   const partySize = req.partySize ?? 1;
   if (!Number.isInteger(partySize) || partySize < 1) throw new ApiError(422, "validation_failed", "How many people?");

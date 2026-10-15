@@ -22,6 +22,7 @@ interface Settings {
   phone: string | null;
   contact_email: string | null;
   booking_alert_email: string | null;
+  bookings_open_from: string | null;
   intro: string | null;
   instagram_url: string | null;
 }
@@ -249,6 +250,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
     variance: centsToInput(settings.cash_variance_threshold_cents),
     balanceForfeitDays: String(settings.balance_forfeit_days),
     bookingAlertEmail: settings.booking_alert_email ?? "",
+    bookingsOpenFrom: settings.bookings_open_from ?? "",
   });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => {
     setDone(false);
@@ -296,6 +298,9 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
             <Input inputMode="numeric" value={f.balanceForfeitDays} onChange={set("balanceForfeitDays")} />
           </Field>
         </div>
+        <Field label="Bookings open from" hint="The first day customers can book online. Leave empty to allow from today. Walk-ins aren't affected.">
+          <Input type="date" value={f.bookingsOpenFrom} onChange={set("bookingsOpenFrom")} />
+        </Field>
         <Field label="Booking alerts to" hint="Every confirmed online booking is emailed here. Leave empty for none.">
           <Input type="email" value={f.bookingAlertEmail} onChange={set("bookingAlertEmail")} placeholder="racegrounds@gmail.com" />
         </Field>
@@ -320,6 +325,7 @@ function SettingsForm({ settings, onSaved }: { settings: Settings; onSaved: () =
                   balanceForfeitDays: numbers[4],
                   cashVarianceThresholdCents: variance,
                   bookingAlertEmail: f.bookingAlertEmail.trim(),
+                  bookingsOpenFrom: f.bookingsOpenFrom,
                 },
               });
               setDone(true);

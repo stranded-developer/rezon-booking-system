@@ -1,7 +1,7 @@
 -- D106: a simulator session for several people — one lead booking plus a linked booking per extra
 -- person, each on their own simulator, moving together. Everything here is rolled back.
 begin;
-select plan(24);
+select plan(26);
 
 update public.opening_hours set open_time = '10:00', close_time = '21:00', closed = false;
 update public.venue_settings set booking_window_days = 7;
@@ -107,6 +107,12 @@ select results_eq(
       where b.id = pg_temp.id('g2b') or b.group_lead_id = pg_temp.id('g2b') order by s.resource_id $$,
   $$ values ('arrived', '00000000-0000-0000-0000-00000009c001'), ('arrived', '00000000-0000-0000-0000-00000009c003') $$,
   'opens a session on every simulator of the group');
+
+-- ── D110: nothing before the day bookings open ──────────────────────────────
+update public.venue_settings set bookings_open_from = '2030-01-16';
+select throws_like($$ select booking_hold(pg_temp.g(array[]::text[], '2030-01-15T16:00:00+11:00')) $$,
+  'RG:not_open_yet:Bookings start on Wed 16 Jan 2030', 'a booking before the opening day is refused, saying when');
+select lives_ok($$ select booking_hold(pg_temp.g(array[]::text[], '2030-01-16T16:00:00+11:00')) $$, 'the opening day itself can be booked');
 
 select * from finish();
 rollback;

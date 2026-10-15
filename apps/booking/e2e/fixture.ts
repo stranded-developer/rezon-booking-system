@@ -11,6 +11,8 @@ export interface Fixture {
   run: string;
   /** The venue's real hours, put back by the teardown. */
   originalHours: { day_of_week: number; open_time: string; close_time: string; closed: boolean }[];
+  /** D110: the venue's "bookings open from" date, put back by the teardown. */
+  originalOpenFrom: string | null;
   /** The hours this suite runs under, so tests can say them rather than assume them. */
   openTime: string;
   closeTime: string;

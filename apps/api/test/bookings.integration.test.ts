@@ -191,6 +191,24 @@ describe("config and availability", () => {
     expect((await api("/public/config")).json.sessionMinutes).toBe(30);
   });
 
+  it("opens nothing before the day bookings open, and the quote says when (D110)", async () => {
+    const { data: before } = await ctx.db.from("venue_settings").select("bookings_open_from").eq("id", 1).single();
+    try {
+      await ctx.db.from("venue_settings").update({ bookings_open_from: "2030-02-14" }).eq("id", 1);
+      expect((await api("/public/config")).json.bookingsOpenFrom).toBe("2030-02-14");
+      const early = await api(`/public/availability?type=${typeId}&date=2030-02-13`);
+      expect(early.json).toMatchObject({ firstDate: "2030-02-14", inWindow: false, slots: [] });
+      const first = await api(`/public/availability?type=${typeId}&date=2030-02-14`);
+      expect(first.json.inWindow).toBe(true);
+      const q = await api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-13", startTime: "12:00", durationMinutes: 60 } });
+      expect(q.status).toBe(422);
+      expect(q.json.error).toMatchObject({ code: "not_open_yet", message: "Bookings start on Thu 14 Feb 2030" });
+      expect((await api("/public/quote", { body: { resourceTypeId: typeId, date: "2030-02-14", startTime: "12:00", durationMinutes: 60 } })).status).toBe(200);
+    } finally {
+      await ctx.db.from("venue_settings").update({ bookings_open_from: before!.bookings_open_from }).eq("id", 1);
+    }
+  });
+
   it("accepts the type key too, and shows nothing outside the booking window", async () => {
     // The last bookable day is today + the venue's window, whatever the back office has it at.
     const { bookingWindowDays } = (await api("/public/config")).json as { bookingWindowDays: number };

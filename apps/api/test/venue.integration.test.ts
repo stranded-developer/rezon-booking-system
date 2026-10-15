@@ -108,7 +108,7 @@ describe("contact details", () => {
   });
 
   it("refuses bad values and cashiers", async () => {
-    for (const body of [{ phone: "call me" }, { contactEmail: "nope" }, { bookingAlertEmail: "nope" }, { instagramUrl: "https://evil.example/raceground" }, { intro: "x".repeat(1001) }]) {
+    for (const body of [{ phone: "call me" }, { contactEmail: "nope" }, { bookingAlertEmail: "nope" }, { bookingsOpenFrom: "next week" }, { instagramUrl: "https://evil.example/raceground" }, { intro: "x".repeat(1001) }]) {
       const r = await admin("/settings", { method: "PATCH", body });
       expect(r.status, JSON.stringify(body)).toBe(422);
     }

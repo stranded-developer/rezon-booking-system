@@ -73,6 +73,8 @@ async function deliverCompleted(sessionId: string, paymentIntentId: string) {
 
 const bookingRow = async (id: string) => (await ctx.db.from("bookings").select("status, refund_cents, stripe_payment_intent_id").eq("id", id).single()).data!;
 
+let originalOpenFrom: string | null = null;
+
 describe.skipIf(!stripeKey)("online booking payments with Stripe (test mode)", { timeout: 180_000 }, () => {
   beforeAll(async () => {
     ctx = testContext({ STRIPE_SECRET_KEY: stripeKey!, STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET });
@@ -90,9 +92,14 @@ describe.skipIf(!stripeKey)("online booking payments with Stripe (test mode)", {
     resourceIds.push(...resources.map((r) => r.id));
     owner = await makeStaff(ctx, "superadmin", "2468", "bks-owner");
     ownerOp = await operatorToken(ctx, owner);
+    // These book two days from the real today, so the venue's opening day (D110) is cleared while
+    // they run and put back after.
+    originalOpenFrom = (await ctx.db.from("venue_settings").select("bookings_open_from").eq("id", 1).single()).data!.bookings_open_from;
+    await ctx.db.from("venue_settings").update({ bookings_open_from: null }).eq("id", 1);
   }, 60_000);
 
   afterAll(async () => {
+    await ctx.db.from("venue_settings").update({ bookings_open_from: originalOpenFrom }).eq("id", 1);
     ctx.clock.real();
     for (const id of checkoutIds) await stripe.checkout.sessions.expire(id).catch(() => undefined);
     await ctx.db.from("bookings").update({ status: "expired" }).in("resource_id", resourceIds).eq("status", "held");

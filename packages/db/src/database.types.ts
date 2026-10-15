@@ -1867,6 +1867,7 @@ export type Database = {
           balance_forfeit_days: number
           booking_alert_email: string | null
           booking_window_days: number
+          bookings_open_from: string | null
           business_name: string | null
           cash_variance_threshold_cents: number
           contact_email: string | null
@@ -1890,6 +1891,7 @@ export type Database = {
           balance_forfeit_days?: number
           booking_alert_email?: string | null
           booking_window_days?: number
+          bookings_open_from?: string | null
           business_name?: string | null
           cash_variance_threshold_cents?: number
           contact_email?: string | null
@@ -1913,6 +1915,7 @@ export type Database = {
           balance_forfeit_days?: number
           booking_alert_email?: string | null
           booking_window_days?: number
+          bookings_open_from?: string | null
           business_name?: string | null
           cash_variance_threshold_cents?: number
           contact_email?: string | null

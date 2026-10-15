@@ -70,6 +70,14 @@ const SettingsBody = z
       .refine((m) => m % 15 === 0, "A session must be a whole number of quarter hours")
       .optional(),
     bookingWindowDays: z.number().int().min(0).max(365).optional(),
+    // D110: the first date that can be booked online; empty = from today.
+    bookingsOpenFrom: z
+      .string()
+      .trim()
+      .transform((v) => v || null)
+      .pipe(z.iso.date("Use a date like 2026-11-07").nullable())
+      .nullable()
+      .optional(),
     onlineCutoffMinutes: z.number().int().min(0).max(1440).optional(),
     noShowHoldMinutes: z.number().int().min(0).max(120).optional(),
     arriveEarlyMinutes: z.number().int().min(0).max(120).optional(),
@@ -119,6 +127,7 @@ adminConfigRoutes.patch("/settings", validate("json", SettingsBody), async (c) =
     ...(b.abn !== undefined ? { abn: b.abn } : {}),
     ...(b.sessionMinutes !== undefined ? { session_minutes: b.sessionMinutes } : {}),
     ...(b.bookingWindowDays !== undefined ? { booking_window_days: b.bookingWindowDays } : {}),
+    ...(b.bookingsOpenFrom !== undefined ? { bookings_open_from: b.bookingsOpenFrom } : {}),
     ...(b.onlineCutoffMinutes !== undefined ? { online_cutoff_minutes: b.onlineCutoffMinutes } : {}),
     ...(b.noShowHoldMinutes !== undefined ? { no_show_hold_minutes: b.noShowHoldMinutes } : {}),
     ...(b.arriveEarlyMinutes !== undefined ? { arrive_early_minutes: b.arriveEarlyMinutes } : {}),

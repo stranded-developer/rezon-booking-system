@@ -17,6 +17,10 @@ export default async function globalSetup() {
     .from("opening_hours")
     .upsert(originalHours.map((h) => ({ ...h, open_time: openTime, close_time: closeTime, closed: false })), { onConflict: "day_of_week" });
   if (setHoursError) throw setHoursError;
+  // The same for the day bookings open (D110): the tests book a couple of days out, so they start
+  // from today; the test for the opening day sets its own.
+  const { data: openFrom } = await db.from("venue_settings").select("bookings_open_from").eq("id", 1).single();
+  await db.from("venue_settings").update({ bookings_open_from: null }).eq("id", 1);
 
   const key = `e2e_web_${run}`;
   const { data: type, error: typeError } = await db
@@ -80,6 +84,7 @@ export default async function globalSetup() {
   const fixture: Fixture = {
     run,
     originalHours,
+    originalOpenFrom: (openFrom?.bookings_open_from as string | null) ?? null,
     openTime,
     closeTime,
     resourceTypeId: type.id,
