@@ -57,7 +57,7 @@ test("the home page shows what the back office says", async ({ page }) => {
   await expect(quick.getByRole("link", { name: "Book your first race" })).toHaveAttribute("href", "/book?experience=quick_race");
   const double = page.getByRole("article").filter({ hasText: "Double Session" });
   await expect(double).toContainText("Twice the time. Twice the trash talk.");
-  await expect(double).toContainText("60 minutes");
+  await expect(double).toContainText("· 1 hour");
   await expect(double).toContainText("Most popular");
 
   // Anything without an experience is still shown at its hourly rate, including this run's own
@@ -224,11 +224,13 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await page.goto("/book");
   // Single Session is a named package: a fixed 30 minutes at a flat price (D65), so the panel
   // never asks how long — the length is not the customer's to choose.
-  // D98: the card is the owner's mockup. The big price is the normal one; happy hour has its own line.
+  // D98: the card is the owner's mockup; happy hour has its own box. D112: the price line as before.
   const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Single Session" }) });
   await expect(card).toContainText("Your first lap starts here.");
   await expect(card).toContainText("Never raced before? You're in the right place.");
-  await expect(card.getByText("$35.00", { exact: true })).toBeVisible();
+  // D112: the price reads "from $29.00 · 30 min", then "normally $35.00".
+  await expect(card).toContainText(/from\s*\$29\.00\s*· 30 min/);
+  await expect(card.getByText("normally $35.00")).toBeVisible();
   await expect(card).toContainText(/Happy Hour\s*\$29\.00\s*12:00 pm–3:00 pm, every day/);
   await card.getByRole("button", { name: "Book your first race" }).click();
   const panel = page.getByRole("dialog");

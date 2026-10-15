@@ -108,3 +108,11 @@
 **Asked:** "for 30minutes gamau ada opsi pick your games. Kalau 1 hour baru adaa" (no "pick your game" for 30 minutes; only for 1 hour).
 
 **Decision:** the game/track/car picker is offered only for bookings of 60 minutes or more (Double Session at launch). A 30-minute session (Single Session, Leaderboard Challenge) starts on whatever is set up. The API refuses a pick on a shorter booking, and tells the site the length (`pickGameFromMinutes`), so the two never disagree.
+
+## D112 — The cards' price line goes back to "from $29.00 · 30 min" ✅ owner 2026-10-15
+
+**Supersedes:** D98's "the big price is the normal one".
+
+**Asked:** "change the single session, double session and leaderboard challenge ui to the older version which shows from $xx . 30 min … keep the current ui just change that part."
+
+**Decision:** on each experience card only the price lines change back: "from" + the cheapest price anyone can pay without asking (Happy Hour at launch) + "· 30 min", then "normally $35.00" underneath. The rest of the card — wording, colours, badges, the happy-hour box, the button — stays as D98 made it.

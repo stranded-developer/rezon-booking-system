@@ -68,6 +68,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | Hero colours, happy-hour price in each slot, members' nights line, RG site icon (58) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Online bookings only from 7 November (59) | ✅ Built and verified — **`supabase db push` before deploying** |
 | Game, track and car picking only for 1-hour sessions (60) | ✅ Built and verified |
+| Experience cards' price line back to "from $xx · 30 min" (61) | ✅ Built and verified |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
@@ -138,6 +139,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | 58 | Hero colours, happy-hour price per slot, members' nights, site icon | [build/58-small-touches.md](build/58-small-touches.md) |
 | 59 | Online bookings only from 7 November | [build/59-bookings-open-from.md](build/59-bookings-open-from.md) |
 | 60 | Game picking only for 1-hour sessions | [build/60-pick-game-one-hour.md](build/60-pick-game-one-hour.md) |
+| 61 | The cards' price line back to "from" | [build/61-card-from-price.md](build/61-card-from-price.md) |
 
 ## Decisions
 
@@ -150,7 +152,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
-| [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D111: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice, **no refund inside 24 hours (supersedes the 50% refund)**, the owner's terms, an existing account is named on sign-up, booking 3 months ahead, booking alerts to the venue, group bookings, the happy-hour price in each slot, the members' nights line, the RG site icon, bookings from 7 November, game picking for 1-hour sessions only |
+| [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D112: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice, **no refund inside 24 hours (supersedes the 50% refund)**, the owner's terms, an existing account is named on sign-up, booking 3 months ahead, booking alerts to the venue, group bookings, the happy-hour price in each slot, the members' nights line, the RG site icon, bookings from 7 November, game picking for 1-hour sessions only, **the cards' price back to "from $29.00 · 30 min" (supersedes D98's big normal price)** |
 | [13 — 2026-10-11](decisions/13-2026-10-11-idle-lock-game-lists.md) | D94–D95: **the till locks after 1 hour idle (was 5 min)**, up to 1000 tracks and 1000 cars per game (was 200) |
 | [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, **Garet Book/Heavy (supersedes D88's fonts)** |
 | [11 — 2026-10-05](decisions/11-2026-10-05-mockup-layout-racegrounds.md) | D88–D89: the owner's mockup — lime on purple, Unbounded, the new home page and header, the rig renders (**supersedes D76's look**); the name Racegrounds |

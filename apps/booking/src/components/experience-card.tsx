@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatCents, formatWallTime } from "@/lib/format";
+import { formatCents, formatMinutes, formatWallTime } from "@/lib/format";
 import { formatDays, happyHourOf } from "@/lib/happy-hour";
 import type { Experience } from "@/lib/types";
 
@@ -8,8 +8,8 @@ const lengthOf = (minutes: number) => `${minutes} minutes`;
 
 /**
  * One experience, as in the owner's three mockups (D98): near-black card, white name, the lime line
- * and price, ticked lines and a lime button. The big price is the normal one; happy hour has its own
- * violet line, so nobody reads $29 at 7pm and then pays $35.
+ * and price, ticked lines and a lime button. The price reads as it did before (D112): "from" the
+ * cheapest price anyone can pay, "normally" the list price; happy hour has its own violet box.
  *
  * `href` makes the button a link (the home page); `onBook` makes it open the booking panel (`/book`).
  */
@@ -42,8 +42,13 @@ export function ExperienceCard({ exp, href, onBook }: { exp: Experience; href?: 
       </div>
       {exp.tagline ? <p className="display mt-2 text-sm text-flag">{exp.tagline}</p> : null}
 
-      <p className="display tnum mt-4 text-4xl text-flag">{formatCents(exp.priceCents)}</p>
-      <p className="mt-1 text-sm text-ink-500">{lengthOf(exp.minutes)}</p>
+      {/* D112: the price as it was before D98 — "from" the cheapest price, then what it normally costs. */}
+      <p className="mt-4 flex items-baseline gap-2">
+        {exp.fromPriceCents < exp.priceCents ? <span className="display text-sm text-ink-500">from</span> : null}
+        <span className="display tnum text-4xl text-flag">{formatCents(exp.fromPriceCents)}</span>
+        <span className="text-sm text-ink-500">· {formatMinutes(exp.minutes)}</span>
+      </p>
+      {exp.fromPriceCents < exp.priceCents ? <p className="tnum mt-1 text-sm text-ink-500">normally {formatCents(exp.priceCents)}</p> : null}
 
       {happy ? (
         <div className="mt-3 rounded-lg bg-violet/25 px-3 py-2 ring-1 ring-violet">
