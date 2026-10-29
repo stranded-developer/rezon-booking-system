@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { elapsed, timeIn } from "@/lib/format";
-import type { FloorTile } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { elapsed, money, timeIn } from "@/lib/format";
+import type { CounterPackage, FloorTile } from "@/lib/types";
 import { CloseDialog } from "./close-dialog";
+import { PackageDialog } from "./package-dialog";
 import { usePos } from "./pos-provider";
 import { Button, ErrorNote, Field, Input, Modal } from "./ui";
 
@@ -23,7 +24,9 @@ export function TileDialog({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const { api, operator, config } = usePos();
+  const { api, operator, config, reloadConfig } = usePos();
+  // Packages changed in the back office show up without reloading the till (D115).
+  useEffect(() => reloadConfig(), [reloadConfig]);
   const tz = config?.timeZone ?? "Australia/Sydney";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,10 @@ export function TileDialog({
   const [closing, setClosing] = useState(startClosing);
   const [voiding, setVoiding] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [selling, setSelling] = useState<CounterPackage | null>(null);
+  // D115: the packages for this kind of table, paid up front.
+  const typeId = config?.resourceTypes.find((t) => t.key === tile.typeKey)?.id;
+  const packages = (config?.packages ?? []).filter((p) => p.resourceTypeId === typeId);
 
   /** Runs an action; if it returns a notice the dialog stays open to show it, otherwise it closes. */
   async function run(action: () => Promise<string | void | unknown>) {
@@ -63,6 +70,22 @@ export function TileDialog({
     );
   }
 
+  if (selling) {
+    return (
+      <PackageDialog
+        resourceId={tile.resourceId}
+        title={tile.label}
+        pkg={selling}
+        hasShift={hasShift}
+        onCancel={() => setSelling(null)}
+        onDone={() => {
+          onChanged();
+          onClose();
+        }}
+      />
+    );
+  }
+
   const booking = tile.currentBooking ?? (tile.minutesToNextBooking !== null && tile.minutesToNextBooking <= 15 ? tile.nextBooking : null);
   const noShowReady = tile.noShowAvailableAt ? now >= Date.parse(tile.noShowAvailableAt) : false;
 
@@ -75,8 +98,9 @@ export function TileDialog({
           <div className="rounded-xl bg-ink-850 p-4">
             <div className="tnum text-4xl font-semibold">{elapsed(now - Date.parse(tile.session.openedAt))}</div>
             <div className="mt-1 text-sm text-ink-400">
-              {tile.session.kind === "walk_in" ? "Walk-in" : "Booking"} opened {timeIn(tile.session.openedAt, tz)} by {tile.session.openedBy}
-              {tile.session.bookingEndsAt ? ` · booked until ${timeIn(tile.session.bookingEndsAt, tz)}` : ""}
+              {tile.session.packageName ? `${tile.session.packageName} (paid)` : tile.session.kind === "walk_in" ? "Walk-in" : "Booking"} opened{" "}
+              {timeIn(tile.session.openedAt, tz)} by {tile.session.openedBy}
+              {tile.session.bookingEndsAt ? ` · ${tile.session.packageName ? "until" : "booked until"} ${timeIn(tile.session.bookingEndsAt, tz)}` : ""}
             </div>
           </div>
         ) : null}
@@ -123,9 +147,32 @@ export function TileDialog({
                 })
               }
             >
-              Start walk-in
+              {packages.length > 0 ? "Open time (pay at the end)" : "Start walk-in"}
             </Button>
           ) : null}
+        </div>
+
+        {!tile.session && tile.state === "free" && !notice && packages.length > 0 ? (
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-400">Or a package, paid now</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {packages.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelling(p)}
+                  className="rounded-xl bg-ink-850 p-3 text-left ring-2 ring-ink-700 hover:ring-flag"
+                  data-testid="package-option"
+                >
+                  <div className="font-semibold">{p.name}</div>
+                  <div className="text-sm text-ink-400">from {money(p.priceCents)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
 
           {!tile.session && booking ? (
             <>

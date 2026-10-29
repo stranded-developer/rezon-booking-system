@@ -69,7 +69,8 @@ export async function publicConfig(deps: AppDeps) {
     db.from("membership_tiers").select("id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes, perks, stripe_price_id, sort").eq("active", true).order("sort"),
     db.from("rate_bands").select("*").eq("active", true),
     listPhotos(db),
-    db.from("experiences").select("*").eq("active", true).order("sort"),
+    // Counter-only packages (D115) are not on the website.
+    db.from("experiences").select("*").eq("active", true).eq("online", true).order("sort"),
     db
       .from("site_events")
       .select("*")

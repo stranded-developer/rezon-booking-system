@@ -47,6 +47,13 @@ A grid of resource tiles grouped by type. Each tile shows:
   - the venue is closed today
 - **Warning (not blocking):** a booking starts on this resource within 60 minutes. The dialog shows "Free until 16:00".
 
+### Open a walk-in package (D115)
+- A free table's dialog offers **Open time (pay at the end)** — the walk-in above — or one of the **packages** sold at the counter for that kind of table (e.g. 30 min / 1 hour / 2 hours), each set in the back office (Experiences, "At the counter").
+- **Paid now, before the table starts:** priced exactly as online (`priceExperience`): promotional prices such as Happy Hour (cheapest wins, by the time it starts), prices the customer asks for (student), a member's flat price or percentage, free play in **whole sessions**, or a referral code. Cash or card terminal, on the open till. The API refuses the sale if the price changed since the till showed it (`quote_changed`).
+- **Refused when:** any walk-in would be; it would run **past closing time**; a booking (held, confirmed or arrived) on that table starts before it would end.
+- The tile shows "<package> until 17:00". At the end the **time-up pop-up** appears (as for a booking) and **closing takes nothing more**, however late (D48). Closing early refunds nothing.
+- A receipt is printed at payment. **Void** (superadmin) refunds what was paid and returns the free play.
+
 ### Open from a booking (arrival handoff)
 - **Today's bookings** list: search by ref, name, email or phone, or scan the booking QR (`rg:b:<ref>`).
 - **Mark arrived** → a session opens with `kind = booking` and `booking_id` set. It is **already paid**, so closing charges nothing unless there's an overstay.
@@ -90,7 +97,7 @@ The cashier chooses how the customer pays: **on their phone** (a Stripe subscrip
 
 ### 5a. On their phone — a subscription
 
-1. Enter customer name + email (+ phone) and pick a tier.
+1. Enter customer name + email (+ phone), pick a tier and a plan: **monthly until cancelled**, or **12 months, paid monthly** (12 payments then it stops; the member can't cancel it — D114).
 2. The API creates a Stripe Checkout Session (subscription mode) linked to that customer.
 3. The **POS shows a QR** code of the Checkout URL. The customer scans it with their phone and pays there.
 4. The POS polls the member's status and shows **"Active ✓"** when the webhook lands.

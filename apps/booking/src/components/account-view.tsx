@@ -80,6 +80,8 @@ export function AccountView() {
   if (!account) return <Spinner label="Loading your account…" />;
 
   const member = account.member;
+  // A 12-month plan (D114) runs to its end; the member can't cancel it online.
+  const fixedTerm = member !== null && member.termEndsAt !== null && member.status === "active";
 
   return (
     <div className="space-y-6">
@@ -110,6 +112,7 @@ export function AccountView() {
             {member.currentPeriodEnd ? (
               <Row label={member.status === "cancelling" ? "Benefits end" : "Renews"} value={formatVenueDate(member.currentPeriodEnd.slice(0, 10))} />
             ) : null}
+            {fixedTerm && member.termEndsAt ? <Row label="12-month plan" value={`Last payment covers until ${formatVenueDate(member.termEndsAt.slice(0, 10))}`} /> : null}
             {member.pendingTier ? <Row label="Changing to" value={`${member.pendingTier.name} at the next renewal`} /> : null}
             <Row label="Free play" value={formatMinutes(member.balanceMinutes)} strong />
           </div>
@@ -152,7 +155,7 @@ export function AccountView() {
                   >
                     Keep my membership
                   </Button>
-                ) : (
+                ) : fixedTerm ? null : (
                   <Button
                     disabled={busy !== null}
                     onClick={() =>

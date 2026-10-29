@@ -4,9 +4,10 @@ import type { AppEnv } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { requestIp } from "../lib/audit.js";
 import { requireOperator } from "../middleware/auth.js";
-import { issueFirstCard, sellMembershipAtCounter, startMembershipCheckout } from "../services/billing.js";
+import { issueFirstCard, MEMBERSHIP_PLANS, sellMembershipAtCounter, startMembershipCheckout } from "../services/billing.js";
 import { buildReceipt, closeSession, quoteClose } from "../services/charge.js";
 import { getFloor, todaysBookings } from "../services/floor.js";
+import { counterPackages, openPackage, quotePackage } from "../services/packages.js";
 import { findMemberByQr, getMember, getReferral, searchMembers } from "../services/lookup.js";
 import { shiftReport } from "../services/shift-report.js";
 import { addEntryAtCounter } from "../services/tournaments.js";
@@ -26,13 +27,14 @@ const Cents = z.number().int().min(0).max(10_000_000);
 // ── Config & floor ───────────────────────────────────────────────────────────
 posOpsRoutes.get("/config", async (c) => {
   const { db } = c.get("deps");
-  const [settings, types, hours, hhs, tiers, bands] = await Promise.all([
+  const [settings, types, hours, hhs, tiers, bands, packages] = await Promise.all([
     loadSettings(db),
     db.from("resource_types").select("id, key, name, base_rate_cents, min_minutes, sort").eq("active", true).order("sort"),
     db.from("opening_hours").select("*").order("day_of_week"),
     db.from("happy_hours").select("*").eq("active", true),
     db.from("membership_tiers").select("id, name, discount_bp, monthly_free_minutes, monthly_price_cents, stripe_price_id").eq("active", true).order("sort"),
     db.from("rate_bands").select("*").eq("active", true),
+    counterPackages(c.get("deps")),
   ]);
   for (const r of [types, hours, hhs, tiers, bands]) if (r.error) throw mapDbError(r.error);
   return c.json({
@@ -45,6 +47,8 @@ posOpsRoutes.get("/config", async (c) => {
     // sellable: has a Stripe price, so it can be sold at the counter.
     tiers: tiers.data!.map(({ stripe_price_id, ...t }) => ({ ...t, sellable: stripe_price_id !== null })),
     rateBands: bands.data!.map((b) => ({ ...b, start_time: wallTime(b.start_time), end_time: wallTime(b.end_time) })),
+    // D115: walk-in packages, paid up front, by kind of table.
+    packages,
   });
 });
 
@@ -147,6 +151,36 @@ posOpsRoutes.post("/sessions", validate("json", z.object({ resourceId: z.uuid() 
   );
 });
 
+// ── Walk-in packages, paid up front (D115) ───────────────────────────────────
+const PackageBody = z.object({
+  resourceId: z.uuid(),
+  experienceId: z.uuid(),
+  memberId: z.uuid().optional(),
+  referralCode: z.string().max(40).optional(),
+  freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
+  claimedPromoIds: z.array(z.uuid()).max(10).optional(),
+});
+
+posOpsRoutes.post("/packages/quote", validate("json", PackageBody), async (c) => {
+  return c.json({ quote: await quotePackage(c.get("deps"), c.req.valid("json")) });
+});
+
+posOpsRoutes.post(
+  "/packages",
+  validate(
+    "json",
+    PackageBody.extend({
+      expectedTotalCents: Cents,
+      tender: z.discriminatedUnion("method", [
+        z.object({ method: z.literal("cash"), tenderedCents: Cents }),
+        z.object({ method: z.literal("card_terminal"), externalRef: z.string().trim().max(60).optional() }),
+        z.object({ method: z.literal("free") }),
+      ]),
+    }),
+  ),
+  async (c) => c.json(await openPackage(c.get("deps"), c.get("operator"), c.req.valid("json")), 201),
+);
+
 const ChargeBody = z.object({
   memberId: z.uuid().optional(),
   referralCode: z.string().max(40).optional(),
@@ -228,7 +262,17 @@ posOpsRoutes.post("/bookings/:id/no-show", validate("param", Id), async (c) => {
 // ── Memberships at the counter ───────────────────────────────────────────────
 posOpsRoutes.post(
   "/memberships/checkout",
-  validate("json", z.object({ name: z.string().trim().min(1).max(80), email: z.email(), phone: z.string().trim().max(20).optional(), tierId: z.uuid() })),
+  validate(
+    "json",
+    z.object({
+      name: z.string().trim().min(1).max(80),
+      email: z.email(),
+      phone: z.string().trim().max(20).optional(),
+      tierId: z.uuid(),
+      // D114: rolling monthly by default, or 12 monthly payments that then stop.
+      plan: z.enum(MEMBERSHIP_PLANS).optional(),
+    }),
+  ),
   async (c) => {
     const result = await startMembershipCheckout(c.get("deps"), c.get("operator"), c.req.valid("json"));
     return c.json(result, 201);

@@ -6,7 +6,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { syncCatalog } from "../src/services/billing.js";
+import { syncCatalog, termEnd } from "../src/services/billing.js";
 import { call, PASSWORD, signIn, testContext, type TestContext } from "./helpers.js";
 
 const stripeKey = inject("supabase").stripeKey;
@@ -18,6 +18,8 @@ let stripe: Stripe;
 let userId: string;
 let jwt: string;
 let subscriptionId: string | null = null;
+let termSubscriptionId: string | null = null;
+let termUserId: string | null = null;
 const tiers: Record<string, { id: string; stripe_price_id: string }> = {};
 
 const ip = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
@@ -49,7 +51,9 @@ describe.skipIf(!stripeKey)("member self-service with Stripe (test mode)", { tim
 
   afterAll(async () => {
     if (subscriptionId) await stripe.subscriptions.cancel(subscriptionId).catch(() => undefined);
+    if (termSubscriptionId) await stripe.subscriptions.cancel(termSubscriptionId).catch(() => undefined);
     await ctx.db.auth.admin.deleteUser(userId);
+    if (termUserId) await ctx.db.auth.admin.deleteUser(termUserId);
   });
 
   it("starts a Silver membership from the account and returns to the account page", async () => {
@@ -117,5 +121,52 @@ describe.skipIf(!stripeKey)("member self-service with Stripe (test mode)", { tim
     const resume = await me("/membership/resume", {});
     expect(resume.json.status).toBe("active");
     expect((await stripe.subscriptions.retrieve(subscriptionId!)).cancel_at_period_end).toBe(false);
+  });
+
+  it("a 12-month plan (D114): set to stop after 12 payments, and the member can't cancel it", async () => {
+    const email = `term-member-${run}@raceground.test`;
+    const { data: user, error } = await ctx.db.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true, user_metadata: { name: "Terry Term" } });
+    if (error) throw error;
+    termUserId = user.user.id;
+    const termJwt = await signIn(ctx, email);
+    const meTerm = (path: string, body?: unknown) => call(ctx, `/me${path}`, { jwt: termJwt, headers: { "x-forwarded-for": ip() }, ...(body !== undefined ? { body } : {}) });
+
+    const started = await meTerm("/membership/checkout", { tierId: tiers.Silver!.id, plan: "twelve_months" });
+    expect(started.status, JSON.stringify(started.json)).toBe(201);
+    const session = (await stripe.checkout.sessions.list({ limit: 5 })).data.find((s) => s.url === started.json.checkoutUrl)!;
+    await stripe.checkout.sessions.expire(session.id);
+
+    const { data: customer } = await ctx.db.from("customers").select("stripe_customer_id, members(id)").eq("auth_user_id", termUserId).single();
+    const memberId = (customer!.members as unknown as { id: string }).id;
+    const pm = await stripe.paymentMethods.attach("pm_card_visa", { customer: customer!.stripe_customer_id! });
+    // What Checkout creates for the 12-month plan: the term in the subscription's metadata.
+    const sub = await stripe.subscriptions.create({
+      customer: customer!.stripe_customer_id!,
+      items: [{ price: tiers.Silver!.stripe_price_id }],
+      default_payment_method: pm.id,
+      metadata: { member_id: memberId, tier_id: tiers.Silver!.id, term_months: "12" },
+    });
+    termSubscriptionId = sub.id;
+    await deliver("invoice.paid", await stripe.invoices.retrieve(sub.latest_invoice as string));
+
+    const after = await stripe.subscriptions.retrieve(sub.id);
+    expect(after.cancel_at).toBe(termEnd(after.billing_cycle_anchor, 12));
+    expect(after.cancel_at_period_end).toBe(false);
+    const account = await meTerm("");
+    expect(account.json.member).toMatchObject({ status: "active", eligible: true, termEndsAt: new Date(after.cancel_at! * 1000).toISOString().replace(".000Z", "+00:00") });
+
+    const cancel = await meTerm("/membership/cancel", {});
+    expect(cancel.status).toBe(409);
+    expect(cancel.json.error.code).toBe("fixed_term");
+    expect((await stripe.subscriptions.retrieve(sub.id)).cancel_at).toBe(after.cancel_at);
+
+    // Its portal has no cancel button; the rolling members' portal keeps theirs.
+    const marked = async () => (await stripe.billingPortal.configurations.list({ active: true, limit: 100 })).data.filter((c) => c.metadata?.raceground === "member_portal_fixed_term_v1");
+    for (const c of await marked()) await stripe.billingPortal.configurations.update(c.id, { metadata: { raceground: "" } });
+    const portal = await meTerm("/portal", {});
+    expect(portal.status, JSON.stringify(portal.json)).toBe(200);
+    const ours = await marked();
+    expect(ours).toHaveLength(1);
+    expect(ours[0]!.features).toMatchObject({ subscription_cancel: { enabled: false }, payment_method_update: { enabled: true }, invoice_history: { enabled: true } });
   });
 });

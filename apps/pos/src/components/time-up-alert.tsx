@@ -57,7 +57,7 @@ export function TimeUpAlert({
                 <div className="font-semibold">{tile.label}</div>
                 <p className="mt-1 text-sm text-ink-200">
                   {reason === "booking_ended"
-                    ? `Booking ended at ${timeIn(tile.session!.bookingEndsAt!, tz)}${overBy ? ` (${overBy} min ago)` : ""}. Ask the customer to finish and close the table.`
+                    ? `${tile.session!.packageName ? "Package" : "Booking"} ended at ${timeIn(tile.session!.bookingEndsAt!, tz)}${overBy ? ` (${overBy} min ago)` : ""}. Ask the customer to finish and close the table.`
                     : `The venue closed at ${timeIn(floor!.closesAt!, tz)}. Close this table.`}
                 </p>
                 <div className="mt-3 flex gap-2">

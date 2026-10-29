@@ -94,6 +94,18 @@ from (values
 ) as v (key, type_key, name, tagline, bullets, badges, button_label, minutes, price_cents, sort)
 join public.resource_types rt on rt.key = v.type_key;
 
+-- D115: walk-in packages sold only at the counter, paid up front. Billiards at the tables' hourly rate and
+-- the 2-hour simulator at two Double Sessions until the owner sets their own prices in the back office.
+insert into public.experiences (key, resource_type_id, name, minutes, price_cents, sort, online, at_counter)
+select v.key, rt.id, v.name, v.minutes, v.price_cents, v.sort, false, true
+from (values
+  ('billiard_30', 'billiard', '30 minutes', 30, 12_50, 101),
+  ('billiard_60', 'billiard', '1 hour', 60, 25_00, 102),
+  ('billiard_120', 'billiard', '2 hours', 120, 50_00, 103),
+  ('sim_120', 'sim', '2 hours', 120, 116_00, 104)
+) as v (key, type_key, name, minutes, price_cents, sort)
+join public.resource_types rt on rt.key = v.type_key;
+
 -- Happy Hour applies by itself; the student price only when the customer asks for it.
 -- Where both match, the cheapest wins, so Happy Hour beats the student price (D66).
 insert into public.experience_promos (experience_id, name, days_of_week, start_time, end_time, price_cents, claimed, sort)

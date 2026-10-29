@@ -33,6 +33,8 @@ interface PosContextValue {
   sessionLoaded: boolean;
   operator: Operator | null;
   config: PosConfig | null;
+  /** Fetch the venue config again, e.g. after the back office changed tiers or packages. */
+  reloadConfig: () => void;
   api: ApiRequest;
   signInOperator: (operator: Operator, token: string) => void;
   lock: () => void;
@@ -119,6 +121,12 @@ export function PosProvider({ children }: { children: ReactNode }) {
     };
   }, [api, config, operator]);
 
+  const reloadConfig = useCallback(() => {
+    api<PosConfig>("/pos/config", { passive: true })
+      .then(setConfig)
+      .catch(() => undefined);
+  }, [api]);
+
   // Idle lock: any pointer or key activity counts.
   useEffect(() => {
     if (!operator) return;
@@ -137,8 +145,8 @@ export function PosProvider({ children }: { children: ReactNode }) {
   }, [lock, operator]);
 
   const value = useMemo<PosContextValue>(
-    () => ({ supabase, session, sessionLoaded, operator, config, api, signInOperator, lock: () => lock(), signOutDevice, lockReason }),
-    [api, config, lock, lockReason, operator, session, sessionLoaded, signInOperator, signOutDevice, supabase],
+    () => ({ supabase, session, sessionLoaded, operator, config, reloadConfig, api, signInOperator, lock: () => lock(), signOutDevice, lockReason }),
+    [api, config, lock, lockReason, operator, reloadConfig, session, sessionLoaded, signInOperator, signOutDevice, supabase],
   );
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;

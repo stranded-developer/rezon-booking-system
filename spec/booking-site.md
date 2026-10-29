@@ -12,7 +12,7 @@ Public, mobile-first, with a **light look** (D59): light background, RACEGROUND 
 | `/booking/[ref]/cancel` | Cancellation with refund preview (signed link) |
 | `/membership` | Tiers, join. Joining online is account first: sign up → confirm email → log in → pay (D60). Guests booking a session never need an account. |
 | `/login`, `/forgot-password`, `/reset-password` | Member auth |
-| `/account` | Member: tier, status, renewal date, balance + ledger, QR, bookings, change tier, manage billing (Stripe Portal) |
+| `/account` | Member: tier, status, renewal date, balance + ledger, QR, bookings, change tier, manage billing (Stripe Portal). A 12-month plan (D114) shows when its last payment covers until, and has no Cancel button. |
 | `/terms`, `/privacy`, `/refund-policy` | Legal |
 
 ## 2. Availability
@@ -139,7 +139,7 @@ Customers cancel through the signed link in their email.
 - **The booking flow with a member logged in:** the tier and discount are shown, the referral field is hidden (they never combine), and free play is offered in whole sessions up to `min(balance, length booked)` (D90). **Free minutes are never spent unless the member picks an amount** — the default is none.
 - A signed-in customer without an active membership books with their account details, and the API's `memberNotice` explains that member pricing doesn't apply.
 - **Account page:** member number, status, renewal date, discount, free-play balance and history, the member QR (re-showable, D57, with "get a new code"), bookings with cancel, tier change, cancel/resume, and the Stripe Customer Portal for card and invoices. A venue-managed (complimentary) membership says to ask at the counter.
-- **Joining online** (D60): pick a tier → account first → Stripe Checkout in subscription mode → back to the account, which shows the membership as soon as the webhook lands.
+- **Joining online** (D60): pick a tier → account first → Stripe Checkout in subscription mode → back to the account, which shows the membership as soon as the webhook lands. Online joining is monthly until cancelled; the 12-month plan (D114) is sold from the counter's QR. The API already accepts `plan: "twelve_months"` here, so adding it to the website is a page change only. **Counter-only packages (D115)** are never listed or bookable online.
 
 ## 8. Legal pages content (drafted in Phase 7)
 

@@ -31,6 +31,37 @@ export interface PosConfig {
   }[];
   rateBands: { id: string; resource_type_id: string; days_of_week: number[]; start_time: string; end_time: string; rate_cents: number }[];
   tiers: { id: string; name: string; discount_bp: number; monthly_free_minutes: number; monthly_price_cents: number; sellable: boolean }[];
+  /** Walk-in packages, paid up front (D115). */
+  packages: CounterPackage[];
+}
+
+export interface CounterPackage {
+  id: string;
+  resourceTypeId: string;
+  name: string;
+  minutes: number;
+  /** List price; the quote applies promotions and member prices. */
+  priceCents: number;
+}
+
+export interface PackageQuote {
+  resourceId: string;
+  resourceLabel: string;
+  experienceId: string;
+  name: string;
+  minutes: number;
+  startsAt: string;
+  endsAt: string;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  gstCents: number;
+  explanation: string[];
+  member: MemberSummary | null;
+  referral: ReferralSummary | null;
+  freeStepMinutes: number;
+  maxFreeMinutes: number;
+  claimablePromos: { id: string; name: string; priceCents: number }[];
 }
 
 export type TileState = "free" | "in_use" | "booking" | "overdue" | "awaiting_arrival";
@@ -51,7 +82,16 @@ export interface FloorTile {
   typeKey: string;
   typeName: string;
   state: TileState;
-  session: { id: string; kind: string; openedAt: string; openedBy: string; bookingId: string | null; bookingEndsAt: string | null } | null;
+  session: {
+    id: string;
+    kind: string;
+    openedAt: string;
+    openedBy: string;
+    bookingId: string | null;
+    /** When a booking or a walk-in package runs out; null for open time. */
+    bookingEndsAt: string | null;
+    packageName: string | null;
+  } | null;
   currentBooking: FloorBooking | null;
   nextBooking: FloorBooking | null;
   minutesToNextBooking: number | null;

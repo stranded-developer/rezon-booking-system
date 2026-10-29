@@ -12,6 +12,7 @@ import {
   setAccountCancel,
   startAccountMembership,
 } from "../services/account.js";
+import { MEMBERSHIP_PLANS } from "../services/billing.js";
 import { bookingForCustomer, cancelBooking, customerBookings, describeBooking } from "../services/bookings.js";
 import { validate } from "../validate.js";
 
@@ -40,8 +41,9 @@ meRoutes.post("/bookings/:ref/cancel", validate("param", Ref), validate("json", 
 
 meRoutes.post("/qr/reissue", async (c) => c.json(await reissueAccountQr(c.get("deps"), c.get("account")!)));
 
-meRoutes.post("/membership/checkout", validate("json", z.object({ tierId: z.uuid() })), async (c) => {
-  const result = await startAccountMembership(c.get("deps"), c.get("account")!, c.req.valid("json").tierId);
+meRoutes.post("/membership/checkout", validate("json", z.object({ tierId: z.uuid(), plan: z.enum(MEMBERSHIP_PLANS).optional() })), async (c) => {
+  const { tierId, plan } = c.req.valid("json");
+  const result = await startAccountMembership(c.get("deps"), c.get("account")!, tierId, plan);
   return c.json({ checkoutUrl: result.checkoutUrl, memberNo: result.memberNo, expiresAt: result.expiresAt }, 201);
 });
 

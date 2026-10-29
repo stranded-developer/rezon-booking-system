@@ -746,6 +746,9 @@ const ExperienceBody = z.object({
   minutes: z.number().int().min(1).max(24 * 60),
   priceCents: Cents,
   sort: z.number().int().min(0).max(1000).optional(),
+  // D115: where it's sold — the website, the counter as a walk-in package paid up front, or both.
+  online: z.boolean().optional(),
+  atCounter: z.boolean().optional(),
   reason: Reason,
 });
 
@@ -772,6 +775,8 @@ adminConfigRoutes.post("/experiences", validate("json", ExperienceBody), async (
       minutes: b.minutes,
       price_cents: b.priceCents,
       sort: b.sort ?? 100,
+      online: b.online ?? true,
+      at_counter: b.atCounter ?? true,
     }),
     c.get("operator").id,
     b.reason,
@@ -813,6 +818,8 @@ adminConfigRoutes.patch(
       ...(b.priceCents !== undefined ? { price_cents: b.priceCents } : {}),
       ...(b.sort !== undefined ? { sort: b.sort } : {}),
       ...(b.active !== undefined ? { active: b.active } : {}),
+      ...(b.online !== undefined ? { online: b.online } : {}),
+      ...(b.atCounter !== undefined ? { at_counter: b.atCounter } : {}),
     };
     if (Object.keys(patch).length === 0) throw new ApiError(422, "validation_failed", "Nothing to change");
     const { data, error } = await auditHeaders(db.from("experiences").update(patch).eq("id", id), c.get("operator").id, reason).select("*").single();

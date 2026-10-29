@@ -38,6 +38,9 @@ interface Experience {
   minutes: number;
   price_cents: number;
   active: boolean;
+  /** D115: listed on the website, and/or sold at the counter as a walk-in package paid up front. */
+  online: boolean;
+  at_counter: boolean;
   sort: number;
   promos: Promo[];
   /** Each tier's flat price (D82); a tier missing here pays its percentage off the list price. */
@@ -80,7 +83,7 @@ export default function ExperiencesPage() {
     <>
       <PageHeader
         title="Experiences"
-        description="Named packages sold at a flat price for a fixed length. All prices include GST. Anything sold by the hour is on Rates & happy hours."
+        description="Named packages sold at a flat price for a fixed length, on the website and/or at the counter as a walk-in package paid up front. All prices include GST. Anything sold by the hour is on Rates & happy hours."
         actions={
           <div className="flex gap-2">
             <Button variant={showRetired ? "primary" : "secondary"} onClick={() => setShowRetired((v) => !v)}>
@@ -100,6 +103,8 @@ export default function ExperiencesPage() {
               <span className="flex flex-wrap items-center gap-2">
                 {exp.name}
                 {exp.active ? null : <Badge tone="grey">Off</Badge>}
+                {exp.online ? <Badge tone="green">Website</Badge> : null}
+                {exp.at_counter ? <Badge tone="green">Counter</Badge> : null}
                 {exp.badges.map((b) => (
                   <Badge key={b} tone="blue">
                     {b}
@@ -272,6 +277,8 @@ function ExperienceDialog({
   const [price, setPrice] = useState(experience ? centsToInput(experience.price_cents) : "");
   const [bullets, setBullets] = useState((experience?.bullets ?? []).join("\n"));
   const [badges, setBadges] = useState((experience?.badges ?? []).join(", "));
+  const [online, setOnline] = useState(experience?.online ?? true);
+  const [atCounter, setAtCounter] = useState(experience?.at_counter ?? true);
   const [reason, setReason] = useState("");
 
   const priceCents = parseDollars(price);
@@ -294,6 +301,8 @@ function ExperienceDialog({
       .split(",")
       .map((b) => b.trim())
       .filter(Boolean),
+    online,
+    atCounter,
     ...(reason.trim() ? { reason: reason.trim() } : {}),
   };
 
@@ -325,6 +334,18 @@ function ExperienceDialog({
             <Input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="35.00" />
           </Field>
         </div>
+        <fieldset>
+          <legend className="text-xs font-medium uppercase tracking-wide text-ink-400">Sold</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button size="sm" variant={online ? "primary" : "secondary"} aria-pressed={online} onClick={() => setOnline((v) => !v)}>
+              On the website
+            </Button>
+            <Button size="sm" variant={atCounter ? "primary" : "secondary"} aria-pressed={atCounter} onClick={() => setAtCounter((v) => !v)}>
+              At the counter
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-ink-400">At the counter it&apos;s a walk-in package: paid before the table starts, nothing to pay at the end.</p>
+        </fieldset>
         <Field label="Tagline (optional)" hint="The lime line under the name. The website prints it in capitals.">
           <Input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Your first lap starts here." />
         </Field>
@@ -353,7 +374,7 @@ function ExperienceDialog({
         <Button
           variant="primary"
           className="w-full"
-          disabled={action.busy || !name.trim() || !typeId || priceCents === null || !lengthOk || !keyOk}
+          disabled={action.busy || !name.trim() || !typeId || priceCents === null || !lengthOk || !keyOk || (!online && !atCounter)}
           onClick={() =>
             void action.run(async () => {
               if (experience) await api(`/admin/experiences/${experience.id}`, { method: "PATCH", body });

@@ -7,6 +7,7 @@ import { mapDbError } from "../src/errors.js";
 import { requestIp } from "../src/lib/audit.js";
 import { signOperatorToken, verifyOperatorToken } from "../src/lib/operator-token.js";
 import { hashPin, verifyPin } from "../src/lib/pin.js";
+import { termEnd } from "../src/services/billing.js";
 
 const SECRET = "s".repeat(40);
 
@@ -174,5 +175,25 @@ describe(".env.example", () => {
     );
     const missing = ENV_KEYS.filter((key) => !documented.has(key));
     expect(missing, `add these to apps/api/.env.example: ${missing.join(", ")}`).toEqual([]);
+  });
+});
+
+describe("12-month plan end (D114)", () => {
+  const at = (iso: string) => Date.parse(iso) / 1000;
+  const iso = (s: number) => new Date(s * 1000).toISOString();
+
+  it("is the same moment twelve months on", () => {
+    expect(iso(termEnd(at("2026-10-29T03:14:15Z"), 12))).toBe("2027-10-29T03:14:15.000Z");
+  });
+
+  it("ends on the last day of a shorter month, as Stripe's periods do", () => {
+    expect(iso(termEnd(at("2027-01-31T00:00:00Z"), 1))).toBe("2027-02-28T00:00:00.000Z");
+    expect(iso(termEnd(at("2028-02-29T10:00:00Z"), 12))).toBe("2029-02-28T10:00:00.000Z");
+    expect(iso(termEnd(at("2026-03-31T00:00:00Z"), 12))).toBe("2027-03-31T00:00:00.000Z");
+  });
+
+  it("crosses the year from any month", () => {
+    expect(iso(termEnd(at("2026-12-15T00:00:00Z"), 12))).toBe("2027-12-15T00:00:00.000Z");
+    expect(iso(termEnd(at("2026-11-15T00:00:00Z"), 3))).toBe("2027-02-15T00:00:00.000Z");
   });
 });

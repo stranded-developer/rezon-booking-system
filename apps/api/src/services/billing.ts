@@ -83,11 +83,17 @@ export async function syncCatalog(deps: AppDeps, actorStaffId: string | null) {
 }
 
 // ── Checkout ─────────────────────────────────────────────────────────────────
+export const MEMBERSHIP_PLANS = ["monthly", "twelve_months"] as const;
+export type MembershipPlan = (typeof MEMBERSHIP_PLANS)[number];
+/** Payments in a fixed-term plan (D114). Kept on the subscription as metadata.term_months. */
+export const TERM_MONTHS = 12;
 export interface CheckoutInput {
   name: string;
   email: string;
   phone?: string | undefined;
   tierId: string;
+  /** "twelve_months" (D114): 12 monthly payments, then it stops; the member can't cancel it. */
+  plan?: MembershipPlan | undefined;
   /** Where Stripe sends the customer afterwards; defaults to the counter pages. */
   successUrl?: string | undefined;
   cancelUrl?: string | undefined;
@@ -133,7 +139,9 @@ export async function startMembershipCheckout(deps: AppDeps, operator: StaffIden
       line_items: [{ price: tier.stripe_price_id!, quantity: 1 }],
       client_reference_id: p.memberId,
       metadata: { member_id: p.memberId, tier_id: tier.id },
-      subscription_data: { metadata: { member_id: p.memberId, tier_id: tier.id } },
+      subscription_data: {
+        metadata: { member_id: p.memberId, tier_id: tier.id, ...(input.plan === "twelve_months" ? { term_months: String(TERM_MONTHS) } : {}) },
+      },
       success_url: input.successUrl ?? deps.env.CHECKOUT_SUCCESS_URL,
       cancel_url: input.cancelUrl ?? deps.env.CHECKOUT_CANCEL_URL,
       expires_at: expiresAt,
@@ -162,12 +170,36 @@ async function memberContact(deps: AppDeps, memberId: string) {
   return { name: c?.name ?? "", email: c?.email ?? null, memberNo: data?.member_no ?? "", tierName: (data?.membership_tiers as { name: string } | undefined)?.name ?? "" };
 }
 
+/**
+ * The end of a fixed-term plan: its number of months after the billing anchor, the same moment Stripe's
+ * last paid period ends (a 31st anchor ends on the last day of a shorter month, as Stripe's periods do).
+ */
+export function termEnd(anchorSeconds: number, months: number): number {
+  const a = new Date(anchorSeconds * 1000);
+  const year = a.getUTCFullYear() + Math.floor((a.getUTCMonth() + months) / 12);
+  const month = (a.getUTCMonth() + months) % 12;
+  const day = Math.min(a.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+  return Date.UTC(year, month, day, a.getUTCHours(), a.getUTCMinutes(), a.getUTCSeconds()) / 1000;
+}
+
+const termMonthsOf = (sub: Stripe.Subscription) => {
+  const n = Number(sub.metadata?.term_months);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
 /** Re-read the subscription from Stripe (event order doesn't matter) and apply it. */
 export async function syncSubscription(deps: AppDeps, subscriptionId: string) {
   const stripe = requireStripe(deps);
-  const sub = await stripeCall(() => stripe.subscriptions.retrieve(subscriptionId));
+  let sub = await stripeCall(() => stripe.subscriptions.retrieve(subscriptionId));
   const memberId = await memberForSubscription(deps, sub);
   if (!memberId) return { memberId: null, status: null };
+  // A fixed-term plan (D114): once it's running, Stripe is told to stop it after the last payment. Not when
+  // someone has chosen to end it sooner (cancel at period end), and re-applied if that is later undone.
+  const termMonths = termMonthsOf(sub);
+  const termEndsAt = termMonths ? termEnd(sub.billing_cycle_anchor, termMonths) : null;
+  if (termEndsAt && (sub.status === "active" || sub.status === "trialing") && !sub.cancel_at && !sub.cancel_at_period_end) {
+    sub = await stripeCall(() => stripe.subscriptions.update(sub.id, { cancel_at: termEndsAt, proration_behavior: "none" }));
+  }
   const periodEnd = sub.items.data[0]?.current_period_end;
   const { data, error } = await deps.db.rpc("membership_sync_subscription", {
     p_member: memberId,
@@ -175,8 +207,9 @@ export async function syncSubscription(deps: AppDeps, subscriptionId: string) {
       subscriptionId: sub.id,
       stripeStatus: sub.status,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
-      cancelAt: sub.cancel_at,
+      cancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : null,
       periodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      termEndsAt: termEndsAt ? new Date(termEndsAt * 1000).toISOString() : null,
     } as Json,
   });
   if (error) throw mapDbError(error);

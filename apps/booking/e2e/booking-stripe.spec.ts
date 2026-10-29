@@ -3,7 +3,7 @@
  * Needs E2E_STRIPE=1 and `stripe listen --forward-to localhost:8787/webhooks/stripe`,
  * because the booking is confirmed by the webhook.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { loadFixture, localSupabase } from "./fixture";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
@@ -24,25 +24,39 @@ const dayLabel = () => {
     .replace(/,/g, "");
 };
 
+/** Three days out can be next month (29 Oct → 1 Nov); the calendar opens on this one, so step on like a person would. */
+async function pickDay(panel: Locator, label: string) {
+  // Days are labelled with the year too ("Sun 1 Nov 2026").
+  const day = panel.getByRole("button", { name: new RegExp(`^${label}`) });
+  for (let i = 0; i < 3; i++) {
+    if ((await day.count()) > 0 && (await day.first().isEnabled())) break;
+    await panel.getByRole("button", { name: "Next month" }).click();
+  }
+  await day.first().click();
+}
+
 test("a guest pays by card on Stripe and the booking is confirmed, then refunded on cancel", async ({ page }) => {
   const f = loadFixture();
   const db = localSupabase();
 
+  // The current three-step panel: this run's own booth is under "Also by the hour".
   await page.goto("/book");
-  await page.getByRole("button", { name: f.resourceTypeName }).click();
-  await page.getByRole("button", { name: dayLabel(), exact: true }).click();
-  await page.getByRole("button", { name: /^11:00 am$/ }).click();
-  await page.getByRole("button", { name: "30 min", exact: true }).click();
-  await page.getByLabel("Name").fill(`E2E Card Guest ${f.run}`);
-  await page.getByRole("textbox", { name: /^Email/ }).fill(f.customerEmail);
+  await page.getByRole("button", { name: `Book ${f.resourceTypeName}` }).click();
+  const panel = page.getByRole("dialog");
+  await pickDay(panel, dayLabel());
+  await panel.getByRole("button").filter({ hasText: "11:00 am" }).click();
+  await panel.getByLabel("Or another length").selectOption({ label: "30 min" });
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill(`E2E Card Guest ${f.run}`);
+  await panel.getByRole("textbox", { name: /^Email/ }).fill(f.customerEmail);
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
 
-  const total = page.getByText("Total to pay").locator("xpath=following-sibling::span");
+  const total = panel.getByText("Total to pay").locator("xpath=following-sibling::span");
   await expect(total).toHaveText(/\$\d+\.\d\d/);
   const amount = (await total.textContent())!.trim();
   expect(amount).not.toBe("$0.00");
 
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: `Pay ${amount}` }).click();
+  await panel.getByRole("checkbox").check();
+  await panel.getByRole("button", { name: `Pay ${amount}` }).click();
 
   // ── Stripe Checkout ───────────────────────────────────────────────────────
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 60_000 });

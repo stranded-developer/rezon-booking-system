@@ -141,7 +141,9 @@ function Tile({ tile, now, tz, onOpen }: { tile: FloorTile; now: number; tz: str
         <div className="mt-3">
           <div className="tnum text-3xl font-semibold">{elapsed(now - Date.parse(tile.session.openedAt))}</div>
           <div className="mt-1 text-sm text-ink-400">
-            {tile.session.bookingEndsAt ? `Booked until ${timeIn(tile.session.bookingEndsAt, tz)}` : `Since ${timeIn(tile.session.openedAt, tz)}`}
+            {tile.session.bookingEndsAt
+              ? `${tile.session.packageName ? `${tile.session.packageName} until` : "Booked until"} ${timeIn(tile.session.bookingEndsAt, tz)}`
+              : `Since ${timeIn(tile.session.openedAt, tz)}`}
             {price !== null && price > 0 ? <span className="tnum ml-2 text-ink-200">≈ {money(price)}</span> : null}
           </div>
         </div>

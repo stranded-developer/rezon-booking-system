@@ -132,6 +132,18 @@ describe("experiences", () => {
     expect(cleared.json.experience.button_label).toBeNull();
   });
 
+  it("is sold online and at the counter unless set otherwise, and can be made counter-only (D115)", async () => {
+    const before = await admin("/experiences");
+    expect(before.json.experiences.find((e: { id: string }) => e.id === experienceId)).toMatchObject({ online: true, at_counter: true });
+    const r = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { online: false, reason: "Counter only" } });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.experience).toMatchObject({ online: false, at_counter: true });
+    const site = await call(ctx, "/public/config");
+    expect(site.json.experiences.find((e: { key: string }) => e.key === `adm_quick_${run}`)).toBeUndefined();
+    const back = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { online: true } });
+    expect(back.json.experience.online).toBe(true);
+  });
+
   it("refuses an edit that would leave a length off the session grid", async () => {
     const r = await admin(`/experiences/${experienceId}`, { method: "PATCH", body: { minutes: 50 } });
     expect(r.status).toBe(422);

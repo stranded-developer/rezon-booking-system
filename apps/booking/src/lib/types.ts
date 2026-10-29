@@ -268,6 +268,8 @@ export interface Account {
     tier: { id: string; name: string; discountBp: number; monthlyPriceCents: number; monthlyFreeMinutes: number; maxBalanceMinutes: number };
     pendingTier: { id: string; name: string; monthlyPriceCents: number } | null;
     currentPeriodEnd: string | null;
+    /** A 12-month plan (D114) ends here after its last payment; null = rolling monthly. */
+    termEndsAt: string | null;
     endedAt: string | null;
     billedOnline: boolean;
     balanceMinutes: number;

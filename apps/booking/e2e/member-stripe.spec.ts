@@ -5,6 +5,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
 import { loadFixture, localSupabase } from "./fixture";
+import { formatMinutes } from "../src/lib/format";
 import { clearInbox, firstLink, latestEmail } from "./mailpit";
 
 const shot = (page: Page, name: string) => page.screenshot({ path: `test-results/screens/${name}.png`, fullPage: true });
@@ -83,9 +84,12 @@ test("someone joins Silver online: account first, then pays on Stripe", async ({
   await page.waitForURL(/\/account/, { timeout: 90_000 });
   await expect(page.getByRole("heading", { name: "Silver membership" })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText("Active")).toBeVisible();
-  await expect(page.getByText("5% off every session")).toBeVisible();
+  // The owner sets Silver's percentage (D67); read it rather than typing it in.
+  const { data: silver } = await db.from("membership_tiers").select("discount_bp, monthly_free_minutes").eq("name", "Silver").single();
+  await expect(page.getByText(`${silver!.discount_bp / 100}% off every session`)).toBeVisible();
   await expect(page.getByTestId("member-qr")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText("1 hour")).toBeVisible(); // 60 free minutes granted with the first invoice
+  // The month's free minutes, granted with the first invoice.
+  await expect(page.getByText(formatMinutes(silver!.monthly_free_minutes))).toBeVisible();
   await expect(page.getByRole("button", { name: "Card and invoices" })).toBeVisible();
   await shot(page, "web-11-membership-active");
 

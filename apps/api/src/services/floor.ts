@@ -27,7 +27,10 @@ export interface FloorTile {
     openedAt: string;
     openedBy: string;
     bookingId: string | null;
+    /** When a booking, or a walk-in package (D115), runs out. Null for open time. */
     bookingEndsAt: string | null;
+    /** The walk-in package being played, paid up front (D115). */
+    packageName: string | null;
   } | null;
   currentBooking: FloorBooking | null;
   nextBooking: FloorBooking | null;
@@ -55,7 +58,7 @@ export async function getFloor(deps: AppDeps) {
     db.from("resources").select("id, label, sort, resource_types!inner(key, name, sort, active)").eq("active", true),
     db
       .from("sessions")
-      .select("id, resource_id, kind, opened_at, booking_id, opener:staff!sessions_opened_by_fkey(display_name), bookings(period)")
+      .select("id, resource_id, kind, opened_at, booking_id, package_ends_at, opener:staff!sessions_opened_by_fkey(display_name), bookings(period), experiences(name)")
       .eq("status", "open"),
     db
       .from("bookings")
@@ -98,12 +101,16 @@ export async function getFloor(deps: AppDeps) {
       const mine = bookings.filter((b) => b.resourceId === r.id).sort((a, b) => a.start.getTime() - b.start.getTime());
       const current = mine.find((b) => b.start <= now && now < b.end) ?? null;
       const next = mine.find((b) => b.start > now && b.booking.status === "confirmed") ?? null;
-      const bookingEnd = raw?.bookings ? parseRange((raw.bookings as { period: unknown }).period).end : null;
+      const bookingEnd = raw?.bookings
+        ? parseRange((raw.bookings as { period: unknown }).period).end
+        : raw?.package_ends_at
+          ? new Date(raw.package_ends_at)
+          : null;
       const minutesToNext = next ? Math.ceil((next.start.getTime() - now.getTime()) / 60_000) : null;
 
       let state: TileState = "free";
       if (raw) {
-        state = raw.kind === "walk_in" ? "in_use" : bookingEnd && now > bookingEnd ? "overdue" : "booking";
+        state = bookingEnd && now > bookingEnd ? "overdue" : raw.kind === "walk_in" ? "in_use" : "booking";
       } else if (current && current.booking.status === "confirmed") {
         state = "awaiting_arrival";
       }
@@ -122,6 +129,7 @@ export async function getFloor(deps: AppDeps) {
               openedBy: (raw.opener as { display_name: string } | null)?.display_name ?? "",
               bookingId: raw.booking_id,
               bookingEndsAt: bookingEnd?.toISOString() ?? null,
+              packageName: (raw.experiences as { name: string } | null)?.name ?? null,
             }
           : null,
         currentBooking: current?.booking ?? null,

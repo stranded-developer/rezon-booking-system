@@ -64,7 +64,9 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
 
   const booking = session.bookings as { period: unknown; member_id: string | null } | null;
   const bookingEnd = booking ? parseRange(booking.period).end : null;
-  const mode: ChargeMode = bookingEnd ? "prepaid" : "walk_in";
+  // A walk-in package was paid when it opened (D115), so it closes like a booking.
+  const packageEnd = session.package_ends_at ? new Date(session.package_ends_at) : null;
+  const mode: ChargeMode = bookingEnd || packageEnd ? "prepaid" : "walk_in";
   // Discounts and free play only apply to what is charged at the counter, i.e. walk-ins.
   const memberId = mode === "walk_in" ? opts.memberId : undefined;
   const referralCode = mode === "walk_in" ? opts.referralCode : undefined;
@@ -116,13 +118,13 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
     mode,
     openedAt: openedAt.toISOString(),
     closedAt: closedAt.toISOString(),
-    bookingEndsAt: bookingEnd?.toISOString() ?? null,
+    bookingEndsAt: (bookingEnd ?? packageEnd)?.toISOString() ?? null,
     pricing,
     subtotalCents: pricing?.subtotalCents ?? 0,
     discountCents: pricing?.discount?.amountCents ?? 0,
     totalCents: pricing?.totalCents ?? 0,
     gstCents: pricing?.gstCents ?? 0,
-    explanation: pricing?.explanation ?? ["Prepaid booking, nothing more to pay"],
+    explanation: pricing?.explanation ?? [packageEnd ? "Package paid at the start, nothing more to pay" : "Prepaid booking, nothing more to pay"],
     member,
     referral,
     maxFreeMinutes: member && pricing ? Math.min(member.balanceMinutes, pricing.billedMinutes) : 0,
@@ -265,16 +267,17 @@ export async function buildReceipt(deps: AppDeps, sessionId: string): Promise<Re
       .select("*, resources!inner(label, resource_types!inner(name)), closer:staff!sessions_closed_by_fkey(display_name)")
       .eq("id", sessionId)
       .maybeSingle(),
-    db.from("payments").select("receipt_no, method, amount_cents, created_at").eq("session_id", sessionId).maybeSingle(),
+    db.from("payments").select("receipt_no, method, amount_cents, gst_cents, created_at").eq("session_id", sessionId).maybeSingle(),
   ]);
   if (sessionRes.error) throw mapDbError(sessionRes.error);
   if (paymentRes.error) throw mapDbError(paymentRes.error);
   const s = sessionRes.data;
   if (!s) throw new ApiError(404, "not_found", "Session not found");
-  if (s.status === "open") throw new ApiError(409, "session_open", "This session has not been closed yet");
+  // A walk-in package has its receipt from the moment it's paid for, while it's still being played (D115).
+  if (s.status === "open" && !s.experience_id) throw new ApiError(409, "session_open", "This session has not been closed yet");
 
   const snap = (s.pricing_snapshot ?? {}) as Snapshot;
-  const total = s.total_cents ?? 0;
+  const total = s.total_cents ?? paymentRes.data?.amount_cents ?? 0;
   const subtotal = snap.override ? snap.override.originalCents + (snap.pricing?.discount?.amountCents ?? 0) : (snap.pricing?.subtotalCents ?? total);
   const local = (iso: string) => toLocal(new Date(iso).getTime(), settings.timezone).label;
   const resource = s.resources as { label: string; resource_types: { name: string } };
@@ -289,12 +292,12 @@ export async function buildReceipt(deps: AppDeps, sessionId: string): Promise<Re
     resource: resource.label,
     resourceType: resource.resource_types.name,
     openedAt: local(s.opened_at),
-    closedAt: local(s.closed_at ?? s.opened_at),
+    closedAt: local(s.closed_at ?? s.package_ends_at ?? s.opened_at),
     lines: snap.explanation ?? [],
     subtotalCents: subtotal,
     discountCents: Math.max(0, subtotal - total),
     totalCents: total,
-    gstCents: s.gst_cents ?? 0,
+    gstCents: s.gst_cents ?? paymentRes.data?.gst_cents ?? 0,
     paymentMethod: paymentRes.data?.method ?? null,
     tenderedCents: tendered,
     changeCents: tendered !== null ? tendered - total : null,

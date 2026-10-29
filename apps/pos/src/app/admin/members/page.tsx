@@ -177,7 +177,7 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
   const { api, config } = usePos();
   const tz = config?.timeZone ?? "Australia/Sydney";
   const { data, error, reload } = useApiData<{
-    member: MemberSummary & { billing: string; currentPeriodEnd: string | null; pendingTierId: string | null };
+    member: MemberSummary & { billing: string; currentPeriodEnd: string | null; termEndsAt: string | null; pendingTierId: string | null };
     ledger: LedgerEntry[];
   }>(`/admin/members/${memberId}`);
   const balance = useAction();
@@ -212,6 +212,11 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
             </div>
             <div className="mt-3 text-ink-200">{m.email ?? m.phone}</div>
             {m.currentPeriodEnd ? <div className="text-ink-400">Valid until {when(m.currentPeriodEnd)}</div> : null}
+            {m.termEndsAt && m.status !== "ended" ? (
+              <div className="text-ink-400" data-testid="member-term">
+                12-month plan, paid monthly · last payment covers until {when(m.termEndsAt)}
+              </div>
+            ) : null}
             <div className="tnum mt-3 text-3xl font-bold" data-testid="member-balance">
               {m.balanceMinutes} min
             </div>

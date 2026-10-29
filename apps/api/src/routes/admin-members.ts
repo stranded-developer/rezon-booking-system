@@ -65,12 +65,13 @@ adminMemberRoutes.get("/members/:id", validate("param", Id), async (c) => {
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw mapDbError(error);
-  const { data: row, error: rowError } = await db.from("members").select("current_period_end, pending_tier_id, stripe_subscription_id").eq("id", id).single();
+  const { data: row, error: rowError } = await db.from("members").select("current_period_end, term_ends_at, pending_tier_id, stripe_subscription_id").eq("id", id).single();
   if (rowError) throw mapDbError(rowError);
   return c.json({
     member: {
       ...member,
       currentPeriodEnd: row.current_period_end,
+      termEndsAt: row.term_ends_at,
       pendingTierId: row.pending_tier_id,
       billing: row.stripe_subscription_id ? "stripe" : "complimentary",
     },

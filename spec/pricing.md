@@ -7,7 +7,7 @@ It has **two entry points**, which share their discount, rounding and GST steps:
 | Function | Used for | Price comes from |
 |---|---|---|
 | `priceSession` | every walk-in, and online bookings of billiard tables | an **hourly rate**, each minute priced on its own, charged in 15-minute blocks (D91) |
-| `priceExperience` | online bookings of a named package on the simulators (D65) | a **flat price** for a fixed length |
+| `priceExperience` | online bookings of a named package on the simulators (D65), and **walk-in packages at the counter, priced when paid at the start (D115)** | a **flat price** for a fixed length |
 
 ## 1. Units and representation
 

@@ -16,8 +16,13 @@ All values are editable. Benefits are the discount and free play. There are **no
 
 | Paid | How it works | Renews |
 |---|---|---|
-| **Online** (booking site or the counter's QR) | Stripe subscription, card kept by Stripe | Yes, monthly, with retries |
+| **Online** (booking site or the counter's QR) | Stripe subscription, card kept by Stripe | Yes, monthly, with retries, until cancelled |
+| **Online, 12-month plan** (the counter's QR, D114) | Stripe subscription at the same monthly price, card kept by Stripe | Monthly for **12 payments, then it stops by itself**. The member can't cancel it; staff can end it early in the back office |
 | **At the counter** (D61) | Cash or card terminal at the till, 1/3/6/9/12 months at the tier's monthly price × months | **No** — it runs out |
+
+**Why not the card terminal for a rolling membership?** The CommBank terminal isn't connected to Stripe and our system never sees the card, so nothing can charge it again next month. Anything that renews has to be paid with a card saved by Stripe: the customer types it once on their own phone from the counter's QR (D114).
+
+**The 12-month plan (D114):** Stripe can't stop a member cancelling their card, so "12 months" means: 12 monthly charges, then it ends; no cancel button for the member, on our account page or in Stripe's portal; failed payments are handled as for any subscription (benefits pause, Stripe retries, then it ends). Mechanism: the Checkout puts `term_months: "12"` in the subscription's metadata; when the subscription is first synced, the API sets Stripe's `cancel_at` to the billing anchor + 12 months (the end of the 12th paid period) with no proration. `members.term_ends_at` records that date, and a `cancel_at` equal to it does **not** make the member `cancelling`. If staff end it early (cancel at period end) it is `cancelling` as usual; if they undo that, the 12-month end is put back.
 
 A counter membership grants the free minutes for every month paid for at once (still capped), is recorded as a payment against the member on the open shift, and ends on its date: benefits stop, the balance freezes for 30 days and is then forfeited. Renewing early adds to the time already paid for. A membership billed through Stripe cannot be sold over the counter — it is changed in Stripe.
 
@@ -25,7 +30,7 @@ A counter membership grants the free minutes for every month paid for at once (s
 
 - **Per tier:** one Stripe Product, plus one monthly recurring AUD Price with tax behaviour **inclusive**.
 - **Checkout Session** in `subscription` mode, used for both online and POS sign-ups. **Adaptive Pricing is disabled** so every customer pays the AUD price (a visitor abroad was otherwise shown and charged their local currency). The webhook refuses non-AUD membership invoices.
-- **Customer Portal:** members can update their card, view invoices and cancel. Cancellation is set to **at period end**. Plan switching is **disabled** in the portal; tier changes go through our app (§5).
+- **Customer Portal:** members can update their card, view invoices and cancel. Cancellation is set to **at period end**. A member on a 12-month plan gets a second portal configuration with **cancelling turned off** (D114). Plan switching is **disabled** in the portal; tier changes go through our app (§5).
 - **Smart Retries** on, with Stripe's failed-payment emails on. After retries fail, Stripe **cancels the subscription**.
 - **Invoices:** show business name and ABN, so each charge is a valid Tax Invoice (every tier is over $82.50).
 
@@ -74,7 +79,7 @@ ended ──new checkout within 30 days──▶ active   (balance restored — 
   - On Stripe, update the subscription item price with `proration_behavior: none`, so the next invoice is at the new price.
   - Locally, set `pending_tier_id`. Until the next `invoice.paid`, the current tier's discount and allowance remain.
   - On `invoice.paid`, set `tier_id = pending_tier_id`, clear the pending tier, then grant.
-- **Cancel:** set `cancel_at_period_end = true`. Benefits continue until `current_period_end`, then the `customer.subscription.deleted` event moves the member to `ended`.
+- **Cancel:** set `cancel_at_period_end = true`. A member on a 12-month plan can't do this themselves (`fixed_term`); staff can (D114). Benefits continue until `current_period_end`, then the `customer.subscription.deleted` event moves the member to `ended`.
 - **Tier price change by the admin:** see [back-office.md](./back-office.md#tier-price-change-flow). Existing members pay the new price from their next renewal and are emailed.
 
 ## 6. Identification

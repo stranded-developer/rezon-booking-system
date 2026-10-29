@@ -79,14 +79,17 @@ export interface ExperienceContext {
   promos: ExperiencePromo[];
 }
 
-/** One experience and every promotional price that could apply to it. */
-export async function loadExperience(db: Db, idOrKey: string): Promise<ExperienceContext> {
+/**
+ * One experience and every promotional price that could apply to it, if it's sold where it's asked for:
+ * online, or at the counter as a walk-in package (D115).
+ */
+export async function loadExperience(db: Db, idOrKey: string, soldAt: "online" | "counter" = "online"): Promise<ExperienceContext> {
   const query = db
     .from("experiences")
-    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, active");
+    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, active, online, at_counter");
   const { data, error } = await (UUID.test(idOrKey) ? query.eq("id", idOrKey) : query.eq("key", idOrKey)).maybeSingle();
   if (error) throw mapDbError(error);
-  if (!data || !data.active) throw new ApiError(404, "not_found", "That experience isn't available");
+  if (!data || !data.active || !(soldAt === "online" ? data.online : data.at_counter)) throw new ApiError(404, "not_found", "That experience isn't available");
   return { experience: toExperience(data), promos: await loadPromos(db, [data.id]) };
 }
 

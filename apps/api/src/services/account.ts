@@ -2,11 +2,11 @@ import type { AccountIdentity, AppDeps } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { currentMemberQr, nextMemberCard } from "../lib/qr.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
-import { changeMemberTier, setCancelAtPeriodEnd, startMembershipCheckout } from "./billing.js";
+import { changeMemberTier, setCancelAtPeriodEnd, startMembershipCheckout, type MembershipPlan } from "./billing.js";
 import { getMember, type MemberSummary } from "./lookup.js";
 
 const MEMBER_COLUMNS =
-  "id, member_no, status, tier_id, pending_tier_id, current_period_end, ended_at, stripe_subscription_id, qr_version, qr_token_hash, tier:membership_tiers!members_tier_id_fkey(id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes), pending:membership_tiers!members_pending_tier_id_fkey(id, name, monthly_price_cents)" as const;
+  "id, member_no, status, tier_id, pending_tier_id, current_period_end, term_ends_at, ended_at, stripe_subscription_id, qr_version, qr_token_hash, tier:membership_tiers!members_tier_id_fkey(id, name, discount_bp, monthly_price_cents, monthly_free_minutes, max_balance_minutes), pending:membership_tiers!members_pending_tier_id_fkey(id, name, monthly_price_cents)" as const;
 
 type TierInfo = { id: string; name: string; discount_bp: number; monthly_price_cents: number; monthly_free_minutes: number; max_balance_minutes: number };
 type MemberRow = {
@@ -16,6 +16,7 @@ type MemberRow = {
   tier_id: string;
   pending_tier_id: string | null;
   current_period_end: string | null;
+  term_ends_at: string | null;
   ended_at: string | null;
   stripe_subscription_id: string | null;
   qr_version: number;
@@ -79,6 +80,7 @@ export async function getAccount(deps: AppDeps, account: AccountIdentity) {
       tier: { id: member.tier.id, name: member.tier.name, discountBp: member.tier.discount_bp, monthlyPriceCents: member.tier.monthly_price_cents, monthlyFreeMinutes: member.tier.monthly_free_minutes, maxBalanceMinutes: member.tier.max_balance_minutes },
       pendingTier: member.pending && { id: member.pending.id, name: member.pending.name, monthlyPriceCents: member.pending.monthly_price_cents },
       currentPeriodEnd: member.current_period_end,
+      termEndsAt: member.term_ends_at,
       endedAt: member.ended_at,
       billedOnline: member.stripe_subscription_id !== null,
       balanceMinutes: balance,
@@ -116,7 +118,7 @@ export async function reissueAccountQr(deps: AppDeps, account: AccountIdentity) 
   return { qr: card.qr };
 }
 
-export async function startAccountMembership(deps: AppDeps, account: AccountIdentity, tierId: string) {
+export async function startAccountMembership(deps: AppDeps, account: AccountIdentity, tierId: string, plan?: MembershipPlan) {
   const c = await customerOf(deps, account);
   if (!c.email) throw new ApiError(422, "validation_failed", "An email is required for a membership");
   return startMembershipCheckout(deps, null, {
@@ -124,18 +126,22 @@ export async function startAccountMembership(deps: AppDeps, account: AccountIden
     email: c.email,
     phone: c.phone ?? undefined,
     tierId,
+    plan,
     successUrl: `${deps.env.BOOKING_SITE_URL}/account?membership=started`,
     cancelUrl: `${deps.env.BOOKING_SITE_URL}/membership?cancelled=1`,
   });
 }
 
 const PORTAL_MARKER = "member_portal_v1";
+/** A fixed-term plan (D114) can't be cancelled by the member, so its portal has no cancel button. */
+const FIXED_TERM_PORTAL_MARKER = "member_portal_fixed_term_v1";
 
 /** Our Customer Portal setup: card, invoices, cancel at period end. Plan changes stay in our app (spec §2). */
-async function portalConfigurationId(deps: AppDeps): Promise<string> {
+async function portalConfigurationId(deps: AppDeps, fixedTerm: boolean): Promise<string> {
   const stripe = requireStripe(deps);
+  const marker = fixedTerm ? FIXED_TERM_PORTAL_MARKER : PORTAL_MARKER;
   const existing = await stripeCall(() => stripe.billingPortal.configurations.list({ active: true, limit: 100 }));
-  const ours = existing.data.find((c) => c.metadata?.raceground === PORTAL_MARKER);
+  const ours = existing.data.find((c) => c.metadata?.raceground === marker);
   if (ours) return ours.id;
   const created = await stripeCall(() =>
     stripe.billingPortal.configurations.create({
@@ -143,12 +149,12 @@ async function portalConfigurationId(deps: AppDeps): Promise<string> {
       features: {
         invoice_history: { enabled: true },
         payment_method_update: { enabled: true },
-        subscription_cancel: { enabled: true, mode: "at_period_end", proration_behavior: "none" },
+        subscription_cancel: fixedTerm ? { enabled: false } : { enabled: true, mode: "at_period_end", proration_behavior: "none" },
         subscription_update: { enabled: false },
         customer_update: { enabled: false },
       },
       default_return_url: `${deps.env.BOOKING_SITE_URL}/account`,
-      metadata: { raceground: PORTAL_MARKER },
+      metadata: { raceground: marker },
     }),
   );
   return created.id;
@@ -157,12 +163,16 @@ async function portalConfigurationId(deps: AppDeps): Promise<string> {
 export async function billingPortal(deps: AppDeps, account: AccountIdentity) {
   const c = await customerOf(deps, account);
   if (!c.stripe_customer_id) throw new ApiError(409, "not_billed", "There's no online billing for this account");
-  const configuration = await portalConfigurationId(deps);
+  const member = await memberRowOf(deps, c.id);
+  const configuration = await portalConfigurationId(deps, isFixedTerm(member));
   const session = await stripeCall(() =>
     requireStripe(deps).billingPortal.sessions.create({ customer: c.stripe_customer_id!, configuration, return_url: `${deps.env.BOOKING_SITE_URL}/account` }),
   );
   return { url: session.url };
 }
+
+/** A fixed-term plan still running to its end (D114). Once ended, a rejoin is a new plan. */
+const isFixedTerm = (member: MemberRow | null) => member !== null && member.term_ends_at !== null && member.status !== "ended";
 
 async function requireBilledMember(deps: AppDeps, account: AccountIdentity) {
   const member = await requireMemberRow(deps, account);
@@ -178,5 +188,8 @@ export async function changeAccountTier(deps: AppDeps, account: AccountIdentity,
 
 export async function setAccountCancel(deps: AppDeps, account: AccountIdentity, cancel: boolean) {
   const member = await requireBilledMember(deps, account);
+  if (cancel && isFixedTerm(member)) {
+    throw new ApiError(409, "fixed_term", "Your 12-month plan ends by itself after the last payment and can't be cancelled online. Please ask at the counter.");
+  }
   return setCancelAtPeriodEnd(deps, null, member.id, cancel, cancel ? "Cancelled by the member" : "Resumed by the member");
 }

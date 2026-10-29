@@ -39,9 +39,12 @@ const POLL_MS = 3_000;
  * out at the end.
  */
 export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
-  const { api, config } = usePos();
+  const { api, config, reloadConfig } = usePos();
   const allTiers = config?.tiers ?? [];
+  // Tiers synced with Stripe in the back office since this till loaded become sellable straight away.
+  useEffect(() => reloadConfig(), [reloadConfig]);
   const [mode, setMode] = useState<"online" | "counter">("online");
+  const [plan, setPlan] = useState<"monthly" | "twelve_months">("monthly");
   // Paying at the counter needs no Stripe, so every active tier can be sold that way.
   const tiers = mode === "online" ? allTiers.filter((t) => t.sellable) : allTiers;
   const start = useAction();
@@ -173,7 +176,7 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
             className={`rounded-xl p-3 text-left ring-2 ${mode === "online" ? "bg-flag/10 ring-flag" : "bg-ink-850 ring-ink-700"}`}
           >
             <div className="font-semibold">On their phone</div>
-            <div className="text-xs text-ink-400">Monthly subscription, renews itself</div>
+            <div className="text-xs text-ink-400">Monthly card payments: rolling, or 12 months</div>
           </button>
           <button
             type="button"
@@ -209,6 +212,29 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+        {mode === "online" ? (
+          <fieldset>
+            <legend className="text-xs font-medium uppercase tracking-wide text-ink-400">Plan</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button size="sm" variant={plan === "monthly" ? "primary" : "secondary"} aria-pressed={plan === "monthly"} onClick={() => setPlan("monthly")}>
+                Monthly, until cancelled
+              </Button>
+              <Button
+                size="sm"
+                variant={plan === "twelve_months" ? "primary" : "secondary"}
+                aria-pressed={plan === "twelve_months"}
+                onClick={() => setPlan("twelve_months")}
+              >
+                12 months, paid monthly
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-ink-400">
+              {plan === "monthly"
+                ? "Charged every month until the member cancels."
+                : "12 monthly payments, then it stops by itself. The member can't cancel it online."}
+            </p>
+          </fieldset>
+        ) : null}
         {mode === "counter" ? (
           <>
             <fieldset>
@@ -294,7 +320,7 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
             onClick={async () => {
               const r = await start.run(() =>
                 api<Checkout>("/pos/memberships/checkout", {
-                  body: { name: form.name.trim(), email: form.email.trim(), ...(form.phone.trim() ? { phone: form.phone.trim() } : {}), tierId: form.tierId },
+                  body: { name: form.name.trim(), email: form.email.trim(), ...(form.phone.trim() ? { phone: form.phone.trim() } : {}), tierId: form.tierId, plan },
                 }),
               );
               if (r) setCheckout(r);

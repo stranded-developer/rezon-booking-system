@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import Stripe from "stripe";
-import { loadFixture, localSupabase } from "./fixture";
+import { loadFixture, localSupabase, tierValues } from "./fixture";
 
 const enabled = process.env.E2E_STRIPE === "1";
 
@@ -25,6 +25,9 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
   const stripe = new Stripe(/^STRIPE_SECRET_KEY=(\S+)$/m.exec(apiEnv)![1]!);
   const email = `e2e-sale-${f.run}@raceground.test`;
   const name = `E2E Sale ${f.run}`;
+  // The owner sets the tier's price and free minutes (D67); read them rather than typing them in.
+  const silver = await tierValues("Silver");
+  const { data: silverRow } = await db.from("membership_tiers").select("monthly_free_minutes").eq("id", silver.id).single();
 
   try {
     // Owner signs in and syncs tiers with Stripe.
@@ -60,7 +63,7 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     await phone.locator("#cardCvc").fill("123");
     await phone.locator("#billingName").fill(name);
     await phone.locator("#billingCountry").selectOption("AU");
-    await expect(phone.locator("body")).toContainText("100.00");
+    await expect(phone.locator("body")).toContainText((silver.monthlyPriceCents / 100).toFixed(2));
     await expect(phone.locator("body")).not.toContainText("IDR");
     await phone.screenshot({ path: "test-results/screens/membership-02-stripe-checkout.png", fullPage: true });
     await phone.getByTestId("hosted-payment-submit-button").click();
@@ -72,13 +75,13 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     await expect(page.getByTestId("membership-active")).toContainText("Silver");
     // The free minutes are granted by a second webhook (invoice.paid), which can land a little after
     // the one that activates the membership; the screen fills in when it does.
-    await expect(page.getByTestId("membership-active")).toContainText("60 min free play ready", { timeout: 150_000 });
+    await expect(page.getByTestId("membership-active")).toContainText(`${silverRow!.monthly_free_minutes} min free play ready`, { timeout: 150_000 });
     await page.screenshot({ path: "test-results/screens/membership-03-active.png" });
     await page.getByRole("button", { name: "Print member card" }).click();
     // Printing the first card asks the API for a new token, so allow for a round trip.
     await expect(page.getByTestId("member-qr").locator("svg")).toBeVisible({ timeout: 15_000 });
 
-    // Database: active, $100 Stripe payment, 60-minute grant.
+    // Database: active, one Stripe payment of Silver's price.
     const { data: member } = await db
       .from("members")
       .select("id, status, stripe_subscription_id, qr_token_hash, customers!inner(email)")
@@ -87,7 +90,7 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     expect(member).toMatchObject({ status: "active" });
     expect(member!.qr_token_hash).not.toBeNull();
     const { data: payments } = await db.from("payments").select("amount_cents, method").eq("member_id", member!.id);
-    expect(payments).toEqual([{ amount_cents: 10000, method: "stripe" }]);
+    expect(payments).toEqual([{ amount_cents: silver.monthlyPriceCents, method: "stripe" }]);
     await page.keyboard.press("Escape");
 
     // Back office: cancel at the end of the paid month, then undo.

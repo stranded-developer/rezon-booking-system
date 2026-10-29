@@ -76,7 +76,7 @@ Overlap rules for rate bands and happy hours are enforced by the API using `pack
 
 ### Experiences (D65, D66)
 
-An **experience** is a named package with a fixed length and a flat price, sold online instead of a length of time. Simulators (VR rigs included, D77) are sold this way; billiards keeps the hourly rate, and **every walk-in stays hourly**.
+An **experience** is a named package with a fixed length and a flat price, sold instead of a length of time. Online, simulators (VR rigs included, D77) are sold this way and billiards keeps the hourly rate. **At the counter (D115)** any experience marked `at_counter` is a **walk-in package**, paid up front; a walk-in can still be open time, charged by the hour at the end.
 
 ```
 experiences
@@ -90,6 +90,8 @@ experiences
   minutes          int  check (> 0 and minutes % 15 = 0)
   price_cents      int  check ≥ 0   -- flat, for the whole experience, incl. GST
   sort, active
+  online           boolean default true   -- listed and bookable on the website
+  at_counter       boolean default true   -- sold at the counter as a walk-in package, paid up front (D115)
 
 experience_promos                    -- flat promotional prices; the cheapest match wins
   experience_id  → experiences (on delete cascade)
@@ -192,6 +194,7 @@ members
   status           text check in ('pending','active','past_due','cancelling','ended')
   qr_token_hash    text unique            -- sha256 of the random token; token never stored
   current_period_end timestamptz null
+  term_ends_at     timestamptz null       -- a 12-month Stripe plan stops here after its last payment (D114); null = rolling
   ended_at         timestamptz null
   stripe_subscription_id text unique null
 
@@ -273,6 +276,8 @@ sessions
   member_id → members null, referral_code_id → referral_codes null
   free_minutes_used int default 0
   pricing_snapshot jsonb, total_cents, gst_cents
+  experience_id    → experiences null   -- a walk-in package, paid when opened (D115)
+  package_ends_at  timestamptz null     -- set with experience_id; after opened_at; walk-ins only
   closed_in_shift_id → shifts null   -- the till open when it was closed (per-shift reporting)
   void_reason
 
@@ -372,8 +377,9 @@ price_overrides
 | `booking_cancel_quote(booking, now, venue_fault)`, `booking_cancel(booking, p)` | Refund policy from the amount paid: ≥ 24 h full + minutes; < 24 h refused (D101; the 2–24 h half refund is gone); venue fault (staff) full + minutes. The customer's refund must match the quote they saw. Staff override: any amount up to paid, with reason, optional minutes. Refund row with the Stripe refund id; referral use not restored; audited. |
 | `pos_open_shift`, `pos_cash_movement`, `pos_shift_totals`, `pos_close_shift` | Shared till: open with float, paid in/out with reason, expected cash/card totals, close with variances and flagging (refused while sessions are open). |
 | `pos_open_walk_in`, `pos_arrive_booking`, `pos_mark_no_show` | Opening hours and last-open check, booked-now check, one open session per resource; check-in from 15 min before start; no-show after the hold. |
-| `pos_close_session(session, staff, payload)` | One transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
-| `pos_void_session` | Open walk-in: void. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
+| `pos_open_package(staff, p)` | A walk-in package (D115), one transaction: package sold at the counter and for this kind of table; ends by closing time; no live booking on the table before it ends; member active / free play in whole sessions within the balance / member XOR referral; tender rules (open till for money); opens the walk-in (same checks as `pos_open_walk_in`), records the package and its end, payment on the session, cash movement, ledger use, referral use + redemption, audit. The API prices it with `priceExperience`. |
+| `pos_close_session(session, staff, payload)` | A package session closes with nothing more to pay (its total is what was paid when it opened). Otherwise one transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
+| `pos_void_session` | Open walk-in: void. Open package: refunded like a closed session. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
 | `admin_create_member`, `admin_adjust_balance`, `admin_reissue_qr`, `admin_set_tier_price` | Complimentary member (customer + member + audit); ± balance with reason (can't go negative); card reissue by token hash; tier price + `tier_prices` history. |
 | `tournament_spots_left(tournament, now)` | Spots minus confirmed entries and live holds. |
 | `expire_stale_tournament_holds(now)` | Marks `held` entries past `hold_expires_at` as `expired`. Returns the count. |
@@ -416,7 +422,7 @@ rate_limits           key PK, window_start, hits   -- fixed-window counters shar
 | `resources` | Table 1–2 · Sim 1–6 · VR Sim 1–2 (simulators, D77) |
 | `happy_hours` | none — the venue's happy hour is a **flat price**, not a percentage (D74) |
 | `rate_bands` | billiard $20.00/hr, every day 12:00–15:00 — the hourly side of happy hour |
-| `experiences` | Quick Race 30 min $35.00 · Double Race 60 min $58.00 (badged) · Leaderboard Challenge 30 min $35.00 — all on the simulators, in that order (D78) |
+| `experiences` | Quick Race 30 min $35.00 · Double Race 60 min $58.00 (badged) · Leaderboard Challenge 30 min $35.00 — all on the simulators, in that order (D78), online and at the counter. Counter only (D115): billiards 30 min $12.50 · 1 hour $25.00 · 2 hours $50.00 (the hourly rate) and simulators 2 hours $116.00 (two Double Sessions), until the owner sets their own prices |
 | `games` | Assetto Corsa Competizione · Assetto Corsa · F1 25, with tracks and cars (D80) |
 | `experience_promos` | Happy Hour, every day 12:00–15:00: $29 / $29 / $49, automatic · Student, every day, all hours: $32 / $32 / $52, only on request |
 | `membership_tiers` | Silver 1000 bp $48.00 60 min cap 600 · Gold 2000 bp $78.00 120/1200 · Diamond 2000 bp $128.00 240/2400, each with a `perks` list and 0 free tournaments |

@@ -9,7 +9,7 @@ export function runningPrice(tile: FloorTile, config: PosConfig, nowMs: number):
   if (!tile.session) return null;
   const type = config.resourceTypes.find((t) => t.key === tile.typeKey);
   if (!type) return null;
-  // Booked sessions are prepaid and never charged for running over (D48).
+  // Bookings and walk-in packages are prepaid and never charged for running over (D48, D115).
   if (tile.session.bookingEndsAt) return 0;
   const start = Date.parse(tile.session.openedAt);
   try {

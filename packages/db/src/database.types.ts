@@ -445,6 +445,7 @@ export type Database = {
       experiences: {
         Row: {
           active: boolean
+          at_counter: boolean
           badges: string[]
           bullets: string[]
           button_label: string | null
@@ -453,6 +454,7 @@ export type Database = {
           key: string
           minutes: number
           name: string
+          online: boolean
           price_cents: number
           resource_type_id: string
           sort: number
@@ -461,6 +463,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          at_counter?: boolean
           badges?: string[]
           bullets?: string[]
           button_label?: string | null
@@ -469,6 +472,7 @@ export type Database = {
           key: string
           minutes: number
           name: string
+          online?: boolean
           price_cents: number
           resource_type_id: string
           sort?: number
@@ -477,6 +481,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          at_counter?: boolean
           badges?: string[]
           bullets?: string[]
           button_label?: string | null
@@ -485,6 +490,7 @@ export type Database = {
           key?: string
           minutes?: number
           name?: string
+          online?: boolean
           price_cents?: number
           resource_type_id?: string
           sort?: number
@@ -752,6 +758,7 @@ export type Database = {
           qr_version: number
           status: string
           stripe_subscription_id: string | null
+          term_ends_at: string | null
           tier_id: string
           updated_at: string
         }
@@ -767,6 +774,7 @@ export type Database = {
           qr_version?: number
           status?: string
           stripe_subscription_id?: string | null
+          term_ends_at?: string | null
           tier_id: string
           updated_at?: string
         }
@@ -782,6 +790,7 @@ export type Database = {
           qr_version?: number
           status?: string
           stripe_subscription_id?: string | null
+          term_ends_at?: string | null
           tier_id?: string
           updated_at?: string
         }
@@ -1337,6 +1346,7 @@ export type Database = {
           closed_by: string | null
           closed_in_shift_id: string | null
           created_at: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           id: string
@@ -1344,6 +1354,7 @@ export type Database = {
           member_id: string | null
           opened_at: string
           opened_by: string
+          package_ends_at: string | null
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string
@@ -1358,6 +1369,7 @@ export type Database = {
           closed_by?: string | null
           closed_in_shift_id?: string | null
           created_at?: string
+          experience_id?: string | null
           free_minutes_used?: number
           gst_cents?: number | null
           id?: string
@@ -1365,6 +1377,7 @@ export type Database = {
           member_id?: string | null
           opened_at: string
           opened_by: string
+          package_ends_at?: string | null
           pricing_snapshot?: Json | null
           referral_code_id?: string | null
           resource_id: string
@@ -1379,6 +1392,7 @@ export type Database = {
           closed_by?: string | null
           closed_in_shift_id?: string | null
           created_at?: string
+          experience_id?: string | null
           free_minutes_used?: number
           gst_cents?: number | null
           id?: string
@@ -1386,6 +1400,7 @@ export type Database = {
           member_id?: string | null
           opened_at?: string
           opened_by?: string
+          package_ends_at?: string | null
           pricing_snapshot?: Json | null
           referral_code_id?: string | null
           resource_id?: string
@@ -1414,6 +1429,13 @@ export type Database = {
             columns: ["closed_in_shift_id"]
             isOneToOne: false
             referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_experience_id_fkey"
+            columns: ["experience_id"]
+            isOneToOne: false
+            referencedRelation: "experiences"
             referencedColumns: ["id"]
           },
           {
@@ -1968,6 +1990,7 @@ export type Database = {
           qr_version: number
           status: string
           stripe_subscription_id: string | null
+          term_ends_at: string | null
           tier_id: string
           updated_at: string
         }
@@ -2128,6 +2151,7 @@ export type Database = {
           closed_by: string | null
           closed_in_shift_id: string | null
           created_at: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           id: string
@@ -2135,6 +2159,7 @@ export type Database = {
           member_id: string | null
           opened_at: string
           opened_by: string
+          package_ends_at: string | null
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string
@@ -2246,6 +2271,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      pos_open_package: { Args: { p: Json; p_staff: string }; Returns: Json }
       pos_open_shift: {
         Args: { p_opening_float_cents: number; p_staff: string }
         Returns: {
@@ -2280,6 +2306,7 @@ export type Database = {
           closed_by: string | null
           closed_in_shift_id: string | null
           created_at: string
+          experience_id: string | null
           free_minutes_used: number
           gst_cents: number | null
           id: string
@@ -2287,6 +2314,7 @@ export type Database = {
           member_id: string | null
           opened_at: string
           opened_by: string
+          package_ends_at: string | null
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string

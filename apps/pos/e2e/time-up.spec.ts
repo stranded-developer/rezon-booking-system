@@ -46,7 +46,7 @@ test("a booking that runs over pops up a time-up alert and closes with nothing t
     for (const d of f.cashier.pin) await page.keyboard.press(d);
     await page.getByRole("alertdialog").getByRole("button", { name: `Close ${label}` }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toContainText("Prepaid booking — nothing to pay");
+    await expect(dialog).toContainText("Paid in advance — nothing to pay");
     await expect(dialog.locator(".text-5xl").first()).toHaveText("$0.00");
     await page.screenshot({ path: "test-results/screens/time-up-02-close.png" });
     await dialog.getByRole("button", { name: "Close session" }).click();

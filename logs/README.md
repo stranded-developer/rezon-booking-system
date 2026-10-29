@@ -13,7 +13,7 @@ Everything that was planned, decided and built, one file per step so each can be
 3. **When a rule seems odd,** search `decisions/` for its D-number (e.g. `D48`). Later decision files supersede earlier ones; each file's header says what it supersedes.
 4. **Planning history** (the original plan and questions Q1–Q23) is in `planning/`. It's background only.
 
-## Current status (2026-10-13)
+## Current status (2026-10-29)
 
 | Area | State |
 |---|---|
@@ -70,11 +70,13 @@ Everything that was planned, decided and built, one file per step so each can be
 | Game, track and car picking only for 1-hour sessions (60) | ✅ Built and verified |
 | Experience cards' price line back to "from $xx · 30 min" (61) | ✅ Built and verified |
 | Site icon from the owner's "logo for web"; price as one line (62) | ✅ Built and verified |
+| 12-month membership paid monthly: 12 payments, then it stops (63) | ✅ Built and verified — **`supabase db push` before deploying** |
+| Walk-in packages at the counter, paid up front (64) | ✅ Built and verified — **`supabase db push` before deploying**; **owner to set billiard package prices** |
 | Real emails (Resend) | ✅ Built (7b); needs a verified domain to switch on |
 | Deploy configuration + go-live runbook (7a) | ✅ Built and verified |
 | Deploy itself (Vercel + hosted Supabase) | 🚧 **Deployed by the owner.** API `raceground-api.vercel.app`, site `raceground-booking.eatzyeats.com`, POS `raceground-pos.eatzyeats.com`. The owner has applied the Phase 8 migrations; the live site now shows the new hours, prices, tiers and experiences. **Before deploying 8i–8p, run `supabase db push` first** — the new API reads the games, member-price and tile tables and the arrive-early setting. See [build/35](build/35-game-track-car.md) and [build/39](build/39-home-tiles.md). |
 
-**Test totals at the last step:** pricing 114 · API 258 · pgTAP 504 · e2e 21 (8 POS + 13 booking site; 3 of them need `stripe listen`, 1 the venue to be open).
+**Test totals at the last step:** pricing 121 · API 287 · pgTAP 550 · e2e 28 (10 POS + 18 booking site; 5 of them need `stripe listen`, 2 the venue to be open). Run the API tests **without** `stripe listen` forwarding to a running API on the same database, then start it for the browser tests (build 63).
 
 ## Build steps (in the order they were done)
 
@@ -142,6 +144,8 @@ Everything that was planned, decided and built, one file per step so each can be
 | 60 | Game picking only for 1-hour sessions | [build/60-pick-game-one-hour.md](build/60-pick-game-one-hour.md) |
 | 61 | The cards' price line back to "from" | [build/61-card-from-price.md](build/61-card-from-price.md) |
 | 62 | The owner's web logo as the icon; the price as one line | [build/62-web-logo-icon.md](build/62-web-logo-icon.md) |
+| 63 | The 12-month membership plan, paid monthly | [build/63-twelve-month-plan.md](build/63-twelve-month-plan.md) |
+| 64 | Walk-in packages at the counter, paid up front | [build/64-walk-in-packages.md](build/64-walk-in-packages.md) |
 
 ## Decisions
 
@@ -154,6 +158,7 @@ Everything that was planned, decided and built, one file per step so each can be
 | [05 — 2026-09-14](decisions/05-2026-09-14-pos-build-decisions.md) | D46–D53: single till ✅, frozen quote, **no overstay charge (D48 revised)**, receipts, DB audit trigger, complimentary members, partial refunds |
 | [06 — 2026-09-15](decisions/06-2026-09-15-booking-site-accounts.md) | D54–D57: daily reminders ✅, three Vercel projects, confirmed-email account linking, re-showable member QR |
 | [07 — 2026-09-15](decisions/07-2026-09-15-booking-website.md) | D58–D63: venue details + photos in the back office ✅, lighter public look ✅, join online account-first ✅, memberships paid at the counter ✅, optional reason on complimentary members ✅, 30-minute sessions with free play in sessions ✅ |
+| [15 — 2026-10-29](decisions/15-2026-10-29-twelve-month-plan-walk-in-packages.md) | D114–D115: **a 12-month membership paid monthly** (12 payments then it stops, the member can't cancel; the card terminal can't do rolling payments, so rolling is by phone QR), **walk-in packages** (30 min / 1 hr / 2 hr, paid up front, priced in the back office, nothing to pay at the end) |
 | [14 — 2026-10-13](decisions/14-2026-10-13-explore-wording-happy-hour.md) | D96–D113: Explore → top of home, "x FREE RACES PER MONTH", **the cards follow the owner's mockups with the normal price big (supersedes the "from" price)**, happy hour marked in the times and the summary, the big arrive-early notice, **no refund inside 24 hours (supersedes the 50% refund)**, the owner's terms, an existing account is named on sign-up, booking 3 months ahead, booking alerts to the venue, group bookings, the happy-hour price in each slot, the members' nights line, the RG site icon, bookings from 7 November, game picking for 1-hour sessions only, **the cards' price back to "from $29.00 · 30 min" (supersedes D98's big normal price)** |
 | [13 — 2026-10-11](decisions/13-2026-10-11-idle-lock-game-lists.md) | D94–D95: **the till locks after 1 hour idle (was 5 min)**, up to 1000 tracks and 1000 cars per game (was 200) |
 | [12 — 2026-10-08](decisions/12-2026-10-08-sessions-walk-in-blocks-type.md) | D90–D93: **online bookings whole 30-minute sessions on :00/:30 (supersedes D63's 15-minute steps)**, walk-ins charged in 15-minute blocks, sizes from the mockup video, **Garet Book/Heavy (supersedes D88's fonts)** |

@@ -7,6 +7,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import Stripe from "stripe";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { termEnd } from "../src/services/billing.js";
 import { call, cleanupTestData, makeStaff, operatorToken, testContext, type TestContext, type TestStaff } from "./helpers.js";
 
 const stripeKey = inject("supabase").stripeKey;
@@ -18,6 +19,7 @@ let stripe: Stripe;
 let owner: TestStaff;
 let ownerOp: string;
 let clockId: string | null = null;
+let termClockId: string | null = null;
 const delivered = new Set<string>();
 
 async function deliver(event: Stripe.Event) {
@@ -52,10 +54,10 @@ async function deliverUntil(subscriptionId: string, customerId: string, since: n
   throw new Error(`Timed out waiting for ${wanted}`);
 }
 
-async function advanceClock(to: number) {
-  await stripe.testHelpers.testClocks.advance(clockId!, { frozen_time: to });
+async function advanceClock(to: number, id = clockId!) {
+  await stripe.testHelpers.testClocks.advance(id, { frozen_time: to });
   for (let i = 0; i < 90; i++) {
-    const clock = await stripe.testHelpers.testClocks.retrieve(clockId!);
+    const clock = await stripe.testHelpers.testClocks.retrieve(id);
     if (clock.status === "ready") return;
     if (clock.status === "internal_failure") throw new Error("Test clock failed");
     await new Promise((r) => setTimeout(r, 2000));
@@ -79,6 +81,7 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
 
   afterAll(async () => {
     if (clockId) await stripe.testHelpers.testClocks.del(clockId).catch(() => undefined);
+    if (termClockId) await stripe.testHelpers.testClocks.del(termClockId).catch(() => undefined);
     await cleanupTestData(ctx);
   });
 
@@ -255,5 +258,73 @@ describe.skipIf(!stripeKey)("membership billing with Stripe (test mode)", { time
     const { data: audit } = await ctx.db.from("audit_log").select("action").eq("entity_id", memberId).order("id");
     const actions = audit!.map((a) => a.action);
     for (const a of ["member.checkout_started", "member.invoice_paid", "member.tier_change", "member.cancel_at_period_end", "member.balance_forfeit"]) expect(actions).toContain(a);
+  });
+
+  it("runs a 12-month plan (D114): 12 monthly payments, no cancelling online, staff can end it early and undo, then it stops", { timeout: 1_200_000 }, async () => {
+    const { data: silver } = await ctx.db.from("membership_tiers").select("id, stripe_price_id, monthly_price_cents").eq("name", "Silver").single();
+
+    // The checkout the till starts for this plan carries the term to the subscription.
+    const email = `term-${run}@raceground.test`;
+    const r = await call(ctx, "/pos/memberships/checkout", { jwt: owner.jwt, operatorToken: ownerOp, body: { name: `Term ${run}`, email, tierId: silver!.id, plan: "twelve_months" } });
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const session = await stripe.checkout.sessions.retrieve(r.json.checkoutSessionId);
+    expect(session.mode).toBe("subscription");
+    await stripe.checkout.sessions.expire(r.json.checkoutSessionId);
+    const rolling = await call(ctx, "/pos/memberships/checkout", { jwt: owner.jwt, operatorToken: ownerOp, body: { name: `Roll ${run}`, email: `roll-${run}@raceground.test`, tierId: silver!.id } });
+    await stripe.checkout.sessions.expire(rolling.json.checkoutSessionId);
+    const bad = await call(ctx, "/pos/memberships/checkout", { jwt: owner.jwt, operatorToken: ownerOp, body: { name: "X", email: `x-${run}@raceground.test`, tierId: silver!.id, plan: "six_months" } });
+    expect(bad.status).toBe(422);
+    const memberId = r.json.memberId as string;
+
+    // Stripe test clock, a good card, and the subscription Checkout would create.
+    const clock = await stripe.testHelpers.testClocks.create({ frozen_time: Math.floor(Date.now() / 1000), name: `rg-term-${run}` });
+    termClockId = clock.id;
+    const customer = await stripe.customers.create({ email, name: `Term ${run}`, test_clock: clock.id });
+    const { data: row } = await ctx.db.from("members").select("customer_id").eq("id", memberId).single();
+    await ctx.db.from("customers").update({ stripe_customer_id: customer.id }).eq("id", row!.customer_id);
+    const visa = await stripe.paymentMethods.attach("pm_card_visa", { customer: customer.id });
+    await stripe.customers.update(customer.id, { invoice_settings: { default_payment_method: visa.id } });
+    const t1 = Math.floor(Date.now() / 1000);
+    const sub = await stripe.subscriptions.create({ customer: customer.id, items: [{ price: silver!.stripe_price_id! }], metadata: { member_id: memberId, tier_id: silver!.id, term_months: "12" } });
+    await deliverUntil(sub.id, customer.id, t1, "invoice.paid");
+
+    const end = termEnd(sub.billing_cycle_anchor, 12);
+    let s = await stripe.subscriptions.retrieve(sub.id);
+    expect(s.cancel_at).toBe(end);
+    let m = await member(memberId);
+    expect(m.status).toBe("active");
+    expect(Date.parse(m.term_ends_at!)).toBe(end * 1000);
+
+    // Staff end it early (at the period end) → cancelling; undoing it puts the 12-month end back.
+    const early = await admin(`/members/${memberId}/cancel`, { reason: "Moving interstate" });
+    expect(early.status, JSON.stringify(early.json)).toBe(200);
+    expect(early.json.status).toBe("cancelling");
+    s = await stripe.subscriptions.retrieve(sub.id);
+    expect(s.cancel_at).toBe(s.items.data[0]!.current_period_end);
+    const undo = await admin(`/members/${memberId}/resume`, { reason: "Staying after all" });
+    expect(undo.status, JSON.stringify(undo.json)).toBe(200);
+    expect(undo.json.status).toBe("active");
+    expect((await stripe.subscriptions.retrieve(sub.id)).cancel_at).toBe(end);
+
+    // A year on the test clock, two months at a time (Stripe's limit per step).
+    let frozen = clock.frozen_time;
+    while (frozen < end + 2 * 3600) {
+      frozen = Math.min(frozen + 59 * 86_400, end + 2 * 3600);
+      const since = Math.floor(Date.now() / 1000);
+      await advanceClock(frozen, clock.id);
+      const wanted = frozen >= end ? "customer.subscription.deleted" : "invoice.paid";
+      await deliverUntil(sub.id, customer.id, since, wanted, 180_000);
+      if (frozen < end) expect((await member(memberId)).status).toBe("active");
+    }
+
+    m = await member(memberId);
+    expect(m.status).toBe("ended");
+    const { data: payments } = await ctx.db.from("payments").select("amount_cents").eq("member_id", memberId).eq("method", "stripe");
+    expect(payments).toHaveLength(12);
+    expect(payments!.every((p) => p.amount_cents === silver!.monthly_price_cents)).toBe(true);
+    const invoices = await stripe.invoices.list({ subscription: sub.id, limit: 100 });
+    expect(invoices.data.filter((i) => i.status === "paid" && i.amount_paid > 0)).toHaveLength(12);
+    expect(invoices.data.filter((i) => i.amount_paid === 0 && i.amount_due !== 0)).toHaveLength(0);
+    expect(ctx.email.outbox.some((e) => e.template === "membership_ended" && e.to === email)).toBe(true);
   });
 });
