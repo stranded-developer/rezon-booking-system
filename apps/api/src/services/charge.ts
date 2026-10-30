@@ -3,8 +3,9 @@ import type { Json } from "@raceground/db";
 import type { AppDeps, StaffIdentity } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { getMember, getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
+import { pricePackage } from "./packages.js";
 import { checkStaffPin } from "./pin-check.js";
-import { gstOf, loadPricingContext, loadSettings, parseRange } from "./venue.js";
+import { gstOf, loadExperience, loadPricingContext, loadSettings, parseRange } from "./venue.js";
 
 /** A quote's close time stays valid this long, so the amount on the card terminal can't drift. */
 export const QUOTE_VALID_MS = 120_000;
@@ -14,11 +15,16 @@ export interface ChargeOptions {
   memberId?: string | undefined;
   referralCode?: string | undefined;
   freeMinutes?: number | undefined;
+  /** Prices the customer asks for (e.g. student), on a package paid at the end. */
+  claimedPromoIds?: string[] | undefined;
   closedAt?: string | undefined;
 }
 
-/** Booked sessions are prepaid: playing past the booking end is never charged (owner decision D48). */
-export type ChargeMode = "walk_in" | "prepaid";
+/**
+ * Booked sessions are prepaid: playing past the booking end is never charged (owner decision D48).
+ * `package`: a walk-in package paid at the end (D116) — its price at its start, never more for running over.
+ */
+export type ChargeMode = "walk_in" | "prepaid" | "package";
 
 export interface ChargeQuote {
   sessionId: string;
@@ -37,6 +43,10 @@ export interface ChargeQuote {
   member: MemberSummary | null;
   referral: ReferralSummary | null;
   maxFreeMinutes: number;
+  /** Free play is 15-minute blocks on open time (D63), whole sessions on a package (D90). */
+  freeStepMinutes: number;
+  /** Prices the customer can ask for, on a package paid at the end. */
+  claimablePromos: { id: string; name: string; priceCents: number }[];
 }
 
 export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeOptions): Promise<ChargeQuote> {
@@ -64,9 +74,35 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
 
   const booking = session.bookings as { period: unknown; member_id: string | null } | null;
   const bookingEnd = booking ? parseRange(booking.period).end : null;
-  // A walk-in package was paid when it opened (D115), so it closes like a booking.
+  // A walk-in package paid when it opened (D115) closes like a booking; one paid at the end (D116) is charged now.
   const packageEnd = session.package_ends_at ? new Date(session.package_ends_at) : null;
-  const mode: ChargeMode = bookingEnd || packageEnd ? "prepaid" : "walk_in";
+  const mode: ChargeMode = session.package_pay_at_end ? "package" : bookingEnd || packageEnd ? "prepaid" : "walk_in";
+  const resource = session.resources as { label: string; resource_type_id: string };
+
+  if (mode === "package") {
+    const exp = await loadExperience(db, session.experience_id!, "any");
+    const priced = await pricePackage(deps, exp, openedAt, opts);
+    return {
+      sessionId,
+      resourceLabel: resource.label,
+      mode,
+      openedAt: openedAt.toISOString(),
+      closedAt: closedAt.toISOString(),
+      bookingEndsAt: packageEnd!.toISOString(),
+      pricing: priced.pricing,
+      subtotalCents: priced.pricing.subtotalCents,
+      discountCents: priced.pricing.discount?.amountCents ?? 0,
+      totalCents: priced.pricing.totalCents,
+      gstCents: priced.pricing.gstCents,
+      explanation: priced.pricing.explanation,
+      member: priced.member,
+      referral: priced.referral,
+      maxFreeMinutes: priced.maxFreeMinutes,
+      freeStepMinutes: priced.freeStepMinutes,
+      claimablePromos: priced.claimablePromos,
+    };
+  }
+
   // Discounts and free play only apply to what is charged at the counter, i.e. walk-ins.
   const memberId = mode === "walk_in" ? opts.memberId : undefined;
   const referralCode = mode === "walk_in" ? opts.referralCode : undefined;
@@ -84,7 +120,6 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
   }
 
   const settings = await loadSettings(db);
-  const resource = session.resources as { label: string; resource_type_id: string };
   const requestedFree = mode === "prepaid" ? 0 : (opts.freeMinutes ?? 0);
   if (requestedFree > 0 && !member) throw new ApiError(422, "validation_failed", "Free minutes need a member");
   if (member && requestedFree > member.balanceMinutes) {
@@ -128,6 +163,8 @@ export async function quoteClose(deps: AppDeps, sessionId: string, opts: ChargeO
     member,
     referral,
     maxFreeMinutes: member && pricing ? Math.min(member.balanceMinutes, pricing.billedMinutes) : 0,
+    freeStepMinutes: 15,
+    claimablePromos: [],
   };
 }
 
@@ -274,7 +311,7 @@ export async function buildReceipt(deps: AppDeps, sessionId: string): Promise<Re
   const s = sessionRes.data;
   if (!s) throw new ApiError(404, "not_found", "Session not found");
   // A walk-in package has its receipt from the moment it's paid for, while it's still being played (D115).
-  if (s.status === "open" && !s.experience_id) throw new ApiError(409, "session_open", "This session has not been closed yet");
+  if (s.status === "open" && (!s.experience_id || s.package_pay_at_end)) throw new ApiError(409, "session_open", "This session has not been closed yet");
 
   const snap = (s.pricing_snapshot ?? {}) as Snapshot;
   const total = s.total_cents ?? paymentRes.data?.amount_cents ?? 0;

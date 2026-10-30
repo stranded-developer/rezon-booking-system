@@ -9,6 +9,14 @@ import { formatCents } from "@/lib/format";
 import type { Experience, PublicConfig } from "@/lib/types";
 import { Badge, Button, ButtonLink, Card, Checkers, Notice, Spinner } from "@/components/ui";
 
+type Plan = "monthly" | "twelve_months";
+
+/** What each plan means, in the member's words. Monthly is the default (D114). */
+const PLANS: { id: Plan; name: string; detail: string }[] = [
+  { id: "monthly", name: "Monthly, until you cancel", detail: "Renews every month with no end date. Cancel any time in your account." },
+  { id: "twelve_months", name: "12 months, paid monthly", detail: "12 monthly payments, then it stops by itself. It can't be cancelled during the 12 months." },
+];
+
 /** Joining online is account first (D60): the membership needs a login for the QR, balance and billing. */
 export function MembershipView() {
   const router = useRouter();
@@ -17,6 +25,7 @@ export function MembershipView() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [plan, setPlan] = useState<Plan>("monthly");
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +45,7 @@ export function MembershipView() {
     setBusy(tierId);
     setError(null);
     try {
-      const r = await request<{ checkoutUrl: string }>("/me/membership/checkout", { body: { tierId } });
+      const r = await request<{ checkoutUrl: string }>("/me/membership/checkout", { body: { tierId, plan } });
       window.location.assign(r.checkoutUrl);
     } catch (err) {
       setError(errorMessage(err));
@@ -106,6 +115,36 @@ export function MembershipView() {
           <div aria-hidden className="mt-4 h-1 w-24 rounded-full bg-gold" />
         </Reveal>
 
+        {!member?.eligible ? (
+          <div className="mt-8">
+            <div role="group" aria-label="Choose your plan" className="grid gap-3 sm:grid-cols-2">
+              {PLANS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={plan === p.id}
+                  onClick={() => setPlan(p.id)}
+                  className={`flex gap-3 rounded-2xl border-2 p-4 text-left transition focus-visible:outline-offset-2 ${plan === p.id ? "border-flag bg-flag/10" : "border-line bg-paper/70 hover:border-ink-500"}`}
+                >
+                  <span
+                    aria-hidden
+                    className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border-2 ${plan === p.id ? "border-flag" : "border-ink-500"}`}
+                  >
+                    {plan === p.id ? <span className="size-2.5 rounded-full bg-flag" /> : null}
+                  </span>
+                  <span>
+                    <span className="display block text-lg">{p.name}</span>
+                    <span className="mt-1 block text-sm text-ink-600">{p.detail}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-ink-600" data-testid="plan-note">
+              Same monthly price on both plans. If you don&apos;t choose the 12-month plan, your membership renews every month, with no end date, until you cancel.
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {tiers.map((tier, i) => (
             <Reveal key={tier.id} delayMs={i * 90}>
@@ -138,6 +177,7 @@ export function MembershipView() {
           <Card title="How joining works">
             <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-600">
               <li>Create an account and confirm your email — that keeps your membership yours.</li>
+              <li>Choose monthly (renews every month until you cancel) or 12 months (stops by itself after 12 payments).</li>
               <li>Pay securely on Stripe. Your card is stored by Stripe, never by us.</li>
               <li>Your discount, free play and member QR appear in your account straight away.</li>
             </ol>

@@ -67,13 +67,20 @@ adminMemberRoutes.get("/members/:id", validate("param", Id), async (c) => {
   if (error) throw mapDbError(error);
   const { data: row, error: rowError } = await db.from("members").select("current_period_end, term_ends_at, pending_tier_id, stripe_subscription_id").eq("id", id).single();
   if (rowError) throw mapDbError(rowError);
+  // A counter sale (D61) leaves its till payment on the free-play grant; anything else without Stripe is complimentary.
+  const { count: counterGrants, error: grantError } = await db
+    .from("member_balance_ledger")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", id)
+    .not("payment_id", "is", null);
+  if (grantError) throw mapDbError(grantError);
   return c.json({
     member: {
       ...member,
       currentPeriodEnd: row.current_period_end,
       termEndsAt: row.term_ends_at,
       pendingTierId: row.pending_tier_id,
-      billing: row.stripe_subscription_id ? "stripe" : "complimentary",
+      billing: row.stripe_subscription_id ? "stripe" : counterGrants ? "counter" : "complimentary",
     },
     ledger: ledger.map((l) => ({ ...l, actor: (l.actor as { display_name: string } | null)?.display_name ?? null })),
   });

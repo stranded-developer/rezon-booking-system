@@ -9,6 +9,8 @@ export function runningPrice(tile: FloorTile, config: PosConfig, nowMs: number):
   if (!tile.session) return null;
   const type = config.resourceTypes.find((t) => t.key === tile.typeKey);
   if (!type) return null;
+  // A package paid at the end shows its list price (D116); the till applies Happy Hour and discounts at close.
+  if (tile.session.packagePayAtEnd) return config.packages.find((p) => p.id === tile.session!.packageId)?.priceCents ?? null;
   // Bookings and walk-in packages are prepaid and never charged for running over (D48, D115).
   if (tile.session.bookingEndsAt) return 0;
   const start = Date.parse(tile.session.openedAt);

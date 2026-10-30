@@ -113,6 +113,9 @@ export function AccountView() {
               <Row label={member.status === "cancelling" ? "Benefits end" : "Renews"} value={formatVenueDate(member.currentPeriodEnd.slice(0, 10))} />
             ) : null}
             {fixedTerm && member.termEndsAt ? <Row label="12-month plan" value={`Last payment covers until ${formatVenueDate(member.termEndsAt.slice(0, 10))}`} /> : null}
+            {member.billedOnline && !fixedTerm && member.status !== "cancelling" && member.status !== "ended" ? (
+              <Row label="Plan" value="Monthly — renews every month until you cancel" />
+            ) : null}
             {member.pendingTier ? <Row label="Changing to" value={`${member.pendingTier.name} at the next renewal`} /> : null}
             <Row label="Free play" value={formatMinutes(member.balanceMinutes)} strong />
           </div>

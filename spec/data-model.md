@@ -278,6 +278,7 @@ sessions
   pricing_snapshot jsonb, total_cents, gst_cents
   experience_id    → experiences null   -- a walk-in package, paid when opened (D115)
   package_ends_at  timestamptz null     -- set with experience_id; after opened_at; walk-ins only
+  package_pay_at_end boolean default false -- the package is charged when it closes (D116); only with experience_id
   closed_in_shift_id → shifts null   -- the till open when it was closed (per-shift reporting)
   void_reason
 
@@ -378,7 +379,8 @@ price_overrides
 | `pos_open_shift`, `pos_cash_movement`, `pos_shift_totals`, `pos_close_shift` | Shared till: open with float, paid in/out with reason, expected cash/card totals, close with variances and flagging (refused while sessions are open). |
 | `pos_open_walk_in`, `pos_arrive_booking`, `pos_mark_no_show` | Opening hours and last-open check, booked-now check, one open session per resource; check-in from 15 min before start; no-show after the hold. |
 | `pos_open_package(staff, p)` | A walk-in package (D115), one transaction: package sold at the counter and for this kind of table; ends by closing time; no live booking on the table before it ends; member active / free play in whole sessions within the balance / member XOR referral; tender rules (open till for money); opens the walk-in (same checks as `pos_open_walk_in`), records the package and its end, payment on the session, cash movement, ledger use, referral use + redemption, audit. The API prices it with `priceExperience`. |
-| `pos_close_session(session, staff, payload)` | A package session closes with nothing more to pay (its total is what was paid when it opened). Otherwise one transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
+| `pos_open_package_pay_at_end(staff, p)` | D116: the package checks of `pos_open_package` (sold at the counter, kind of table, closing time, bookings), then opens the walk-in with its end and `package_pay_at_end`. No money. API only. |
+| `pos_close_session(session, staff, payload)` | A package paid at the end (D116) is charged like open time (free play also whole sessions, at most the package). A package paid up front closes with nothing more to pay (its total is what was paid when it opened). Otherwise one transaction: re-checks session/member/referral (row locks), increments referral use, tender rules, closes session, completes booking, ledger use, payment, cash movement, redemption, override, audit. |
 | `pos_void_session` | Open walk-in: void. Open package: refunded like a closed session. Closed: full refund of the remaining payment (cash-out movement for cash), return free minutes, void, audit. |
 | `admin_create_member`, `admin_adjust_balance`, `admin_reissue_qr`, `admin_set_tier_price` | Complimentary member (customer + member + audit); ± balance with reason (can't go negative); card reissue by token hash; tier price + `tier_prices` history. |
 | `tournament_spots_left(tournament, now)` | Spots minus confirmed entries and live holds. |

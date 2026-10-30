@@ -134,6 +134,15 @@ test("clothing is coming soon, and the membership page is the poster", async ({ 
   await expect(gold).toContainText("$28");
   await expect(page.getByRole("article").filter({ hasText: "Silver" })).toContainText("$32");
   await expect(page.getByText("What you'd pay")).toHaveCount(0);
+  // D114: monthly until cancelled is the default; 12 months is a choice, and the page says what happens if it isn't made.
+  const plans = page.getByRole("group", { name: "Choose your plan" });
+  await expect(plans.getByRole("button", { name: /Monthly, until you cancel/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("plan-note")).toContainText("If you don't choose the 12-month plan, your membership renews every month, with no end date, until you cancel.");
+  await plans.getByRole("button", { name: /12 months, paid monthly/ }).click();
+  await expect(plans.getByRole("button", { name: /12 months, paid monthly/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(plans).toContainText("It can't be cancelled during the 12 months.");
+  await page.mouse.move(0, 0);
+  await plans.screenshot({ path: "test-results/screens/web-16-membership-plans.png" });
   await shot(page, "web-15-membership-poster");
 });
 

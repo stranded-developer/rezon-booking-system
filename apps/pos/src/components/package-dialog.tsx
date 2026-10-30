@@ -13,7 +13,8 @@ type Method = "cash" | "card_terminal";
 /**
  * A walk-in package (D115): a set length at the package's price, paid now, before the table starts.
  * Priced like an online booking — promotions, the member's price, free play in whole sessions, or a
- * referral code — and closed later with nothing more to pay.
+ * referral code — and closed later with nothing more to pay. Or paid at the end (D116): the table
+ * starts now, and the close screen charges the package's price, with the member card or code given then.
  */
 export function PackageDialog({
   resourceId,
@@ -45,7 +46,8 @@ export function PackageDialog({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ receipt: Receipt; changeCents: number; endsAt: string } | null>(null);
+  const [payAtEnd, setPayAtEnd] = useState(false);
+  const [done, setDone] = useState<{ receipt: Receipt | null; changeCents: number; endsAt: string } | null>(null);
   const scanRef = useRef<HTMLInputElement>(null);
 
   type Options = { memberId?: string | undefined; referralCode?: string | undefined; freeMinutes?: number; claimedPromoIds?: string[] };
@@ -133,7 +135,23 @@ export function PackageDialog({
     .filter((c) => c >= totalCents)
     .sort((a, b) => a - b)
     .slice(0, 5);
-  const canPay = quote !== null && !busy && (!needsMoney || hasShift) && (!needsMoney || method === "card_terminal" || (tenderedCents !== null && tenderedCents >= totalCents));
+  const canPay =
+    quote !== null &&
+    !busy &&
+    (payAtEnd || ((!needsMoney || hasShift) && (!needsMoney || method === "card_terminal" || (tenderedCents !== null && tenderedCents >= totalCents))));
+
+  /** D116: the member card, code and free play are given at the end, so switching clears them. */
+  function choosePayAtEnd(next: boolean) {
+    if (next === payAtEnd) return;
+    setPayAtEnd(next);
+    if (next && (member || referralCode || freeMinutes || claimed.length)) {
+      setMember(null);
+      setReferralCode(null);
+      setFreeMinutes(0);
+      setClaimed([]);
+      void fetchQuote({});
+    }
+  }
 
   async function pay() {
     if (!quote) return;
@@ -141,8 +159,8 @@ export function PackageDialog({
     setError(null);
     setNotice(null);
     try {
-      const r = await api<{ receipt: Receipt; changeCents: number; endsAt: string }>("/pos/packages", {
-        body: {
+      const r = await api<{ receipt: Receipt | null; changeCents: number; endsAt: string }>("/pos/packages", {
+        body: payAtEnd ? { resourceId, experienceId: pkg.id, payAtEnd: true } : {
           resourceId,
           experienceId: pkg.id,
           ...current,
@@ -171,7 +189,7 @@ export function PackageDialog({
     return (
       <Modal title={`${title} — ${pkg.name} started`} onClose={onDone}>
         <div className="space-y-5" data-testid="package-started">
-          {done.receipt.tenderedCents !== null ? (
+          {done.receipt && done.receipt.tenderedCents !== null ? (
             <div className="rounded-xl bg-flag p-4 text-center text-ink-950">
               <div className="text-sm font-semibold uppercase">Change due</div>
               <div className="tnum text-5xl font-black">{money(done.changeCents)}</div>
@@ -179,15 +197,22 @@ export function PackageDialog({
           ) : null}
           <p className="rounded-xl bg-ink-850 p-4 text-center text-lg">
             Time is up at <span className="font-bold">{timeIn(done.endsAt, tz)}</span>
+            {done.receipt ? null : <span className="mt-1 block text-sm text-ink-200">They pay when they finish — tap the table and Close &amp; pay.</span>}
           </p>
-          <div className="rounded-xl bg-white p-4 text-black">
-            <ReceiptBody receipt={done.receipt} />
-          </div>
-          <PrintableReceipt receipt={done.receipt} />
+          {done.receipt ? (
+            <>
+              <div className="rounded-xl bg-white p-4 text-black">
+                <ReceiptBody receipt={done.receipt} />
+              </div>
+              <PrintableReceipt receipt={done.receipt} />
+            </>
+          ) : null}
           <div className="flex gap-2">
-            <Button className="flex-1" size="lg" onClick={() => window.print()}>
-              Print receipt
-            </Button>
+            {done.receipt ? (
+              <Button className="flex-1" size="lg" onClick={() => window.print()}>
+                Print receipt
+              </Button>
+            ) : null}
             <Button className="flex-1" size="lg" variant="primary" onClick={onDone}>
               Done
             </Button>
@@ -202,6 +227,10 @@ export function PackageDialog({
     <Modal title={`${title} · ${pkg.name}`} onClose={onCancel} wide>
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-5">
+          {payAtEnd ? (
+            <p className="rounded-xl bg-ink-850 p-4 text-sm text-ink-200">Member card, referral code, free play or a student price are given when the table closes.</p>
+          ) : (
+          <>
           <Field label="Member card, referral code or search" hint="Optional. Scan, or type a code / name / phone and press Enter">
             <Input ref={scanRef} value={scan} onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => void onScanKey(e)} placeholder="Scan or type…" />
           </Field>
@@ -304,6 +333,8 @@ export function PackageDialog({
               </div>
             </fieldset>
           ) : null}
+          </>
+          )}
 
           <div className="rounded-xl bg-ink-850 p-4">
             {quote ? (
@@ -320,17 +351,35 @@ export function PackageDialog({
         </div>
 
         <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="When they pay">
+            {([false, true] as const).map((later) => (
+              <button
+                key={String(later)}
+                type="button"
+                aria-pressed={payAtEnd === later}
+                onClick={() => choosePayAtEnd(later)}
+                className={`h-12 rounded-xl font-semibold ring-2 ${payAtEnd === later ? "bg-flag text-ink-950 ring-flag" : "bg-ink-800 ring-ink-700"}`}
+              >
+                {later ? "Pay at the end" : "Pay now"}
+              </button>
+            ))}
+          </div>
+
           <div className="rounded-xl bg-ink-850 p-5 text-center">
-            <div className="text-xs font-semibold uppercase tracking-widest text-ink-400">Pay now</div>
+            <div className="text-xs font-semibold uppercase tracking-widest text-ink-400">{payAtEnd ? "To pay at the end" : "Pay now"}</div>
             <div className="tnum text-5xl font-black" data-testid="package-total">
               {money(totalCents)}
             </div>
-            {quote ? <div className="mt-1 text-sm text-ink-200">Until {timeIn(quote.endsAt, tz)} if started now · nothing to pay at the end</div> : null}
+            {quote ? (
+              <div className="mt-1 text-sm text-ink-200">
+                Until {timeIn(quote.endsAt, tz)} if started now · {payAtEnd ? "nothing extra for running over" : "nothing to pay at the end"}
+              </div>
+            ) : null}
           </div>
 
-          {needsMoney && !hasShift ? <ErrorNote error="Open the till before taking payment." /> : null}
+          {!payAtEnd && needsMoney && !hasShift ? <ErrorNote error="Open the till before taking payment." /> : null}
 
-          {needsMoney ? (
+          {!payAtEnd && needsMoney ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 {(["card_terminal", "cash"] as const).map((m) => (
@@ -370,7 +419,7 @@ export function PackageDialog({
           <ErrorNote error={error} />
 
           <Button variant="primary" size="lg" className="w-full" disabled={!canPay} onClick={() => void pay()}>
-            {busy ? "Working…" : needsMoney ? `Take ${money(totalCents)} ${method === "cash" ? "cash" : "by card"} and start` : "Start"}
+            {busy ? "Working…" : payAtEnd ? "Start — pay at the end" : needsMoney ? `Take ${money(totalCents)} ${method === "cash" ? "cash" : "by card"} and start` : "Start"}
           </Button>
         </div>
       </div>

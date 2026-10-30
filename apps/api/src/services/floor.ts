@@ -29,8 +29,11 @@ export interface FloorTile {
     bookingId: string | null;
     /** When a booking, or a walk-in package (D115), runs out. Null for open time. */
     bookingEndsAt: string | null;
-    /** The walk-in package being played, paid up front (D115). */
+    /** The walk-in package being played (D115). */
     packageName: string | null;
+    packageId: string | null;
+    /** The package is paid when the table closes (D116). */
+    packagePayAtEnd: boolean;
   } | null;
   currentBooking: FloorBooking | null;
   nextBooking: FloorBooking | null;
@@ -58,7 +61,7 @@ export async function getFloor(deps: AppDeps) {
     db.from("resources").select("id, label, sort, resource_types!inner(key, name, sort, active)").eq("active", true),
     db
       .from("sessions")
-      .select("id, resource_id, kind, opened_at, booking_id, package_ends_at, opener:staff!sessions_opened_by_fkey(display_name), bookings(period), experiences(name)")
+      .select("id, resource_id, kind, opened_at, booking_id, package_ends_at, package_pay_at_end, experience_id, opener:staff!sessions_opened_by_fkey(display_name), bookings(period), experiences(name)")
       .eq("status", "open"),
     db
       .from("bookings")
@@ -130,6 +133,8 @@ export async function getFloor(deps: AppDeps) {
               bookingId: raw.booking_id,
               bookingEndsAt: bookingEnd?.toISOString() ?? null,
               packageName: (raw.experiences as { name: string } | null)?.name ?? null,
+              packageId: raw.experience_id,
+              packagePayAtEnd: raw.package_pay_at_end,
             }
           : null,
         currentBooking: current?.booking ?? null,

@@ -91,6 +91,9 @@ export interface FloorTile {
     /** When a booking or a walk-in package runs out; null for open time. */
     bookingEndsAt: string | null;
     packageName: string | null;
+    packageId: string | null;
+    /** The package is paid when the table closes (D116). */
+    packagePayAtEnd: boolean;
   } | null;
   currentBooking: FloorBooking | null;
   nextBooking: FloorBooking | null;
@@ -138,7 +141,8 @@ export interface ReferralSummary {
 export interface Quote {
   sessionId: string;
   resourceLabel: string;
-  mode: "walk_in" | "prepaid";
+  /** package: a walk-in package paid at the end (D116). */
+  mode: "walk_in" | "prepaid" | "package";
   openedAt: string;
   closedAt: string;
   bookingEndsAt: string | null;
@@ -151,6 +155,8 @@ export interface Quote {
   member: MemberSummary | null;
   referral: ReferralSummary | null;
   maxFreeMinutes: number;
+  freeStepMinutes: number;
+  claimablePromos: { id: string; name: string; priceCents: number }[];
 }
 
 export interface Receipt {

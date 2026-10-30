@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { toLocal } from "@raceground/pricing";
 import { loadFixture, localSupabase, money } from "./fixture";
 
-test("a walk-in package is paid up front, shows its end time, and closes with nothing to pay (D115)", async ({ page }) => {
+test("a walk-in package is paid up front and closes with nothing to pay (D115), or is paid at the end (D116)", async ({ page }) => {
   const f = loadFixture();
   const local = toLocal(Date.now(), "Australia/Sydney");
   test.skip(local.minuteOfDay < 10 * 60 || local.minuteOfDay >= 20 * 60 + 45, `Walk-ins are only possible 10:00–20:45 Sydney time (now ${local.label})`);
@@ -58,12 +58,42 @@ test("a walk-in package is paid up front, shows its end time, and closes with no
     await page.getByRole("button", { name: "Done" }).click();
     await expect(tile).toContainText("Free");
 
+    // D116: the same package, paid at the end.
+    await tile.click();
+    await page.getByTestId("package-option").filter({ hasText: "Half hour" }).click();
+    await dialog.getByRole("button", { name: "Pay at the end" }).click();
+    await expect(dialog).toContainText("To pay at the end");
+    await expect(dialog).toContainText("given when the table closes");
+    await expect(dialog.getByRole("button", { name: "Cash", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: "test-results/screens/package-03-pay-at-end.png" });
+    await dialog.getByRole("button", { name: "Start — pay at the end" }).click();
+    await expect(page.getByTestId("package-started")).toContainText("They pay when they finish");
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(tile).toContainText("Half hour until");
+    await expect(tile).toContainText("≈ $14.50");
+
+    await tile.click();
+    await expect(page.getByRole("dialog")).toContainText("Half hour (pay at the end)");
+    await page.getByRole("button", { name: "Close & pay" }).click();
+    await expect(dialog).toContainText("Package price — nothing extra for running over");
+    await expect(dialog.locator(".text-5xl").first()).toHaveText("$14.50");
+    await page.screenshot({ path: "test-results/screens/package-04-close.png" });
+    await dialog.getByRole("button", { name: "Cash", exact: true }).click();
+    await dialog.getByLabel("Cash received").fill("20.00");
+    await dialog.getByRole("button", { name: "Take $14.50 cash" }).click();
+    await expect(page.getByText("Change due").locator("..")).toContainText("$5.50");
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(tile).toContainText("Free");
+
     const { data: payments } = await db.from("payments").select("method, amount_cents, sessions!inner(experience_id)").eq("sessions.experience_id", pkg!.id);
-    expect(payments).toEqual([{ method: "cash", amount_cents: 1450, sessions: { experience_id: pkg!.id } }]);
+    expect(payments).toEqual([
+      { method: "cash", amount_cents: 1450, sessions: { experience_id: pkg!.id } },
+      { method: "cash", amount_cents: 1450, sessions: { experience_id: pkg!.id } },
+    ]);
 
     // Close the till with the exact count.
     await header.getByRole("button", { name: /Till open/ }).click();
-    await page.getByLabel("Cash counted in drawer").fill("214.50");
+    await page.getByLabel("Cash counted in drawer").fill("229.00");
     await page.getByLabel("CommBank terminal end-of-day total").fill("0.00");
     await page.getByRole("button", { name: "Close till" }).click();
     await expect(page.getByText("Cash variance").locator("..")).toContainText("$0.00");

@@ -4,12 +4,13 @@ import type { AppDeps, StaffIdentity } from "../context.js";
 import { ApiError, mapDbError } from "../errors.js";
 import { buildReceipt, type Tender } from "./charge.js";
 import { getMember, getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
-import { gstOf, loadExperience, loadPromos, loadSettings } from "./venue.js";
+import { gstOf, loadExperience, loadSettings } from "./venue.js";
 
 /**
  * Walk-in packages (D115): an experience sold at the counter — a fixed length at a flat price, paid
- * before the table starts. Priced exactly as online (priceExperience): promotions such as Happy Hour,
- * the member's flat price or percentage, free play pro rata, or a referral code.
+ * before the table starts or, if the customer prefers, when it closes (D116). Priced exactly as online
+ * (priceExperience) at its start time: promotions such as Happy Hour, the member's flat price or
+ * percentage, free play pro rata, or a referral code.
  */
 
 export interface PackageOptions {
@@ -60,8 +61,7 @@ export async function counterPackages(deps: AppDeps) {
 export async function quotePackage(deps: AppDeps, opts: PackageOptions): Promise<PackageQuote> {
   const { db, clock } = deps;
   const now = clock.now();
-  const [settings, exp, resourceRes] = await Promise.all([
-    loadSettings(db),
+  const [exp, resourceRes] = await Promise.all([
     loadExperience(db, opts.experienceId, "counter"),
     db.from("resources").select("id, label, resource_type_id, active").eq("id", opts.resourceId).maybeSingle(),
   ]);
@@ -72,6 +72,43 @@ export async function quotePackage(deps: AppDeps, opts: PackageOptions): Promise
     throw new ApiError(422, "package_unavailable", "That package is for a different kind of table");
   }
 
+  const priced = await pricePackage(deps, exp, now, opts);
+  return {
+    resourceId: resource.id,
+    resourceLabel: resource.label,
+    experienceId: exp.experience.id,
+    name: exp.experience.name,
+    minutes: exp.experience.minutes,
+    startsAt: now.toISOString(),
+    endsAt: new Date(now.getTime() + exp.experience.minutes * 60_000).toISOString(),
+    ...priced,
+    subtotalCents: priced.pricing.subtotalCents,
+    discountCents: priced.pricing.discount?.amountCents ?? 0,
+    totalCents: priced.pricing.totalCents,
+    gstCents: priced.pricing.gstCents,
+    explanation: priced.pricing.explanation,
+  };
+}
+
+export interface PricedPackage {
+  pricing: PriceResult;
+  member: MemberSummary | null;
+  referral: ReferralSummary | null;
+  freeStepMinutes: number;
+  maxFreeMinutes: number;
+  claimablePromos: { id: string; name: string; priceCents: number }[];
+}
+
+/** Price a package that starts (or started) at `startAt`, with the customer's member card, code and free play. */
+export async function pricePackage(
+  deps: AppDeps,
+  exp: Awaited<ReturnType<typeof loadExperience>>,
+  startAt: Date,
+  opts: Omit<PackageOptions, "resourceId" | "experienceId">,
+): Promise<PricedPackage> {
+  const { db, clock } = deps;
+  const now = clock.now();
+  const settings = await loadSettings(db);
   if (opts.memberId && opts.referralCode) {
     throw new ApiError(422, "member_and_referral", "A membership and a referral code cannot be used together");
   }
@@ -107,7 +144,7 @@ export async function quotePackage(deps: AppDeps, opts: PackageOptions): Promise
   let pricing: PriceResult;
   try {
     pricing = priceExperience({
-      startAt: now.getTime(),
+      startAt: startAt.getTime(),
       timeZone: settings.timezone,
       experience: exp.experience,
       promos: exp.promos,
@@ -123,35 +160,29 @@ export async function quotePackage(deps: AppDeps, opts: PackageOptions): Promise
 
   const maxFree = member ? Math.min(member.balanceMinutes, exp.experience.minutes) : 0;
   return {
-    resourceId: resource.id,
-    resourceLabel: resource.label,
-    experienceId: exp.experience.id,
-    name: exp.experience.name,
-    minutes: exp.experience.minutes,
-    startsAt: now.toISOString(),
-    endsAt: new Date(now.getTime() + exp.experience.minutes * 60_000).toISOString(),
     pricing,
-    subtotalCents: pricing.subtotalCents,
-    discountCents: pricing.discount?.amountCents ?? 0,
-    totalCents: pricing.totalCents,
-    gstCents: pricing.gstCents,
-    explanation: pricing.explanation,
     member,
     referral,
     freeStepMinutes: step,
     maxFreeMinutes: maxFree - (maxFree % step),
-    claimablePromos: (await loadPromos(db, [exp.experience.id])).filter((p) => p.claimed).map((p) => ({ id: p.id, name: p.name, priceCents: p.priceCents })),
+    claimablePromos: exp.promos.filter((p) => p.claimed).map((p) => ({ id: p.id, name: p.name, priceCents: p.priceCents })),
   };
 }
 
-export interface OpenPackageRequest extends PackageOptions {
-  /** The total the till showed; refused if the price has changed since (e.g. Happy Hour just ended). */
-  expectedTotalCents: number;
-  tender: Tender;
-}
+export type OpenPackageRequest = PackageOptions &
+  (
+    | {
+        payAtEnd?: false | undefined;
+        /** The total the till showed; refused if the price has changed since (e.g. Happy Hour just ended). */
+        expectedTotalCents: number;
+        tender: Tender;
+      }
+    | { payAtEnd: true }
+  );
 
-/** Take the money and start the table, in one transaction. */
+/** Take the money and start the table, in one transaction; or start it to be paid at the end (D116). */
 export async function openPackage(deps: AppDeps, operator: StaffIdentity, req: OpenPackageRequest) {
+  if (req.payAtEnd) return openPackagePayAtEnd(deps, operator, req);
   const quote = await quotePackage(deps, req);
   if (req.expectedTotalCents !== quote.totalCents) {
     throw new ApiError(409, "quote_changed", "The price has changed. Check the new amount before taking payment.", { totalCents: quote.totalCents });
@@ -193,4 +224,29 @@ export async function openPackage(deps: AppDeps, operator: StaffIdentity, req: O
   if (error) throw mapDbError(error);
   const result = data as { sessionId: string; endsAt: string; changeCents: number; receiptNo: number | null };
   return { sessionId: result.sessionId, endsAt: new Date(result.endsAt).toISOString(), changeCents: result.changeCents, receipt: await buildReceipt(deps, result.sessionId) };
+}
+
+/**
+ * D116: start the package now and charge it when the table closes. The member, code and free play are
+ * given at the end, like open time, so none are taken here.
+ */
+async function openPackagePayAtEnd(deps: AppDeps, operator: StaffIdentity, req: PackageOptions) {
+  const quote = await quotePackage(deps, { resourceId: req.resourceId, experienceId: req.experienceId });
+  const { data, error } = await deps.db.rpc("pos_open_package_pay_at_end", {
+    p_staff: operator.id,
+    p: {
+      resourceId: quote.resourceId,
+      experienceId: quote.experienceId,
+      now: quote.startsAt,
+      pricing: {
+        mode: "package",
+        payAtEnd: true,
+        package: { id: quote.experienceId, name: quote.name, minutes: quote.minutes, endsAt: quote.endsAt },
+        listTotalCents: quote.totalCents,
+      },
+    } as unknown as Json,
+  });
+  if (error) throw mapDbError(error);
+  const result = data as { sessionId: string; endsAt: string };
+  return { sessionId: result.sessionId, endsAt: new Date(result.endsAt).toISOString(), changeCents: 0, receipt: null };
 }

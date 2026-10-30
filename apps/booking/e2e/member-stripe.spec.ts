@@ -69,7 +69,10 @@ test("someone joins Silver online: account first, then pays on Stripe", async ({
 
   // ── Pay for Silver on Stripe ──────────────────────────────────────────────
   await page.getByRole("link", { name: "See the tiers" }).click();
+  // Nothing chosen means monthly, until cancelled (D114).
+  const checkout = page.waitForRequest((r) => r.url().endsWith("/me/membership/checkout"));
   await page.getByRole("button", { name: "Join Silver" }).click();
+  expect((await checkout).postDataJSON()).toMatchObject({ plan: "monthly" });
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 60_000 });
   await expect(page.getByText(/Silver/).first()).toBeVisible();
   await page.getByPlaceholder("1234 1234 1234 1234").fill("4242424242424242");
@@ -91,6 +94,7 @@ test("someone joins Silver online: account first, then pays on Stripe", async ({
   // The month's free minutes, granted with the first invoice.
   await expect(page.getByText(formatMinutes(silver!.monthly_free_minutes))).toBeVisible();
   await expect(page.getByRole("button", { name: "Card and invoices" })).toBeVisible();
+  await expect(page.getByText("Monthly — renews every month until you cancel")).toBeVisible();
   await shot(page, "web-11-membership-active");
 
   // The membership is real in the database, billed through Stripe.

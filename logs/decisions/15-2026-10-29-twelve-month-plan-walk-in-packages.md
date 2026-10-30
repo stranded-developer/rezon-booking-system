@@ -1,4 +1,4 @@
-# Decisions — 2026-10-29: the 12-month membership plan, walk-in packages
+# Decisions — 2026-10-29/30: the 12-month membership plan, walk-in packages
 
 ## D114 — A 12-month membership paid monthly: 12 payments, then it stops ✅ owner 2026-10-29
 
@@ -43,3 +43,17 @@
 **Worth knowing:**
 - Billiard packages have no Happy Hour price unless one is added to them in the back office. The tables' hourly happy-hour rate (the $20 rate band) applies to open time only.
 - Counter-only packages are never listed or bookable on the website.
+
+## D116 — Packages can be paid at the end; the 12-month plan on the website; "monthly until cancelled" said plainly ✅ owner 2026-10-30
+
+**Asked:** "can we add option of pay now or pay at the end for walk ins package" · "add the optional 12 month plan on the website, also on the backoffice and website make it clear if the months for membership are not picked it will run nonstop monthly recurring" · "close the leftover program".
+
+**Decision (sensible defaults, not asked back — tell the owner):**
+- **Packages:** the package screen has **Pay now** (D115, as before) and **Pay at the end**. Paid at the end:
+  - the table starts at once with the package's end time; the same refusals (closing time, a booking on the table);
+  - closing charges the **package's price at the time it started** (Happy Hour counts if it started in Happy Hour), with the member card, free play, student price or referral code given at the end, like open time;
+  - **running over is not charged**, as with a package paid up front (D115's "no overrun charge");
+  - a void refunds nothing, as nothing was paid.
+- **Website:** the membership page offers **Monthly, until you cancel** (preselected) and **12 months, paid monthly**, with the note that without the 12-month plan it renews every month with no end date until cancelled. The account shows which plan.
+- **Back office and till:** each member is labelled *Monthly, until cancelled*, *12-month plan*, *Paid at the counter* (doesn't renew) or *Complimentary*; the till's plan note says monthly is the default with no end date, and counter months "paid now, doesn't renew".
+- Fixed along the way: a member who paid at the counter used to be labelled "Complimentary" in the back office.

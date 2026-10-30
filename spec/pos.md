@@ -53,6 +53,7 @@ A grid of resource tiles grouped by type. Each tile shows:
 - **Refused when:** any walk-in would be; it would run **past closing time**; a booking (held, confirmed or arrived) on that table starts before it would end.
 - The tile shows "<package> until 17:00". At the end the **time-up pop-up** appears (as for a booking) and **closing takes nothing more**, however late (D48). Closing early refunds nothing.
 - A receipt is printed at payment. **Void** (superadmin) refunds what was paid and returns the free play.
+- **Or paid at the end (D116):** the package screen has **Pay now / Pay at the end**. Paid at the end, the table starts at once with the package's end time (same refusals as above) and no money or receipt. The tile shows "<package> until 17:00 ≈ $list price" and the dialog "(pay at the end)". **Close & pay** charges the package's price **at its start time** (so Happy Hour counts if it started in Happy Hour), with the member card, free play (whole sessions, up to the package's length), a student price or a referral code given then, plus the usual price override. Running over still costs nothing more. Void refunds nothing (nothing was paid).
 
 ### Open from a booking (arrival handoff)
 - **Today's bookings** list: search by ref, name, email or phone, or scan the booking QR (`rg:b:<ref>`).

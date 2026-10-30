@@ -48,7 +48,7 @@ export default function MembersPage() {
     <>
       <PageHeader
         title="Members"
-        description="Look up members, adjust free-play balances and reissue cards. Paid memberships arrive with online billing; here you can add complimentary ones."
+        description="Look up members, adjust free-play balances and reissue cards. Memberships sold online or at the till appear here; you can also add complimentary ones."
         actions={
           <Button variant="primary" onClick={() => setCreating(true)}>
             Add complimentary member
@@ -208,7 +208,9 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
               <Badge tone="blue">
                 {m.tierName} · {percent(m.discountBp)} off
               </Badge>
-              <Badge tone="grey">{m.billing === "stripe" ? "Paid online" : "Complimentary"}</Badge>
+              <Badge tone="grey">
+                {m.billing === "stripe" ? (m.termEndsAt ? "12-month plan" : "Monthly, until cancelled") : m.billing === "counter" ? "Paid at the counter" : "Complimentary"}
+              </Badge>
             </div>
             <div className="mt-3 text-ink-200">{m.email ?? m.phone}</div>
             {m.currentPeriodEnd ? <div className="text-ink-400">Valid until {when(m.currentPeriodEnd)}</div> : null}
@@ -255,6 +257,7 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
             <BillingSection
               memberId={memberId}
               billing={m.billing}
+              fixedTerm={m.termEndsAt !== null}
               status={m.status}
               tierName={m.tierName}
               pendingTierId={m.pendingTierId}
@@ -318,6 +321,7 @@ function MemberDialog({ memberId, onClose, onChanged }: { memberId: string; onCl
 function BillingSection({
   memberId,
   billing,
+  fixedTerm,
   status,
   tierName,
   pendingTierId,
@@ -326,6 +330,7 @@ function BillingSection({
 }: {
   memberId: string;
   billing: string;
+  fixedTerm: boolean;
   status: string;
   tierName: string;
   pendingTierId: string | null;
@@ -344,7 +349,13 @@ function BillingSection({
     <div className="space-y-3 rounded-xl bg-ink-850 p-4">
       <h3 className="font-semibold">Membership</h3>
       <p className="text-sm text-ink-400">
-        {paid ? `Billed monthly through Stripe${periodEnd ? ` · next renewal ${periodEnd}` : ""}.` : "Complimentary — no billing."}
+        {paid
+          ? fixedTerm
+            ? `12-month plan, billed monthly through Stripe — the payments stop by themselves after the 12th${periodEnd ? ` · next payment ${periodEnd}` : ""}.`
+            : `Monthly through Stripe with no end date — renews every month until it's cancelled${periodEnd ? ` · next renewal ${periodEnd}` : ""}.`
+          : billing === "counter"
+            ? `Paid at the counter — runs${periodEnd ? ` until ${periodEnd}` : " to its end date"} and doesn't renew. Sell more months at the till to extend it.`
+            : "Complimentary — no billing."}
         {pendingName ? ` Moves to ${pendingName} at renewal.` : ""}
       </p>
       <div className="flex gap-2">

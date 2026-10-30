@@ -1355,6 +1355,7 @@ export type Database = {
           opened_at: string
           opened_by: string
           package_ends_at: string | null
+          package_pay_at_end: boolean
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string
@@ -1378,6 +1379,7 @@ export type Database = {
           opened_at: string
           opened_by: string
           package_ends_at?: string | null
+          package_pay_at_end?: boolean
           pricing_snapshot?: Json | null
           referral_code_id?: string | null
           resource_id: string
@@ -1401,6 +1403,7 @@ export type Database = {
           opened_at?: string
           opened_by?: string
           package_ends_at?: string | null
+          package_pay_at_end?: boolean
           pricing_snapshot?: Json | null
           referral_code_id?: string | null
           resource_id?: string
@@ -2160,6 +2163,7 @@ export type Database = {
           opened_at: string
           opened_by: string
           package_ends_at: string | null
+          package_pay_at_end: boolean
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string
@@ -2272,6 +2276,10 @@ export type Database = {
         }
       }
       pos_open_package: { Args: { p: Json; p_staff: string }; Returns: Json }
+      pos_open_package_pay_at_end: {
+        Args: { p: Json; p_staff: string }
+        Returns: Json
+      }
       pos_open_shift: {
         Args: { p_opening_float_cents: number; p_staff: string }
         Returns: {
@@ -2315,6 +2323,7 @@ export type Database = {
           opened_at: string
           opened_by: string
           package_ends_at: string | null
+          package_pay_at_end: boolean
           pricing_snapshot: Json | null
           referral_code_id: string | null
           resource_id: string

@@ -100,7 +100,8 @@ test("sell a membership at the counter: Stripe sync, QR checkout paid by card, a
     await page.getByRole("button", { name: "Search" }).click();
     await page.getByRole("row", { name: new RegExp(name) }).click();
     const detail = page.getByRole("dialog");
-    await expect(detail).toContainText("Billed monthly through Stripe");
+    await expect(detail).toContainText("Monthly through Stripe with no end date — renews every month until it's cancelled");
+    await expect(detail).toContainText("Monthly, until cancelled");
     await detail.getByRole("button", { name: "Cancel at end of paid month" }).click();
     await expect(detail).toContainText("Benefits continue until then");
     await expect(detail.getByText("cancelling", { exact: true })).toBeVisible();

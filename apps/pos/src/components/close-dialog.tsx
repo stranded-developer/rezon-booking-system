@@ -10,11 +10,9 @@ import { Button, ErrorNote, Field, Input, Modal, Row } from "./ui";
 
 /** A quote's frozen close time is honoured by the API for 2 minutes. */
 const QUOTE_TTL_MS = 110_000;
+const quoteIsStale = (quotedAt: number) => Date.now() - quotedAt > QUOTE_TTL_MS;
 
 type Method = "cash" | "card_terminal";
-
-/** Free play is spent in 15-minute blocks (D63). */
-const FREE_BLOCK_MINUTES = 15;
 
 export function CloseDialog({
   sessionId,
@@ -35,6 +33,7 @@ export function CloseDialog({
   const [member, setMember] = useState<MemberSummary | null>(null);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [freeMinutes, setFreeMinutes] = useState(0);
+  const [claimed, setClaimed] = useState<string[]>([]);
   const [scan, setScan] = useState("");
   const [searchResults, setSearchResults] = useState<MemberSummary[] | null>(null);
   const [method, setMethod] = useState<Method>("card_terminal");
@@ -53,7 +52,7 @@ export function CloseDialog({
   const scanRef = useRef<HTMLInputElement>(null);
 
   const fetchQuote = useCallback(
-    async (next: { memberId?: string | undefined; referralCode?: string | undefined; freeMinutes?: number }) => {
+    async (next: { memberId?: string | undefined; referralCode?: string | undefined; freeMinutes?: number; claimedPromoIds?: string[] }) => {
       setBusy(true);
       setError(null);
       try {
@@ -91,7 +90,7 @@ export function CloseDialog({
     };
   }, [api, operator?.role, sessionId]);
 
-  const current = { memberId: member?.id, referralCode: referralCode ?? undefined, freeMinutes };
+  const current = { memberId: member?.id, referralCode: referralCode ?? undefined, freeMinutes, claimedPromoIds: claimed };
 
   async function applyMember(m: MemberSummary) {
     setSearchResults(null);
@@ -100,7 +99,7 @@ export function CloseDialog({
       setError(`${m.name}'s membership is ${m.status.replace("_", " ")} — no member benefits.`);
       return;
     }
-    const q = await fetchQuote({ memberId: m.id });
+    const q = await fetchQuote({ memberId: m.id, claimedPromoIds: claimed });
     if (q) {
       setMember(m);
       setReferralCode(null);
@@ -109,7 +108,7 @@ export function CloseDialog({
   }
 
   async function applyReferral(code: string) {
-    const q = await fetchQuote({ referralCode: code });
+    const q = await fetchQuote({ referralCode: code, claimedPromoIds: claimed });
     if (q) {
       setReferralCode(q.referral?.code ?? code);
       setMember(null);
@@ -163,7 +162,7 @@ export function CloseDialog({
   async function pay() {
     if (!quote) return;
     let q = quote;
-    if (Date.now() - quotedAt > QUOTE_TTL_MS) {
+    if (quoteIsStale(quotedAt)) {
       const fresh = await fetchQuote(current);
       if (!fresh) return;
       if (fresh.totalCents !== q.totalCents) {
@@ -276,17 +275,18 @@ export function CloseDialog({
                   onClick={() => {
                     setMember(null);
                     setFreeMinutes(0);
-                    void fetchQuote({});
+                    void fetchQuote({ claimedPromoIds: claimed });
                   }}
                 >
                   Remove
                 </Button>
               </div>
-              {quote && quote.maxFreeMinutes >= FREE_BLOCK_MINUTES ? (
+              {quote && quote.maxFreeMinutes >= quote.freeStepMinutes ? (
                 (() => {
-                  // D63: free play is taken in 15-minute blocks — half a session at a time.
-                  const mostUsable = Math.floor(quote.maxFreeMinutes / FREE_BLOCK_MINUTES) * FREE_BLOCK_MINUTES;
-                  const blocks = Array.from({ length: mostUsable / FREE_BLOCK_MINUTES + 1 }, (_, i) => i * FREE_BLOCK_MINUTES);
+                  // D63: free play is taken in 15-minute blocks — half a session at a time; on a package, whole sessions (D116).
+                  const step = quote.freeStepMinutes;
+                  const mostUsable = Math.floor(quote.maxFreeMinutes / step) * step;
+                  const blocks = Array.from({ length: mostUsable / step + 1 }, (_, i) => i * step);
                   return (
                     <div className="mt-3 flex items-end gap-2">
                       <Field label={`Free play (balance ${member.balanceMinutes} min)`}>
@@ -296,7 +296,7 @@ export function CloseDialog({
                           onChange={(e) => {
                             const next = Number(e.target.value);
                             setFreeMinutes(next);
-                            void fetchQuote({ memberId: member.id, freeMinutes: next });
+                            void fetchQuote({ memberId: member.id, freeMinutes: next, claimedPromoIds: claimed });
                           }}
                         >
                           {blocks.map((m) => (
@@ -310,7 +310,7 @@ export function CloseDialog({
                         size="md"
                         onClick={() => {
                           setFreeMinutes(mostUsable);
-                          void fetchQuote({ memberId: member.id, freeMinutes: mostUsable });
+                          void fetchQuote({ memberId: member.id, freeMinutes: mostUsable, claimedPromoIds: claimed });
                         }}
                       >
                         Use {mostUsable} min
@@ -335,12 +335,38 @@ export function CloseDialog({
                 variant="ghost"
                 onClick={() => {
                   setReferralCode(null);
-                  void fetchQuote({});
+                  void fetchQuote({ claimedPromoIds: claimed });
                 }}
               >
                 Remove
               </Button>
             </div>
+          ) : null}
+
+          {quote && quote.claimablePromos.length > 0 ? (
+            <fieldset>
+              <legend className="text-xs font-medium uppercase tracking-wide text-ink-400">Prices they can ask for</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {quote.claimablePromos.map((p) => {
+                  const on = claimed.includes(p.id);
+                  return (
+                    <Button
+                      key={p.id}
+                      size="sm"
+                      variant={on ? "primary" : "secondary"}
+                      aria-pressed={on}
+                      onClick={() => {
+                        const next = on ? claimed.filter((id) => id !== p.id) : [...claimed, p.id];
+                        setClaimed(next);
+                        void fetchQuote({ ...current, claimedPromoIds: next });
+                      }}
+                    >
+                      {p.name} {money(p.priceCents)}
+                    </Button>
+                  );
+                })}
+              </div>
+            </fieldset>
           ) : null}
 
           <div className="rounded-xl bg-ink-850 p-4">
@@ -362,6 +388,7 @@ export function CloseDialog({
             <div className="text-xs font-semibold uppercase tracking-widest text-ink-400">{overrideOpen && overrideCents !== null ? "Adjusted total" : "Total"}</div>
             <div className="tnum text-5xl font-black">{money(totalCents)}</div>
             {quote?.mode === "prepaid" ? <div className="mt-1 text-sm text-emerald-300">Paid in advance — nothing to pay</div> : null}
+            {quote?.mode === "package" ? <div className="mt-1 text-sm text-ink-200">Package price — nothing extra for running over</div> : null}
           </div>
 
           {needsMoney && !hasShift ? <ErrorNote error="Open the till before taking payment." /> : null}

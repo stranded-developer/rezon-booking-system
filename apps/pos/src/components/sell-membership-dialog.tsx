@@ -176,7 +176,7 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
             className={`rounded-xl p-3 text-left ring-2 ${mode === "online" ? "bg-flag/10 ring-flag" : "bg-ink-850 ring-ink-700"}`}
           >
             <div className="font-semibold">On their phone</div>
-            <div className="text-xs text-ink-400">Monthly card payments: rolling, or 12 months</div>
+            <div className="text-xs text-ink-400">Monthly card payments: until cancelled, or 12 months</div>
           </button>
           <button
             type="button"
@@ -230,7 +230,7 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
             </div>
             <p className="mt-2 text-xs text-ink-400">
               {plan === "monthly"
-                ? "Charged every month until the member cancels."
+                ? "The default. Charged every month with no end date until the member cancels. Choose 12 months for a fixed year."
                 : "12 monthly payments, then it stops by itself. The member can't cancel it online."}
             </p>
           </fieldset>
@@ -238,7 +238,7 @@ export function SellMembershipDialog({ onClose }: { onClose: () => void }) {
         {mode === "counter" ? (
           <>
             <fieldset>
-              <legend className="text-xs font-medium uppercase tracking-wide text-ink-400">How many months</legend>
+              <legend className="text-xs font-medium uppercase tracking-wide text-ink-400">How many months (paid now, doesn&apos;t renew)</legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {MONTHS.map((m) => (
                   <Button key={m} size="sm" variant={m === months ? "primary" : "secondary"} aria-pressed={m === months} onClick={() => setMonths(m)}>

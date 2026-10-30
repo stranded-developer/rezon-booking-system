@@ -35,7 +35,7 @@ export function TileDialog({
   const [voiding, setVoiding] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [selling, setSelling] = useState<CounterPackage | null>(null);
-  // D115: the packages for this kind of table, paid up front.
+  // D115: the packages for this kind of table, paid now or at the end (D116).
   const typeId = config?.resourceTypes.find((t) => t.key === tile.typeKey)?.id;
   const packages = (config?.packages ?? []).filter((p) => p.resourceTypeId === typeId);
 
@@ -98,7 +98,7 @@ export function TileDialog({
           <div className="rounded-xl bg-ink-850 p-4">
             <div className="tnum text-4xl font-semibold">{elapsed(now - Date.parse(tile.session.openedAt))}</div>
             <div className="mt-1 text-sm text-ink-400">
-              {tile.session.packageName ? `${tile.session.packageName} (paid)` : tile.session.kind === "walk_in" ? "Walk-in" : "Booking"} opened{" "}
+              {tile.session.packageName ? `${tile.session.packageName} (${tile.session.packagePayAtEnd ? "pay at the end" : "paid"})` : tile.session.kind === "walk_in" ? "Walk-in" : "Booking"} opened{" "}
               {timeIn(tile.session.openedAt, tz)} by {tile.session.openedBy}
               {tile.session.bookingEndsAt ? ` · ${tile.session.packageName ? "until" : "booked until"} ${timeIn(tile.session.bookingEndsAt, tz)}` : ""}
             </div>
@@ -154,7 +154,7 @@ export function TileDialog({
 
         {!tile.session && tile.state === "free" && !notice && packages.length > 0 ? (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-400">Or a package, paid now</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-400">Or a package</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {packages.map((p) => (
                 <button

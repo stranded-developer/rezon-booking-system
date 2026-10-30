@@ -151,7 +151,7 @@ posOpsRoutes.post("/sessions", validate("json", z.object({ resourceId: z.uuid() 
   );
 });
 
-// ── Walk-in packages, paid up front (D115) ───────────────────────────────────
+// ── Walk-in packages, paid up front (D115) or at the end (D116) ──────────────
 const PackageBody = z.object({
   resourceId: z.uuid(),
   experienceId: z.uuid(),
@@ -169,14 +169,19 @@ posOpsRoutes.post(
   "/packages",
   validate(
     "json",
-    PackageBody.extend({
-      expectedTotalCents: Cents,
-      tender: z.discriminatedUnion("method", [
-        z.object({ method: z.literal("cash"), tenderedCents: Cents }),
-        z.object({ method: z.literal("card_terminal"), externalRef: z.string().trim().max(60).optional() }),
-        z.object({ method: z.literal("free") }),
-      ]),
-    }),
+    z.union([
+      PackageBody.extend({
+        payAtEnd: z.literal(false).optional(),
+        expectedTotalCents: Cents,
+        tender: z.discriminatedUnion("method", [
+          z.object({ method: z.literal("cash"), tenderedCents: Cents }),
+          z.object({ method: z.literal("card_terminal"), externalRef: z.string().trim().max(60).optional() }),
+          z.object({ method: z.literal("free") }),
+        ]),
+      }),
+      // D116: started now, charged when the table closes. The member card or code is given then.
+      z.object({ resourceId: z.uuid(), experienceId: z.uuid(), payAtEnd: z.literal(true) }).strict(),
+    ]),
   ),
   async (c) => c.json(await openPackage(c.get("deps"), c.get("operator"), c.req.valid("json")), 201),
 );
@@ -185,6 +190,7 @@ const ChargeBody = z.object({
   memberId: z.uuid().optional(),
   referralCode: z.string().max(40).optional(),
   freeMinutes: z.number().int().min(0).max(24 * 60).optional(),
+  claimedPromoIds: z.array(z.uuid()).max(10).optional(),
 });
 
 posOpsRoutes.post("/sessions/:id/quote", validate("param", Id), validate("json", ChargeBody), async (c) => {

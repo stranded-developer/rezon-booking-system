@@ -17,8 +17,10 @@ All values are editable. Benefits are the discount and free play. There are **no
 | Paid | How it works | Renews |
 |---|---|---|
 | **Online** (booking site or the counter's QR) | Stripe subscription, card kept by Stripe | Yes, monthly, with retries, until cancelled |
-| **Online, 12-month plan** (the counter's QR, D114) | Stripe subscription at the same monthly price, card kept by Stripe | Monthly for **12 payments, then it stops by itself**. The member can't cancel it; staff can end it early in the back office |
+| **Online, 12-month plan** (the counter's QR or the website, D114/D116) | Stripe subscription at the same monthly price, card kept by Stripe | Monthly for **12 payments, then it stops by itself**. The member can't cancel it; staff can end it early in the back office |
 | **At the counter** (D61) | Cash or card terminal at the till, 1/3/6/9/12 months at the tier's monthly price × months | **No** — it runs out |
+
+**Monthly is the default (D116).** Wherever a plan is chosen (the till's *On their phone*, the website's membership page) monthly-until-cancelled is preselected, and the screen says that without the 12-month choice it renews every month with no end date. The back office labels each member *Monthly, until cancelled*, *12-month plan*, *Paid at the counter* (doesn't renew) or *Complimentary*.
 
 **Why not the card terminal for a rolling membership?** The CommBank terminal isn't connected to Stripe and our system never sees the card, so nothing can charge it again next month. Anything that renews has to be paid with a card saved by Stripe: the customer types it once on their own phone from the counter's QR (D114).
 

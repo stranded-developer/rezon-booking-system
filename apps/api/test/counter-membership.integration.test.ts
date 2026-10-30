@@ -77,6 +77,11 @@ describe("selling a membership at the counter", () => {
     expect(payment!.shift_id).not.toBeNull();
     const { data: movement } = await ctx.db.from("cash_movements").select("amount_cents, kind").eq("payment_id", (await ctx.db.from("payments").select("id").eq("member_id", r.json.memberId).single()).data!.id).single();
     expect(movement).toMatchObject({ kind: "sale", amount_cents: silverPrice * 3 });
+
+    // The back office says it was paid at the counter (it doesn't renew), not complimentary.
+    const detail = await call(ctx, `/admin/members/${r.json.memberId}`, { jwt: cashier.jwt, operatorToken: await operatorToken(ctx, cashier, owner) });
+    expect(detail.status, JSON.stringify(detail.json)).toBe(200);
+    expect(detail.json.member.billing).toBe("counter");
   });
 
   it("refuses a length that isn't sold, and a tier that isn't active", async () => {

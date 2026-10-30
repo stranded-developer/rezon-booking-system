@@ -284,3 +284,61 @@ describe("selling a package", () => {
     expect(closed.json.report.shift.flagged).toBe(false);
   });
 });
+
+describe("a package paid at the end (D116)", () => {
+  let later: string;
+
+  it("starts the table with its end time, takes no money and has no receipt yet", async () => {
+    expect((await pos("/shifts/open", { body: { openingFloatCents: 10_000 } })).status).toBe(201);
+    ctx.clock.set(at("13:00"));
+    const extra = await pos("/packages", { body: { resourceId: res.t1, experienceId: pkg.m60, payAtEnd: true, tender: { method: "card_terminal" } } });
+    expect(extra.status).toBe(422);
+    const r = await pos("/packages", { body: { resourceId: res.t1, experienceId: pkg.m60, payAtEnd: true } });
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json).toMatchObject({ endsAt: new Date(at("14:00")).toISOString(), changeCents: 0, receipt: null });
+    later = r.json.sessionId;
+    expect(await tile(res.t1)).toMatchObject({ state: "in_use", session: { packageName: "1 hour", packageId: pkg.m60, packagePayAtEnd: true } });
+    const { count } = await ctx.db.from("payments").select("id", { count: "exact", head: true }).eq("session_id", later);
+    expect(count).toBe(0);
+    expect((await pos(`/sessions/${later}/receipt`)).status).toBe(409);
+  });
+
+  it("is refused like any package if it runs into a booking", async () => {
+    ctx.clock.set(at("16:30"));
+    const clash = await pos("/packages", { body: { resourceId: res.t2, experienceId: pkg.m60, payAtEnd: true } });
+    expect(clash.json.error.code).toBe("package_clashes_booking");
+  });
+
+  it("closing charges the price at its start (Happy Hour), with the discounts given at the end, and nothing for running over", async () => {
+    ctx.clock.set(at("15:20"));
+    expect((await tile(res.t1)).state).toBe("overdue");
+    const plain = await pos(`/sessions/${later}/quote`, { body: {} });
+    expect(plain.json.quote).toMatchObject({ mode: "package", totalCents: 25_00, freeStepMinutes: 30, bookingEndsAt: new Date(at("14:00")).toISOString() });
+    expect(plain.json.quote.claimablePromos).toEqual([{ id: studentPromo, name: "Student", priceCents: 27_00 }]);
+    const part = await pos(`/sessions/${later}/quote`, { body: { memberId: gold, freeMinutes: 15 } });
+    expect(part.status).toBe(422);
+    const q = await pos(`/sessions/${later}/quote`, { body: { memberId: gold, freeMinutes: 30 } });
+    expect(q.json.quote).toMatchObject({ totalCents: 12_00, maxFreeMinutes: 60 });
+
+    const closed = await pos(`/sessions/${later}/close`, {
+      body: { memberId: gold, freeMinutes: 30, closedAt: q.json.quote.closedAt, expectedTotalCents: 12_00, tender: { method: "cash", tenderedCents: 20_00 } },
+    });
+    expect(closed.status, JSON.stringify(closed.json)).toBe(200);
+    expect(closed.json).toMatchObject({ changeCents: 8_00, receipt: { totalCents: 12_00, paymentMethod: "cash", memberNo: expect.any(String) } });
+    const { data: s } = await ctx.db.from("sessions").select("status, total_cents, free_minutes_used").eq("id", later).single();
+    expect(s).toEqual({ status: "closed", total_cents: 12_00, free_minutes_used: 30 });
+    const { data: ledger } = await ctx.db.from("member_balance_ledger").select("delta_minutes, kind").eq("session_id", later);
+    expect(ledger).toEqual([{ delta_minutes: -30, kind: "use" }]);
+  });
+
+  it("voiding one that hasn't been paid for refunds nothing", async () => {
+    ctx.clock.set(at("15:30"));
+    const r = await pos("/packages", { body: { resourceId: res.t3, experienceId: pkg.m30, payAtEnd: true } });
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const v = await pos(`/sessions/${r.json.sessionId}/void`, { as: "owner", body: { reason: "changed their mind" } });
+    expect(v.status, JSON.stringify(v.json)).toBe(200);
+    expect(v.json.result).toMatchObject({ refundCents: 0 });
+    const { data: s } = await ctx.db.from("sessions").select("status, total_cents").eq("id", r.json.sessionId).single();
+    expect(s).toEqual({ status: "voided", total_cents: 0 });
+  });
+});
