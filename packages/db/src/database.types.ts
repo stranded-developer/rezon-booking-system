@@ -450,6 +450,7 @@ export type Database = {
           bullets: string[]
           button_label: string | null
           created_at: string
+          extendable: boolean
           id: string
           key: string
           minutes: number
@@ -468,6 +469,7 @@ export type Database = {
           bullets?: string[]
           button_label?: string | null
           created_at?: string
+          extendable?: boolean
           id?: string
           key: string
           minutes: number
@@ -486,6 +488,7 @@ export type Database = {
           bullets?: string[]
           button_label?: string | null
           created_at?: string
+          extendable?: boolean
           id?: string
           key?: string
           minutes?: number

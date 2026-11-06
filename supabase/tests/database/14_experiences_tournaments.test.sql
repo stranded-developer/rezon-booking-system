@@ -79,9 +79,9 @@ select is(
     where b.resource_id = '00000000-0000-0000-0000-0000000cc301' order by b.created_at desc limit 1),
   'quick_race', 'the booking records which experience was sold');
 
-select throws_like($$ select booking_hold(pg_temp.book_exp('quick_race', 60, 0, '2030-01-16T11:00:00+11:00')) $$,
+select throws_like($$ select booking_hold(pg_temp.book_exp('quick_race', 45, 0, '2030-01-16T11:00:00+11:00')) $$,
   'RG:invalid_time:Single Session runs for 30 minutes',
-  'an experience cannot be booked for a different length');
+  'an experience cannot be booked for a length that is not whole sessions (D118: longer is allowed, 21_longer_package_bookings)');
 select throws_like($$ select booking_hold(pg_temp.book_exp('double_race', 30, 0, '2030-01-16T11:00:00+11:00')) $$,
   'RG:invalid_time:Double Session runs for 60 minutes',
   'a Double Race cannot be cut in half');

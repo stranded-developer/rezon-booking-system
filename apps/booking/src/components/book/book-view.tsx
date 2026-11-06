@@ -8,6 +8,7 @@ import { ExperienceCard } from "@/components/experience-card";
 import { Reveal } from "@/components/reveal";
 import { Button, Notice, SectionTitle, Spinner } from "@/components/ui";
 import { errorMessage } from "@/lib/api";
+import { formatDays, hourlyHappyHoursFor } from "@/lib/happy-hour";
 import { formatMinutes, formatRate, formatWallTime } from "@/lib/format";
 import type { PublicConfig } from "@/lib/types";
 
@@ -60,7 +61,6 @@ export function BookView() {
 
   const experienceTypeIds = new Set(config.experiences.map((e) => e.resourceTypeId));
   const hourlyTypes = config.resourceTypes.filter((t) => !experienceTypeIds.has(t.id));
-  const happyHour = config.experiences.flatMap((e) => e.promos).find((p) => !p.claimed);
 
   return (
     <>
@@ -69,7 +69,6 @@ export function BookView() {
       </SectionTitle>
       <p className="mx-auto mb-10 max-w-xl text-center text-sm text-ink-600">
         Every price includes GST. All times are Sydney time.
-        {happyHour ? ` ${happyHour.name} runs ${formatWallTime(happyHour.startTime)} to ${formatWallTime(happyHour.endTime)} every day.` : ""}
       </p>
 
       {config.experiences.length > 0 ? (
@@ -93,6 +92,12 @@ export function BookView() {
                 {type.fromRateCents < type.baseRateCents ? (
                   <p className="tnum mt-1 text-sm text-gold">{formatRate(type.fromRateCents)} in happy hour</p>
                 ) : null}
+                {/* D117: each card says its own happy hour; a package's is on its own card. */}
+                {hourlyHappyHoursFor(config.happyHours, type.id).map((h) => (
+                  <p key={h.name + h.startTime} className="mt-1 text-xs text-ink-500">
+                    {h.name}: {formatWallTime(h.startTime)}–{formatWallTime(h.endTime)}, {formatDays(h.daysOfWeek)}
+                  </p>
+                ))}
                 <p className="mt-1 flex-1 text-sm text-ink-500">
                   {type.resources.length} available · booked in {formatMinutes(config.sessionMinutes)} sessions
                 </p>

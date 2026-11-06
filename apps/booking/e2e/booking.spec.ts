@@ -255,7 +255,8 @@ test("an experience is booked for its own fixed length, at its flat price", asyn
   await shot(page, "web-14a-times");
   await panel.getByRole("button").filter({ hasText: /\d+ spots?/ }).first().click();
 
-  await expect(panel.getByLabel("Or another length")).toHaveCount(0);
+  // D118: Single Session can be booked for longer, but starts at its own 30 minutes.
+  await expect(panel.getByRole("button", { name: "30 min", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(panel).toContainText("30 min");
 
   // "Are you a member?" is asked first; a guest carries on without it (D79).
@@ -344,6 +345,36 @@ test("a 1-hour session can pick its game, track and car (D80, D111)", async ({ p
   await expect(panel.getByText("Your setup").locator("xpath=following-sibling::span")).toHaveText(
     `${game!.name} · ${game!.game_tracks[1]!.name} · ${game!.game_cars[0]!.name}`,
   );
+});
+
+test("a Double Session booked for 2 hours from 2pm: happy hour on the first hour only (D118)", async ({ page }) => {
+  await page.goto("/book");
+  await page.getByRole("button", { name: "Book the full experience" }).click();
+  const panel = page.getByRole("dialog");
+  await pickDay(panel, bookingDayLabel());
+  await panel.getByRole("button").filter({ hasText: /^2:00 pm/ }).click();
+  await panel.getByRole("button", { name: "No, continue as a guest" }).click();
+
+  // Read from the database: the prices are the owner's to change (D67).
+  const db = localSupabase();
+  const { data: double } = await db.from("experiences").select("id, price_cents, experience_promos(name, price_cents, claimed, active)").eq("key", "double_race").single();
+  const happy = double!.experience_promos.find((p) => !p.claimed && p.active && p.name === "Happy Hour")!;
+  const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+
+  await expect(panel.getByRole("button", { name: "1 hour", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByRole("button", { name: "30 min", exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "2 hours", exact: true }).click();
+  await expect(panel.getByText(/priced as our sessions back to back/)).toBeVisible();
+  await panel.getByRole("textbox", { name: "Name", exact: true }).fill("E2E Long Guest");
+  await panel.getByRole("textbox", { name: /^Email/ }).fill("e2e-long@raceground.test");
+  await panel.getByRole("button", { name: "Continue", exact: true }).click();
+
+  await expect(panel.getByText("Total to pay").locator("xpath=following-sibling::span")).toHaveText(money(happy.price_cents + double!.price_cents));
+  // One line per hour: the first in happy hour, the second at the normal price.
+  await expect(panel.getByRole("listitem").filter({ hasText: "14:00–15:00" })).toContainText(`Happy Hour (normally ${money(double!.price_cents)})  ${money(happy.price_cents)}`);
+  await expect(panel.getByRole("listitem").filter({ hasText: "15:00–16:00" })).toContainText(`Double Session  ${money(double!.price_cents)}`);
+  await expect(panel.getByText("How long").locator("xpath=following-sibling::span").first()).toHaveText("2 hours");
+  await shot(page, "web-14d-two-hours");
 });
 
 test("in happy hour the summary says so, with the normal price struck through", async ({ page }) => {

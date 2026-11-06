@@ -6,7 +6,7 @@ Public, mobile-first, with a **light look** (D59): light background, RACEGROUND 
 
 | Route | Purpose |
 |---|---|
-| `/` | Venue intro, photos, address, phone, email and Instagram (all edited in the back office, D58), opening hours, rates, happy hour, membership teaser, "Book now" |
+| `/` | Venue intro, photos, address, phone, email and Instagram (all edited in the back office, D58), opening hours, rates, happy hour (each card its own, with its real days, D117), membership teaser, "Book now" |
 | `/book` | Timetable + booking flow |
 | `/booking/[ref]` | Booking status / confirmation (access via signed link) |
 | `/booking/[ref]/cancel` | Cancellation with refund preview (signed link) |
@@ -29,6 +29,8 @@ The timetable is a grid per resource type for a chosen date, with a column per *
 **Walk-ins don't block online availability.** A walk-in has no end time, so staff get the POS alert and must wrap up the walk-in before the booking.
 
 **Durations** are whole **sessions** (30 minutes, `venue_settings.session_minutes`) up to the time remaining until close: 30, 60, 90 … There is no maximum. 15 or 45 minutes can only be bought by walking in (D90, replacing D63's 15-minute steps).
+
+**Longer simulator sessions (D118).** A package ticked *Customers can book it for longer online* (`experiences.extendable`; Single and Double Session at launch) also has **How long?**: from its own length in whole sessions, until the simulator's next booking or closing (for a group, what every simulator is free for). The request sends `durationMinutes` with `experienceKey`. The time is made of the type's extendable online packages: one of exactly that length if there is one, otherwise the longest first (`splitIntoPackages`), each priced at its own start time. Happy hour, member prices and a student price apply per package, and the quote's explanation has one line per package. A package that isn't extendable refuses any other length (422).
 
 The customer picks a resource type, then a specific resource or "any available" (the API assigns the lowest-sorted free one).
 

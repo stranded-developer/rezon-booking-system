@@ -236,6 +236,27 @@ ExperiencePromo = { id, name, experienceId, daysOfWeek, startTime, endTime, pric
 
 **Why the start instant decides.** An experience is one indivisible block sold at one price. A Double Race starting at 14:30 is a Happy Hour Double Race even though it runs past 15:00. Per-minute classification (§3) stays the rule for everything priced by the hour.
 
+### 9.2a A longer booking made of packages (D118)
+
+With `minutes` longer than the package and `packages` (the type's extendable online packages), the
+booking is **split into packages** first, then each is priced by steps 2–3 at **its own start time**:
+
+```
+splitIntoPackages(minutes, packages, preferredId):
+  a package of exactly `minutes`  → [it]   (the booked one first, else the cheapest)
+  otherwise the longest first     → e.g. 150 = 60 + 60 + 30
+  no way to make the length       → null, and priceExperience throws
+
+priceCents    = Σ each package's price (promotion, member price — `memberPrices[id]` — or list)
+listPriceCents = Σ each package's list price
+```
+
+Steps 4–7 are unchanged over the whole length, so free play is pro rata over it, a group pays
+`priceCents` each, and a referral comes off once. `experience.pieces` lists the packages, and the
+explanation has one line per package (`14:00–15:00  Double Race · Happy Hour (normally $58.00)  $49.00`).
+A student price asked for on the booked package is asked for on every package that has one of that
+name (the API expands `claimedPromoIds`). When the booking is just the package, nothing changes.
+
 ### 9.3 Output
 
 The same `PriceResult` as `priceSession`, with:

@@ -21,7 +21,7 @@ import { selectAll } from "../lib/select-all.js";
 import { requireStripe, stripeCall } from "../lib/stripe.js";
 import { experienceHappyHour, sessionHappyHour, type HappyHourPrice } from "./happy-hour.js";
 import { getReferral, type MemberSummary, type ReferralSummary } from "./lookup.js";
-import { loadExperience, loadPricingContext, loadPromos, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
+import { loadExperience, loadPricingContext, loadPromos, loadSessionPackages, loadSettings, parseRange, toExperience, wallTime, type ExperienceContext } from "./venue.js";
 import { listTiles } from "./site-tiles.js";
 import { listPhotos } from "./venue-photos.js";
 
@@ -164,6 +164,8 @@ export async function publicConfig(deps: AppDeps) {
         // The card's button (D98); null = "Book <name>".
         buttonLabel: e.button_label,
         minutes: e.minutes,
+        // D118: can be booked for longer, made of the type's other extendable packages.
+        extendable: e.extendable,
         priceCents: e.price_cents,
         // What the card shows as "from": the cheapest price anyone could pay today.
         fromPriceCents: Math.min(e.price_cents, ...mine.filter((p) => !p.claimed).map((p) => p.priceCents)),
@@ -444,11 +446,17 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
   const type = await activeType(deps, exp ? exp.experience.resourceTypeId : req.resourceTypeId!);
 
   if (!isWallTime(req.startTime)) throw new ApiError(422, "validation_failed", "Start time must be HH:MM");
-  // An experience sets its own length; everything else is sold in whole sessions (D90).
-  const durationMinutes = exp ? exp.experience.minutes : (req.durationMinutes ?? 0);
+  // An experience sets its own length; everything else is sold in whole sessions (D90). D118: an
+  // extendable package can run longer, made of packages.
+  const durationMinutes = exp ? (req.durationMinutes ?? exp.experience.minutes) : (req.durationMinutes ?? 0);
   if (!exp && (durationMinutes < sessionMinutes || durationMinutes % sessionMinutes !== 0)) {
     throw new ApiError(422, "validation_failed", `Bookings are in ${sessionMinutes}-minute sessions`);
   }
+  const longer = exp !== null && durationMinutes !== exp.experience.minutes;
+  if (exp && longer && (!exp.experience.extendable || durationMinutes < exp.experience.minutes || durationMinutes % sessionMinutes !== 0)) {
+    throw new ApiError(422, "validation_failed", `${exp.experience.name} runs for ${exp.experience.minutes} minutes`);
+  }
+  const packages = exp && longer ? await loadSessionPackages(deps.db, exp.experience.resourceTypeId) : [];
   if (!onSessionGrid(req.startTime, sessionMinutes)) {
     throw new ApiError(422, "invalid_time", `Bookings start on a ${sessionMinutes}-minute mark, e.g. on the hour`);
   }
@@ -492,18 +500,21 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     throw new ApiError(422, "insufficient_balance", "Not enough free-play minutes", { balanceMinutes: member.balanceMinutes });
   }
 
-  // D82: the member's tier's own flat price for this experience, if the venue has set one.
-  let memberPriceCents: number | undefined;
+  // D82: the member's tier's own flat price for this experience (and, D118, for each package a
+  // longer booking is made of), if the venue has set one.
+  const memberPrices: Record<string, number> = {};
   if (exp && member) {
-    const { data, error } = await deps.db
-      .from("experience_member_prices")
-      .select("price_cents")
-      .eq("experience_id", exp.experience.id)
-      .eq("tier_id", member.tierId)
-      .maybeSingle();
+    const ids = [exp.experience.id, ...packages.map((p) => p.experience.id)];
+    const { data, error } = await deps.db.from("experience_member_prices").select("experience_id, price_cents").in("experience_id", ids).eq("tier_id", member.tierId);
     if (error) throw mapDbError(error);
-    memberPriceCents = data?.price_cents;
+    for (const m of data) memberPrices[m.experience_id] = m.price_cents;
   }
+  const memberPriceCents = exp ? memberPrices[exp.experience.id] : undefined;
+  // D118: a price asked for (a student price) is asked for on every package of the booking: the
+  // same-named one on each.
+  const allPromos = exp ? [...exp.promos, ...packages.filter((p) => p.experience.id !== exp.experience.id).flatMap((p) => p.promos)] : [];
+  const claimedNames = new Set(allPromos.filter((p) => p.claimed && (req.claimedPromoIds ?? []).includes(p.id)).map((p) => p.name));
+  const claimedPromoIds = longer ? allPromos.filter((p) => p.claimed && claimedNames.has(p.name)).map((p) => p.id) : (req.claimedPromoIds ?? []);
 
   let pricing: PriceResult;
   let pricingCtx: Awaited<ReturnType<typeof loadPricingContext>> | null = null;
@@ -513,8 +524,9 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
         startAt,
         timeZone: tz,
         experience: exp.experience,
-        promos: exp.promos,
-        claimedPromoIds: req.claimedPromoIds ?? [],
+        promos: allPromos,
+        claimedPromoIds,
+        ...(longer ? { minutes: durationMinutes, packages: packages.map((p) => p.experience), memberPrices } : {}),
         ...(member ? { member: { tierName: member.tierName, discountBp: member.discountBp }, freeMinutes } : {}),
         ...(memberPriceCents !== undefined ? { memberPriceCents } : {}),
         ...(referral ? { referral: { code: referral.code, type: referral.type, value: referral.value } } : {}),
@@ -557,9 +569,11 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     // D99: happy hour, when it set this price. A member's own price, when cheaper, wins instead (D82),
     // and then this booking isn't a happy-hour one.
     happyHour: exp
-      ? pricing.experience?.promo && !pricing.experience.promo.member && !exp.promos.find((p) => p.id === pricing.experience!.promo!.id)?.claimed
-        ? groupOf(experienceHappyHour(exp, startAt, tz), partySize)
-        : null
+      ? longer
+        ? groupOf(longerHappyHour(pricing, allPromos), partySize)
+        : pricing.experience?.promo && !pricing.experience.promo.member && !exp.promos.find((p) => p.id === pricing.experience!.promo!.id)?.claimed
+          ? groupOf(experienceHappyHour(exp, startAt, tz), partySize)
+          : null
       : sessionHappyHour(pricingCtx!, startAt, durationMinutes),
     startsAt: new Date(startAt).toISOString(),
     endsAt: new Date(endAt).toISOString(),
@@ -574,6 +588,20 @@ export async function quoteBooking(deps: AppDeps, req: BookingRequest, member: M
     member: member && { id: member.id, memberNo: member.memberNo, tierName: member.tierName, discountBp: member.discountBp, balanceMinutes: member.balanceMinutes },
     maxFreeMinutes: member ? Math.min(member.balanceMinutes, durationMinutes) : 0,
   };
+}
+
+/**
+ * D118: happy hour on a longer booking, for one person: the packages that start in it at their
+ * happy-hour price, the rest at their list price. Null if none of them is in happy hour, or a
+ * member's own price set them instead (D82).
+ */
+function longerHappyHour(pricing: PriceResult, promos: ExperiencePromo[]): HappyHourPrice | null {
+  const pieces = pricing.experience?.pieces ?? [];
+  const happy = pieces.filter((p) => p.promo && !p.promo.member && !promos.find((x) => x.id === p.promo!.id)?.claimed && p.priceCents < p.listPriceCents);
+  if (happy.length === 0 || pieces.some((p) => p.promo?.member)) return null;
+  const normalCents = pieces.reduce((sum, p) => sum + p.listPriceCents, 0);
+  const priceCents = pieces.reduce((sum, p) => sum + (happy.includes(p) ? p.priceCents : p.listPriceCents), 0);
+  return { name: happy[0]!.promo!.name, priceCents, normalCents };
 }
 
 /** Happy hour for the whole group: the per-person prices × people (D99, D106). */

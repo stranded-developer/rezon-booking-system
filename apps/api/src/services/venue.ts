@@ -75,7 +75,7 @@ export const gstOf = (totalCents: number) => Math.floor((totalCents * 2 + 11) / 
 // ── Experiences (D65, D66) ──────────────────────────────────────────────────
 
 export interface ExperienceContext {
-  experience: ExperiencePricing & { key: string; tagline: string | null; bullets: string[]; badges: string[] };
+  experience: ExperiencePricing & { key: string; tagline: string | null; bullets: string[]; badges: string[]; extendable: boolean };
   promos: ExperiencePromo[];
 }
 
@@ -87,11 +87,28 @@ export interface ExperienceContext {
 export async function loadExperience(db: Db, idOrKey: string, soldAt: "online" | "counter" | "any" = "online"): Promise<ExperienceContext> {
   const query = db
     .from("experiences")
-    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, active, online, at_counter");
+    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, active, online, at_counter, extendable");
   const { data, error } = await (UUID.test(idOrKey) ? query.eq("id", idOrKey) : query.eq("key", idOrKey)).maybeSingle();
   if (error) throw mapDbError(error);
   if (!data || (soldAt !== "any" && (!data.active || !(soldAt === "online" ? data.online : data.at_counter)))) throw new ApiError(404, "not_found", "That experience isn't available");
   return { experience: toExperience(data), promos: await loadPromos(db, [data.id]) };
+}
+
+/**
+ * D118: the packages a longer online booking of this type is made of — the active, online,
+ * extendable ones — with their promotional prices.
+ */
+export async function loadSessionPackages(db: Db, resourceTypeId: string): Promise<ExperienceContext[]> {
+  const { data, error } = await db
+    .from("experiences")
+    .select("id, key, name, resource_type_id, tagline, bullets, badges, minutes, price_cents, extendable")
+    .eq("resource_type_id", resourceTypeId)
+    .eq("active", true)
+    .eq("online", true)
+    .eq("extendable", true);
+  if (error) throw mapDbError(error);
+  const promos = await loadPromos(db, data.map((e) => e.id));
+  return data.map((e) => ({ experience: toExperience(e), promos: promos.filter((p) => p.experienceId === e.id) }));
 }
 
 export async function loadPromos(db: Db, experienceIds: string[]): Promise<ExperiencePromo[]> {
@@ -118,7 +135,8 @@ export async function loadPromos(db: Db, experienceIds: string[]): Promise<Exper
 type ExperienceRow = Pick<
   Tables<"experiences">,
   "id" | "key" | "name" | "resource_type_id" | "tagline" | "bullets" | "badges" | "minutes" | "price_cents"
->;
+> &
+  Partial<Pick<Tables<"experiences">, "extendable">>;
 
 export function toExperience(row: ExperienceRow): ExperienceContext["experience"] {
   return {
@@ -131,5 +149,6 @@ export function toExperience(row: ExperienceRow): ExperienceContext["experience"
     badges: row.badges,
     minutes: row.minutes,
     priceCents: row.price_cents,
+    extendable: row.extendable ?? false,
   };
 }

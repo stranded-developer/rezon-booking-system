@@ -92,6 +92,7 @@ experiences
   sort, active
   online           boolean default true   -- listed and bookable on the website
   at_counter       boolean default true   -- sold at the counter as a walk-in package, paid up front (D115)
+  extendable       boolean default false  -- can be booked online for longer, made of the type's extendable packages (D118)
 
 experience_promos                    -- flat promotional prices; the cheapest match wins
   experience_id  → experiences (on delete cascade)

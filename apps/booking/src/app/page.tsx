@@ -2,6 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { api } from "@/lib/api";
 import { dayName, formatBookingWindow, formatCents, formatRate, formatWallTime } from "@/lib/format";
+import { formatDays, hourlyHappyHoursFor } from "@/lib/happy-hour";
 import type { PublicConfig } from "@/lib/types";
 import { Chevron, DrivingTiles, EventTiles, HighlightTiles, SectionHeading } from "@/components/home-tiles";
 import { ExperienceCard } from "@/components/experience-card";
@@ -106,7 +107,6 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
   // Resource types sold as an experience are shown as those experiences, not twice.
   const experienceTypeIds = new Set(experiences.map((e) => e.resourceTypeId));
   const hourlyTypes = resourceTypes.filter((t) => !experienceTypeIds.has(t.id));
-  const happyHour = experiences.flatMap((e) => e.promos).find((p) => !p.claimed);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-20">
@@ -143,11 +143,12 @@ function WhatYouCanBook({ config }: { config: PublicConfig }) {
             <p className="mt-4 border-t border-line pt-4 text-xs sm:text-sm text-ink-600">
               Book in {config.sessionMinutes}-minute sessions. Walk in and we charge in 15-minute blocks. Every price includes GST.
             </p>
-            {happyHour ? (
-              <p className="kicker mt-3">
-                {happyHour.name}: {formatWallTime(happyHour.startTime)} to {formatWallTime(happyHour.endTime)}, every day
+            {/* D117: this type's own happy hour, not a package's. */}
+            {hourlyHappyHoursFor(config.happyHours, type.id).map((h) => (
+              <p key={h.name + h.startTime} className="kicker mt-3">
+                {h.name}: {formatWallTime(h.startTime)} to {formatWallTime(h.endTime)}, {formatDays(h.daysOfWeek)}
               </p>
-            ) : null}
+            ))}
           </article>
         </Reveal>
       ))}

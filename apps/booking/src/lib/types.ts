@@ -73,6 +73,8 @@ export interface Experience {
   /** The card's button (D98). Null = "Book <name>". Optional: an older API has none. */
   buttonLabel?: string | null;
   minutes: number;
+  /** D118: can be booked for longer, made of the type's extendable packages. Optional: an older API has none. */
+  extendable?: boolean;
   priceCents: number;
   /** The cheapest price anyone could pay without asking for it. */
   fromPriceCents: number;

@@ -142,6 +142,15 @@ export interface PriceExperienceInput {
   /** Requested free-play minutes from the member balance; covers a pro-rata share of the price. */
   freeMinutes?: number;
   /**
+   * D118: the length booked, when it is longer than the package itself. It is made of the
+   * `packages` (see `splitIntoPackages`), each priced at its own start time. Default: the package's own.
+   */
+  minutes?: number;
+  /** D118: the packages a longer booking can be made of; `experience` is added if missing. */
+  packages?: ExperiencePricing[];
+  /** D118: the member's tier's flat price on each of `packages`, by experience id. */
+  memberPrices?: Record<string, number>;
+  /**
    * How many people, each on their own simulator at the same time (D106). The price is per person;
    * a member's price covers everyone, free play covers one place only, and a referral comes off the
    * whole group's subtotal once. Default 1.
@@ -161,4 +170,22 @@ export interface AppliedExperience {
   promo: { id: string; name: string; priceCents: number; member?: boolean } | null;
   /** People booked together, each on their own simulator (D106); `priceCents` is per person. */
   partySize: number;
+  /**
+   * D118: a longer booking, the packages it is made of, in order. Absent when the booking is just
+   * the package itself; then `minutes`, `listPriceCents` and `promo` are the package's own.
+   */
+  pieces?: ExperiencePiece[];
+}
+
+/** One package within a longer booking (D118), priced at its own start time. */
+export interface ExperiencePiece {
+  id: string;
+  name: string;
+  minutes: number;
+  /** "YYYY-MM-DD HH:MM" in the venue timezone. */
+  localStart: string;
+  localEnd: string;
+  listPriceCents: number;
+  priceCents: number;
+  promo: AppliedExperience["promo"];
 }

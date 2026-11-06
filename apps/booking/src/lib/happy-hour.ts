@@ -1,4 +1,4 @@
-import type { Experience, ExperiencePromo } from "./types";
+import type { Experience, ExperiencePromo, PublicConfig } from "./types";
 
 const SHORT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -16,4 +16,9 @@ export function happyHourOf(exp: Experience): ExperiencePromo | null {
 export function formatDays(days: number[]): string {
   if (new Set(days).size === 7) return "every day";
   return [...days].sort((a, b) => a - b).map((d) => SHORT_DAYS[d - 1]).join(", ");
+}
+
+/** The hourly happy hours that apply to something sold by the hour (D117): its own, or one for everything. */
+export function hourlyHappyHoursFor(happyHours: PublicConfig["happyHours"], resourceTypeId: string): PublicConfig["happyHours"] {
+  return happyHours.filter((h) => h.resourceTypeIds === null || h.resourceTypeIds.includes(resourceTypeId));
 }

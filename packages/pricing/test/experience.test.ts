@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PricingError, priceExperience } from "../src/index.js";
+import { PricingError, priceExperience, splitIntoPackages } from "../src/index.js";
 import {
   aest,
   allPromos,
@@ -336,5 +336,87 @@ describe("priceExperience — a group", () => {
     for (const partySize of [0, 1.5, -2]) {
       expect(() => priceExperience(experience({ startAt: at, partySize }))).toThrow(PricingError);
     }
+  });
+});
+
+describe("priceExperience — a longer booking made of packages (D118)", () => {
+  const sessions = [quickRace, doubleRace];
+  const twoHours = { id: "exp-2h", name: "2 Hours", resourceTypeId: "sim", minutes: 120, priceCents: 99_00 };
+
+  it("X30 splits a length into packages: exact length first, then the longest first", () => {
+    expect(splitIntoPackages(60, sessions, "exp-quick")?.map((p) => p.id)).toEqual(["exp-double"]);
+    expect(splitIntoPackages(90, sessions)?.map((p) => p.id)).toEqual(["exp-double", "exp-quick"]);
+    expect(splitIntoPackages(120, sessions)?.map((p) => p.id)).toEqual(["exp-double", "exp-double"]);
+    expect(splitIntoPackages(120, [...sessions, twoHours])?.map((p) => p.id)).toEqual(["exp-2h"]);
+    expect(splitIntoPackages(180, [...sessions, twoHours])?.map((p) => p.id)).toEqual(["exp-2h", "exp-double"]);
+    expect(splitIntoPackages(90, [doubleRace])).toBeNull();
+  });
+
+  it("X31 prices 2 hours of Double Sessions outside happy hour at twice the price", () => {
+    const r = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: sessions, minutes: 120 }));
+    expect(r.totalCents).toBe(116_00);
+    expect(r.billedMinutes).toBe(120);
+    expect(r.experience?.minutes).toBe(120);
+    expect(r.experience?.listPriceCents).toBe(116_00);
+    expect(r.experience?.pieces?.map((p) => [p.localStart.slice(11), p.name, p.priceCents])).toEqual([
+      ["16:00", "Double Race", 58_00],
+      ["17:00", "Double Race", 58_00],
+    ]);
+    expect(r.explanation).toEqual([
+      "Double Race · 120 min",
+      "16:00–17:00  Double Race  $58.00",
+      "17:00–18:00  Double Race  $58.00",
+      "Subtotal  $116.00",
+      "Total (incl. GST $10.55)  $116.00",
+    ]);
+  });
+
+  it("X32 gives happy hour to each package that starts in it, and only to those", () => {
+    const r = priceExperience(experience({ startAt: aest("2026-09-16T14:00"), experience: doubleRace, packages: sessions, minutes: 120 }));
+    expect(r.experience?.pieces?.map((p) => [p.localStart.slice(11), p.priceCents, p.promo?.name ?? null])).toEqual([
+      ["14:00", 49_00, "Happy Hour"],
+      ["15:00", 58_00, null],
+    ]);
+    expect(r.totalCents).toBe(107_00);
+    expect(r.experience?.promo).toBeNull();
+  });
+
+  it("X33 makes an odd half hour a Single Session, and uses the owner's own longer package", () => {
+    const ninety = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: quickRace, packages: sessions, minutes: 90 }));
+    expect(ninety.totalCents).toBe(93_00);
+    const three = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: [...sessions, twoHours], minutes: 180 }));
+    expect(three.totalCents).toBe(99_00 + 58_00);
+  });
+
+  it("X34 a Single Session booked for an hour is priced as the 1-hour package", () => {
+    const r = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: quickRace, packages: sessions, minutes: 60 }));
+    expect(r.totalCents).toBe(58_00);
+    expect(r.experience?.name).toBe("Quick Race");
+    expect(r.experience?.pieces?.map((p) => p.name)).toEqual(["Double Race"]);
+  });
+
+  it("X35 a member gets their price on each package; free play and a group work over the whole length", () => {
+    const member = priceExperience(
+      experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: sessions, minutes: 90, member: silver, memberPrices: { "exp-quick": 30_00 } }),
+    );
+    // Double at 10% off ($52.20) + Single at Silver's own $30.
+    expect(member.totalCents).toBe(52_20 + 30_00);
+    const free = priceExperience(
+      experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: sessions, minutes: 120, member: silver, freeMinutes: 60 }),
+    );
+    expect(free.totalCents).toBe(52_20); // half of 2 × $52.20
+    const group = priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: sessions, minutes: 120, partySize: 3 }));
+    expect(group.totalCents).toBe(3 * 116_00);
+  });
+
+  it("X36 a student price asked for on every package applies to each", () => {
+    const r = priceExperience(
+      experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, packages: sessions, minutes: 90, claimedPromoIds: ["st-quick", "st-double"] }),
+    );
+    expect(r.totalCents).toBe(52_00 + 32_00);
+  });
+
+  it("X37 refuses a length the packages can't make", () => {
+    expect(() => priceExperience(experience({ startAt: aest("2026-09-16T16:00"), experience: doubleRace, minutes: 90 }))).toThrow(PricingError);
   });
 });

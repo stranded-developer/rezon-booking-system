@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge, Card, DaysPicker, daysLabel, PageHeader, Table, Td, useAction, useApiData } from "@/components/admin/kit";
+import { PackagePriceDialog } from "@/components/admin/package-price-dialog";
 import { usePos } from "@/components/pos-provider";
 import { Button, ErrorNote, Field, Input, Modal } from "@/components/ui";
 import { centsToInput, money, parseDollars } from "@/lib/format";
@@ -41,6 +42,8 @@ interface Experience {
   /** D115: listed on the website, and/or sold at the counter as a walk-in package paid up front. */
   online: boolean;
   at_counter: boolean;
+  /** D118: can be booked online for longer, made of the type's extendable packages. */
+  extendable: boolean;
   sort: number;
   promos: Promo[];
   /** Each tier's flat price (D82); a tier missing here pays its percentage off the list price. */
@@ -69,6 +72,7 @@ export default function ExperiencesPage() {
   const [editing, setEditing] = useState<Experience | null>(null);
   const [adding, setAdding] = useState(false);
   const [addingPromoFor, setAddingPromoFor] = useState<Experience | null>(null);
+  const [editingPromo, setEditingPromo] = useState<{ promo: Promo; exp: Experience } | null>(null);
   const [showRetired, setShowRetired] = useState(false);
 
   const { api } = usePos();
@@ -105,6 +109,7 @@ export default function ExperiencesPage() {
                 {exp.active ? null : <Badge tone="grey">Off</Badge>}
                 {exp.online ? <Badge tone="green">Website</Badge> : null}
                 {exp.at_counter ? <Badge tone="green">Counter</Badge> : null}
+                {exp.extendable ? <Badge tone="blue">Can book longer</Badge> : null}
                 {exp.badges.map((b) => (
                   <Badge key={b} tone="blue">
                     {b}
@@ -166,6 +171,9 @@ export default function ExperiencesPage() {
                   <Td>{p.active ? <Badge tone="green">On</Badge> : <Badge tone="grey">Off</Badge>}</Td>
                   <Td>
                     <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setEditingPromo({ promo: p, exp })}>
+                        Edit
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -239,6 +247,22 @@ export default function ExperiencesPage() {
           }}
         />
       ) : null}
+      {editingPromo ? (
+        <PackagePriceDialog
+          promo={editingPromo.promo}
+          packageName={editingPromo.exp.name}
+          listPriceCents={editingPromo.exp.price_cents}
+          siblings={all
+            .filter((e) => e.active)
+            .flatMap((e) => e.promos)
+            .filter((p) => p.id !== editingPromo.promo.id && p.name === editingPromo.promo.name && p.claimed === editingPromo.promo.claimed)}
+          onClose={() => setEditingPromo(null)}
+          onSaved={() => {
+            setEditingPromo(null);
+            experiences.reload();
+          }}
+        />
+      ) : null}
       {addingPromoFor ? (
         <PromoDialog
           experience={addingPromoFor}
@@ -279,6 +303,7 @@ function ExperienceDialog({
   const [badges, setBadges] = useState((experience?.badges ?? []).join(", "));
   const [online, setOnline] = useState(experience?.online ?? true);
   const [atCounter, setAtCounter] = useState(experience?.at_counter ?? true);
+  const [extendable, setExtendable] = useState(experience?.extendable ?? false);
   const [reason, setReason] = useState("");
 
   const priceCents = parseDollars(price);
@@ -303,6 +328,7 @@ function ExperienceDialog({
       .filter(Boolean),
     online,
     atCounter,
+    extendable,
     ...(reason.trim() ? { reason: reason.trim() } : {}),
   };
 
@@ -346,6 +372,16 @@ function ExperienceDialog({
           </div>
           <p className="mt-1 text-xs text-ink-400">At the counter it&apos;s a walk-in package: paid before the table starts, nothing to pay at the end.</p>
         </fieldset>
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" className="mt-1 size-4" checked={extendable} onChange={(e) => setExtendable(e.target.checked)} />
+          <span>
+            Customers can book it for longer online
+            <span className="block text-ink-400">
+              E.g. 2 hours. The time is made of the packages with this ticked: one of exactly that length if there is one, otherwise the longest first
+              (2 hours = two 1-hour packages). Each is priced for its own start time, happy hour included.
+            </span>
+          </span>
+        </label>
         <Field label="Tagline (optional)" hint="The lime line under the name. The website prints it in capitals.">
           <Input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="Your first lap starts here." />
         </Field>

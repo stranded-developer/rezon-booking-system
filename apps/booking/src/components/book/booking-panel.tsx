@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { splitIntoPackages } from "@raceground/pricing";
 import { useAccount } from "@/components/account-provider";
 import { MonthCalendar } from "@/components/book/month-calendar";
 import { SearchSelect } from "@/components/search-select";
@@ -169,17 +170,38 @@ export function BookingPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tKey, date, startTime]);
 
-  /** An experience runs for its own length; anything else is whole sessions: 30, 60, 90 … (D90). */
+  /**
+   * D118: a package that can run longer, and the packages such a booking is made of — the same set
+   * the API uses: this type's extendable packages on the website.
+   */
+  const extendable = target.kind === "experience" && target.experience.extendable === true;
+  const sessionPackages = useMemo(
+    () => (extendable ? config.experiences.filter((e) => e.extendable && e.resourceTypeId === typeId) : []),
+    [extendable, config.experiences, typeId],
+  );
+
+  /**
+   * Anything sold by the hour is whole sessions: 30, 60, 90 … (D90). An experience runs for its own
+   * length, or (D118) longer, in whole sessions the packages can make up, until the simulator's next
+   * booking or closing time. For a group, the length every one of them is free for.
+   */
   const durations = useMemo(() => {
-    if (!slot || isExperience) return [];
-    const max = resourceId === ANY_RESOURCE ? slot.maxMinutes : (slot.resourceMaxMinutes[resourceId] ?? 0);
+    if (!slot || (isExperience && !extendable)) return [];
+    const free = Object.values(slot.resourceMaxMinutes).sort((a, b) => b - a);
+    const max = isExperience && partySize > 1 ? (free[partySize - 1] ?? 0) : resourceId === ANY_RESOURCE ? slot.maxMinutes : (slot.resourceMaxMinutes[resourceId] ?? 0);
+    const from = isExperience ? target.experience.minutes : sessionMinutes;
     const lengths: number[] = [];
-    for (let m = sessionMinutes; m <= max; m += sessionMinutes) lengths.push(m);
+    for (let m = from; m <= max; m += sessionMinutes) {
+      if (!isExperience || m === from || splitIntoPackages(m, sessionPackages) !== null) lengths.push(m);
+    }
     return lengths;
-  }, [slot, resourceId, sessionMinutes, isExperience]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slot, resourceId, sessionMinutes, isExperience, extendable, sessionPackages, partySize, tKey]);
 
   const durationMinutes = isExperience
-    ? target.experience.minutes
+    ? durationChoice !== null && durations.includes(durationChoice)
+      ? durationChoice
+      : target.experience.minutes
     : durationChoice !== null && durations.includes(durationChoice)
       ? durationChoice
       : (durations.find((m) => m >= 60) ?? durations[durations.length - 1] ?? 0);
@@ -202,7 +224,9 @@ export function BookingPanel({
   const quoteRequest = useMemo(() => {
     if (!date || !startTime || !durationMinutes) return null;
     return {
-      ...(target.kind === "experience" ? { experienceKey: target.experience.key } : { resourceTypeId: target.type.id, durationMinutes }),
+      ...(target.kind === "experience"
+        ? { experienceKey: target.experience.key, ...(durationMinutes !== target.experience.minutes ? { durationMinutes } : {}) }
+        : { resourceTypeId: target.type.id, durationMinutes }),
       date,
       startTime,
       ...(referral && !member ? { referralCode: referral.code } : {}),
@@ -749,33 +773,38 @@ function DetailsStep({
         </section>
       ) : null}
 
+      {/* Anything by the hour, and (D118) a package that can run longer. */}
+      {slot && durations.length > 0 && (!isExperience || durations.length > 1) ? (
+        <fieldset>
+          <legend className="display text-sm tracking-wide text-ink-800">How long?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {QUICK_MINUTES.filter((m) => durations.includes(m)).map((m) => (
+              <Button key={m} size="sm" variant={m === durationMinutes ? "primary" : "secondary"} aria-pressed={m === durationMinutes} onClick={() => onDuration(m)}>
+                {formatMinutes(m)}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-3 max-w-xs">
+            <Field label="Or another length">
+              <Select value={durationMinutes} onChange={(e) => onDuration(Number(e.target.value))}>
+                {durations.map((m) => (
+                  <option key={m} value={m}>
+                    {formatMinutes(m)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          <p className="mt-2 text-xs text-ink-500">
+            {isExperience
+              ? `Up to ${formatMinutes(durations[durations.length - 1]!)} from ${formatWallTime(slot.time)}. Longer than ${formatMinutes(target.experience.minutes)} is priced as our sessions back to back, each at the price for its own start time.`
+              : `Up to ${formatMinutes(slot.maxMinutes)} from ${formatWallTime(slot.time)}, until we close.`}
+          </p>
+        </fieldset>
+      ) : null}
+
       {!isExperience && slot ? (
         <>
-          <fieldset>
-            <legend className="display text-sm tracking-wide text-ink-800">How long?</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {QUICK_MINUTES.filter((m) => durations.includes(m)).map((m) => (
-                <Button key={m} size="sm" variant={m === durationMinutes ? "primary" : "secondary"} aria-pressed={m === durationMinutes} onClick={() => onDuration(m)}>
-                  {formatMinutes(m)}
-                </Button>
-              ))}
-            </div>
-            <div className="mt-3 max-w-xs">
-              <Field label="Or another length">
-                <Select value={durationMinutes} onChange={(e) => onDuration(Number(e.target.value))}>
-                  {durations.map((m) => (
-                    <option key={m} value={m}>
-                      {formatMinutes(m)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <p className="mt-2 text-xs text-ink-500">
-              Up to {formatMinutes(slot.maxMinutes)} from {formatWallTime(slot.time)}, until we close.
-            </p>
-          </fieldset>
-
           <Field label={`Which ${target.type.name}?`} hint={pickHint(freeResources)}>
             <Select value={resourceId} onChange={(e) => onResource(e.target.value)}>
               <option value={ANY_RESOURCE}>Any available</option>

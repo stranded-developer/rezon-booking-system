@@ -4,6 +4,8 @@ import { MINUTE_MS, parseWallTime, toLocal, windowContains } from "./time.js";
 import type {
   AppliedDiscount,
   AppliedExperience,
+  ExperiencePiece,
+  ExperiencePricing,
   ExperiencePromo,
   HappyHour,
   MemberDiscount,
@@ -265,35 +267,44 @@ export function priceSession(input: PriceSessionInput): PriceResult {
  * The flat price replaces the per-minute rate, but everything after it is the same as
  * `priceSession`: free play first, then the member percentage or a referral, then GST.
  */
-export function priceExperience(input: PriceExperienceInput): PriceResult {
-  const { startAt, timeZone, experience, member, referral } = input;
-  if (!Number.isFinite(startAt)) {
-    throw new PricingError("startAt must be finite epoch milliseconds");
+/**
+ * D118: the packages a booking of `minutes` is made of. A package of exactly that length is used if
+ * there is one (`preferredId` first, else the cheapest); otherwise the longest packages first, e.g.
+ * 90 minutes = a 60-minute package + a 30-minute one. Null if the packages can't make that length.
+ */
+export function splitIntoPackages<T extends { id: string; minutes: number; priceCents: number }>(minutes: number, packages: T[], preferredId?: string): T[] | null {
+  const order = (a: T, b: T) => b.minutes - a.minutes || Number(b.id === preferredId) - Number(a.id === preferredId) || a.priceCents - b.priceCents;
+  const exact = packages.filter((p) => p.minutes === minutes).sort(order)[0];
+  if (exact) return [exact];
+  const sorted = packages.filter((p) => p.minutes > 0).sort(order);
+  const out: T[] = [];
+  let left = minutes;
+  while (left > 0) {
+    const next = sorted.find((p) => p.minutes <= left);
+    if (!next) return null;
+    out.push(next);
+    left -= next.minutes;
   }
-  assertInteger(experience.minutes, "experience.minutes", 1);
-  assertInteger(experience.priceCents, "experience.priceCents", 0);
-  validateDiscounts(member, referral, input.freeMinutes);
-  for (const promo of input.promos) {
-    assertInteger(promo.priceCents, `promo ${promo.id}.priceCents`, 0);
-    parseWallTime(promo.startTime);
-    parseWallTime(promo.endTime);
-  }
+  return out;
+}
 
-  const partySize = input.partySize ?? 1;
-  assertInteger(partySize, "partySize", 1);
-  const minutes = experience.minutes;
-  // Free play covers one place: the member's own (D106).
-  const freeMinutes = Math.min(input.freeMinutes ?? 0, minutes);
-  const paidMinutes = minutes - freeMinutes;
-  const extraPlaces = partySize - 1;
-
+/**
+ * The price one package is sold at, starting at `local`: the cheapest promotion that matches, or the
+ * member's own price when that is cheaper (D66, D82). Null means the list price.
+ */
+function choosePrice(
+  pkg: ExperiencePricing,
+  local: ReturnType<typeof toLocal>,
+  promos: ExperiencePromo[],
+  claimed: Set<string>,
+  member: PriceExperienceInput["member"],
+  memberPriceCents: number | undefined,
+): AppliedExperience["promo"] {
   // The cheapest promotion that matches wins. Nothing more is needed to make
   // "the student price is not included in Happy Hour" true: $29 beats $32 (D66).
-  const claimed = new Set(input.claimedPromoIds ?? []);
-  const local = toLocal(startAt, timeZone);
   let promo: ExperiencePromo | null = null;
-  for (const p of input.promos) {
-    if (p.experienceId !== experience.id) continue;
+  for (const p of promos) {
+    if (p.experienceId !== pkg.id) continue;
     if (p.claimed && !claimed.has(p.id)) continue;
     if (!windowContains(p, local)) continue;
     if (!promo || p.priceCents < promo.priceCents) promo = p;
@@ -304,23 +315,77 @@ export function priceExperience(input: PriceExperienceInput): PriceResult {
   // tier's percentage off the list price stands in for it.
   let chosen: AppliedExperience["promo"] = promo ? { id: promo.id, name: promo.name, priceCents: promo.priceCents } : null;
   if (member) {
-    if (input.memberPriceCents !== undefined) assertInteger(input.memberPriceCents, "memberPriceCents", 0);
-    const memberPrice =
-      input.memberPriceCents ?? Number(roundHalfUp(BigInt(experience.priceCents) * (BP - BigInt(member.discountBp)), BP));
-    if (memberPrice <= (chosen?.priceCents ?? experience.priceCents)) {
+    if (memberPriceCents !== undefined) assertInteger(memberPriceCents, "memberPriceCents", 0);
+    const memberPrice = memberPriceCents ?? Number(roundHalfUp(BigInt(pkg.priceCents) * (BP - BigInt(member.discountBp)), BP));
+    if (memberPrice <= (chosen?.priceCents ?? pkg.priceCents)) {
       chosen = { id: `member:${member.tierName}`, name: `${member.tierName} member price`, priceCents: memberPrice, member: true };
     }
   }
+  return chosen;
+}
 
-  const priceCents = chosen ? chosen.priceCents : experience.priceCents;
+export function priceExperience(input: PriceExperienceInput): PriceResult {
+  const { startAt, timeZone, experience, member, referral } = input;
+  if (!Number.isFinite(startAt)) {
+    throw new PricingError("startAt must be finite epoch milliseconds");
+  }
+  for (const pkg of [experience, ...(input.packages ?? [])]) {
+    assertInteger(pkg.minutes, `${pkg.name}.minutes`, 1);
+    assertInteger(pkg.priceCents, `${pkg.name}.priceCents`, 0);
+  }
+  validateDiscounts(member, referral, input.freeMinutes);
+  for (const promo of input.promos) {
+    assertInteger(promo.priceCents, `promo ${promo.id}.priceCents`, 0);
+    parseWallTime(promo.startTime);
+    parseWallTime(promo.endTime);
+  }
+
+  const partySize = input.partySize ?? 1;
+  assertInteger(partySize, "partySize", 1);
+  const minutes = input.minutes ?? experience.minutes;
+  assertInteger(minutes, "minutes", 1);
+  // Free play covers one place: the member's own (D106).
+  const freeMinutes = Math.min(input.freeMinutes ?? 0, minutes);
+  const paidMinutes = minutes - freeMinutes;
+  const extraPlaces = partySize - 1;
+
+  // D118: a longer booking is made of packages, each priced at its own start time.
+  const split =
+    minutes === experience.minutes
+      ? [experience]
+      : splitIntoPackages(minutes, [experience, ...(input.packages ?? []).filter((p) => p.id !== experience.id)], experience.id);
+  if (!split) throw new PricingError(`${experience.name} can't be booked for ${minutes} minutes`);
+
+  const claimed = new Set(input.claimedPromoIds ?? []);
+  let pieceStart = startAt;
+  const pieces: ExperiencePiece[] = split.map((pkg) => {
+    const memberPriceCents = pkg.id === experience.id ? (input.memberPriceCents ?? input.memberPrices?.[pkg.id]) : input.memberPrices?.[pkg.id];
+    const chosen = choosePrice(pkg, toLocal(pieceStart, timeZone), input.promos, claimed, member, memberPriceCents);
+    const piece: ExperiencePiece = {
+      id: pkg.id,
+      name: pkg.name,
+      minutes: pkg.minutes,
+      localStart: toLocal(pieceStart, timeZone).label,
+      localEnd: toLocal(pieceStart + pkg.minutes * MINUTE_MS, timeZone).label,
+      listPriceCents: pkg.priceCents,
+      priceCents: chosen ? chosen.priceCents : pkg.priceCents,
+      promo: chosen,
+    };
+    pieceStart += pkg.minutes * MINUTE_MS;
+    return piece;
+  });
+  const whole = pieces.length === 1 && pieces[0]!.id === experience.id;
+
+  const priceCents = pieces.reduce((sum, p) => sum + p.priceCents, 0);
   const applied: AppliedExperience = {
     id: experience.id,
     name: experience.name,
     minutes,
-    listPriceCents: experience.priceCents,
+    listPriceCents: pieces.reduce((sum, p) => sum + p.listPriceCents, 0),
     priceCents,
-    promo: chosen,
+    promo: whole ? pieces[0]!.promo : null,
     partySize,
+    ...(whole ? {} : { pieces }),
   };
 
   // Free play covers its pro-rata share of the flat price; kept exact over `minutes`. Everyone
@@ -388,11 +453,24 @@ function explain(r: Omit<PriceResult, "explanation">): string[] {
 
   const exp = r.experience;
   if (exp) {
-    lines.push(
-      exp.promo
-        ? `${exp.name} · ${exp.minutes} min · ${exp.promo.name} ${formatCents(exp.priceCents)} (normally ${formatCents(exp.listPriceCents)})`
-        : `${exp.name} · ${exp.minutes} min · ${formatCents(exp.listPriceCents)}`,
-    );
+    if (exp.pieces) {
+      // D118: a longer booking, one line per package it is made of.
+      lines.push(`${exp.name} · ${exp.minutes} min${exp.partySize > 1 ? " · per person" : ""}`);
+      for (const p of exp.pieces) {
+        const when = `${p.localStart.slice(11)}–${p.localEnd.slice(11)}`;
+        lines.push(
+          p.promo
+            ? `${when}  ${p.name} · ${p.promo.name} (normally ${formatCents(p.listPriceCents)})  ${formatCents(p.priceCents)}`
+            : `${when}  ${p.name}  ${formatCents(p.priceCents)}`,
+        );
+      }
+    } else {
+      lines.push(
+        exp.promo
+          ? `${exp.name} · ${exp.minutes} min · ${exp.promo.name} ${formatCents(exp.priceCents)} (normally ${formatCents(exp.listPriceCents)})`
+          : `${exp.name} · ${exp.minutes} min · ${formatCents(exp.listPriceCents)}`,
+      );
+    }
     const group = exp.partySize > 1;
     if (group && r.freeMinutes === 0) {
       // D106: everyone pays the same, so one line says it all.

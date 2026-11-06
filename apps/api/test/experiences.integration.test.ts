@@ -263,11 +263,12 @@ describe("quoting an experience", () => {
     expect(r.json.quote.durationMinutes).toBe(60);
   });
 
-  it("refuses a length sent with an experience instead of trusting it", async () => {
-    // The experience's own 30 minutes wins; the 120 is ignored rather than honoured.
+  it("refuses another length on a package that can't be booked for longer (D118)", async () => {
     const r = await quote({ durationMinutes: 120 });
-    expect(r.json.quote.durationMinutes).toBe(30);
-    expect(r.json.quote.totalCents).toBe(3500);
+    expect(r.status).toBe(422);
+    expect(r.json.error.message).toBe("Test Quick Race runs for 30 minutes");
+    // Its own length, sent as such, is fine.
+    expect((await quote({ durationMinutes: 30 })).json.quote.totalCents).toBe(3500);
   });
 
   it("404s an experience that does not exist or is switched off", async () => {
@@ -326,6 +327,89 @@ describe("booking an experience", () => {
     expect(view.json.booking).toMatchObject({ what: "Test Quick Race", durationMinutes: 30 });
     expect(view.json.booking.experience).toMatchObject({ key: quickKey });
     await ctx.db.from("experiences").update({ price_cents: 3500 }).eq("id", quickId);
+  });
+});
+
+describe("a longer booking, made of packages (D118)", () => {
+  beforeAll(async () => {
+    await ctx.db.from("experiences").update({ extendable: true }).in("id", [quickId, doubleId]);
+  });
+  afterAll(async () => {
+    await ctx.db.from("experiences").update({ extendable: false, price_cents: 3500 }).eq("id", quickId);
+    await ctx.db.from("experiences").update({ extendable: false, price_cents: 5800 }).eq("id", doubleId);
+  });
+
+  it("prices 2 hours from 14:00 as a happy-hour Double and a full-price one, and says so", async () => {
+    const r = await quote({ experienceKey: doubleKey, startTime: "14:00", durationMinutes: 120 });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.quote.durationMinutes).toBe(120);
+    expect(r.json.quote.totalCents).toBe(4900 + 5800);
+    expect(r.json.quote.endsAt).toBe(new Date(at("16:00", SAT)).toISOString());
+    expect(r.json.quote.happyHour).toEqual({ name: "Test Happy Hour", priceCents: 10700, normalCents: 11600 });
+    expect(r.json.quote.explanation).toEqual([
+      "Test Double Race · 120 min",
+      "14:00–15:00  Test Double Race · Test Happy Hour (normally $58.00)  $49.00",
+      "15:00–16:00  Test Double Race  $58.00",
+      "Subtotal  $107.00",
+      "Total (incl. GST $9.73)  $107.00",
+    ]);
+  });
+
+  it("makes an odd half hour a Single, and a Single booked for an hour is the 1-hour package", async () => {
+    const ninety = await quote({ experienceKey: doubleKey, durationMinutes: 90 });
+    expect(ninety.json.quote.totalCents).toBe(5800 + 3500);
+    expect(ninety.json.quote.happyHour).toBeNull();
+    const hour = await quote({ durationMinutes: 60 });
+    expect(hour.json.quote.totalCents).toBe(5800);
+  });
+
+  it("a student price asked for applies to every package that has one of that name", async () => {
+    const r = await quote({ experienceKey: quickKey, durationMinutes: 90, claimedPromoIds: [studentPromoId] });
+    // The Double has no Test Student price of its own, so it stays $58; the Single is $32.
+    expect(r.json.quote.totalCents).toBe(5800 + 3200);
+  });
+
+  it("refuses a length that isn't whole sessions, and one shorter than the package", async () => {
+    expect((await quote({ experienceKey: doubleKey, durationMinutes: 75 })).status).toBe(422);
+    expect((await quote({ experienceKey: doubleKey, durationMinutes: 30 })).status).toBe(422);
+  });
+
+  it("holds the whole length, so the time after it can't be booked over", async () => {
+    await ctx.db.from("experiences").update({ price_cents: 0 }).in("id", [quickId, doubleId]);
+    const r = await api("/bookings/hold", {
+      body: {
+        experienceKey: doubleKey,
+        durationMinutes: 120,
+        resourceId: resourceIds[1],
+        date: SAT,
+        startTime: "10:00",
+        customer: { name: `Lola ${run}`, email: `lola-${run}@raceground.test` },
+        expectedTotalCents: 0,
+        acceptTerms: true,
+      },
+    });
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const view = await api(`/bookings/${r.json.ref}?token=${encodeURIComponent(r.json.token)}`);
+    expect(view.json.booking).toMatchObject({ what: "Test Double Race", durationMinutes: 120, venueStartTime: "10:00", venueEndTime: "12:00" });
+
+    // Rig B is taken 10:00–12:00: 11:00 is no longer free on it, 12:00 is.
+    const day = await api(`/public/availability?experience=${quickKey}&date=${SAT}`);
+    const slot = (time: string) => day.json.slots.find((s: { time: string }) => s.time === time);
+    expect(slot("11:00").resourceMaxMinutes[resourceIds[1]!]).toBe(0);
+    expect(slot("12:00").resourceMaxMinutes[resourceIds[1]!]).toBeGreaterThan(0);
+    const clash = await api("/bookings/hold", {
+      body: {
+        experienceKey: quickKey,
+        resourceId: resourceIds[1],
+        date: SAT,
+        startTime: "11:30",
+        customer: { name: `Max ${run}`, email: `max-${run}@raceground.test` },
+        expectedTotalCents: 0,
+        acceptTerms: true,
+      },
+    });
+    expect(clash.status).toBe(409);
+    expect(clash.json.error.code).toBe("slot_taken");
   });
 });
 

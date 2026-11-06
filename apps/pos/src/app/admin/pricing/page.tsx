@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Badge, bpToInput, Card, DaysPicker, daysLabel, PageHeader, parsePercent, Table, Td, useAction, useApiData } from "@/components/admin/kit";
+import { PackagePriceDialog, type PackagePromo } from "@/components/admin/package-price-dialog";
 import { usePos } from "@/components/pos-provider";
 import { Button, ErrorNote, Field, Input, Modal } from "@/components/ui";
 import { centsToInput, money, parseDollars, percent } from "@/lib/format";
@@ -36,18 +37,33 @@ interface HappyHourRow {
   active: boolean;
 }
 
+interface PackageRow {
+  id: string;
+  name: string;
+  resource_type_id: string;
+  price_cents: number;
+  active: boolean;
+  promos: PackagePromo[];
+}
+
 export default function PricingPage() {
   const types = useApiData<{ resourceTypes: ResourceType[] }>("/admin/resource-types");
   const bands = useApiData<{ rateBands: Band[] }>("/admin/rate-bands");
   const hhs = useApiData<{ happyHours: HappyHourRow[] }>("/admin/happy-hours");
+  const packages = useApiData<{ experiences: PackageRow[] }>("/admin/experiences");
   const [editingType, setEditingType] = useState<ResourceType | null>(null);
   const [addingBand, setAddingBand] = useState(false);
   const [addingHh, setAddingHh] = useState(false);
+  const [editingHh, setEditingHh] = useState<HappyHourRow | null>(null);
+  const [editingPromo, setEditingPromo] = useState<{ promo: PackagePromo; pkg: PackageRow } | null>(null);
   const [showRetired, setShowRetired] = useState(false);
   const visibleTypes = (types.data?.resourceTypes ?? []).filter((t) => showRetired || t.active);
   const visibleBands = (bands.data?.rateBands ?? []).filter((b) => showRetired || b.active);
   const visibleHhs = (hhs.data?.happyHours ?? []).filter((h) => showRetired || h.active);
   const activeTypes = (types.data?.resourceTypes ?? []).filter((t) => t.active);
+  // D117: a package's happy hour is a price of its own, set per package; shown here beside the hourly ones.
+  const activePackages = (packages.data?.experiences ?? []).filter((e) => e.active);
+  const packagePromos = activePackages.flatMap((pkg) => pkg.promos.filter((p) => !p.claimed && (showRetired || p.active)).map((promo) => ({ promo, pkg })));
   const { api } = usePos();
   const action = useAction();
   const typeName = (id: string) => types.data?.resourceTypes.find((t) => t.id === id)?.name ?? "—";
@@ -68,7 +84,7 @@ export default function PricingPage() {
           </Button>
         }
       />
-      <ErrorNote error={types.error ?? bands.error ?? hhs.error ?? action.error} />
+      <ErrorNote error={types.error ?? bands.error ?? hhs.error ?? packages.error ?? action.error} />
       <div className="space-y-6">
         <Card title="Resource types and base rates">
           <Table head={["Type", "Rate per hour", "GST", "Minimum", "Resources", "", ""]}>
@@ -138,25 +154,62 @@ export default function PricingPage() {
             </Button>
           }
         >
+          <p className="mb-3 text-sm text-ink-400">
+            Everything that gets cheaper at certain times, in one place. The website shows the days and times set here.
+          </p>
+          <h3 className="mb-2 font-semibold">Sold by the hour — percent off</h3>
           <Table head={["Name", "Applies to", "Days", "Time", "Discount", "", ""]} empty={hhs.data !== null && visibleHhs.length === 0}>
             {visibleHhs.map((h) => (
               <tr key={h.id}>
                 <Td className="font-medium">{h.name}</Td>
-                <Td>{h.resource_type_ids ? h.resource_type_ids.map(typeName).join(", ") : "Everything"}</Td>
+                <Td>{h.resource_type_ids ? h.resource_type_ids.map(typeName).join(", ") : "Everything sold by the hour"}</Td>
                 <Td>{daysLabel(h.days_of_week)}</Td>
                 <Td className="tnum">
-                  {h.start_time}–{h.end_time}
+                  {h.start_time.slice(0, 5)}–{h.end_time.slice(0, 5)}
                 </Td>
                 <Td className="font-semibold">{percent(h.discount_bp)} off</Td>
                 <Td>{h.active ? <Badge tone="green">On</Badge> : <Badge tone="grey">Off</Badge>}</Td>
                 <Td>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={action.busy}
-                    onClick={() => void action.run(async () => (await api(`/admin/happy-hours/${h.id}`, { method: "PATCH", body: { active: !h.active } }), hhs.reload()))}
-                  >
-                    {h.active ? "Turn off" : "Turn on"}
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingHh(h)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={action.busy}
+                      onClick={() => void action.run(async () => (await api(`/admin/happy-hours/${h.id}`, { method: "PATCH", body: { active: !h.active } }), hhs.reload()))}
+                    >
+                      {h.active ? "Turn off" : "Turn on"}
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </Table>
+
+          <h3 className="mb-2 mt-6 font-semibold">Packages — a price of their own</h3>
+          <p className="mb-3 text-sm text-ink-400">
+            Packages (the simulator sessions) don&apos;t take a percentage: each has its own happy-hour price. Add or remove one on Experiences.
+          </p>
+          <Table head={["Name", "Package", "Days", "Time", "Price", "", ""]} empty={packages.data !== null && packagePromos.length === 0}>
+            {packagePromos.map(({ promo, pkg }) => (
+              <tr key={promo.id}>
+                <Td className="font-medium">{promo.name}</Td>
+                <Td>
+                  {pkg.name} <span className="text-ink-400">· {typeName(pkg.resource_type_id)}</span>
+                </Td>
+                <Td>{daysLabel(promo.days_of_week)}</Td>
+                <Td className="tnum">
+                  {promo.start_time.slice(0, 5)}–{promo.end_time.slice(0, 5)}
+                </Td>
+                <Td className="tnum font-semibold">
+                  {money(promo.price_cents)} <s className="font-normal text-ink-400">{money(pkg.price_cents)}</s>
+                </Td>
+                <Td>{promo.active ? <Badge tone="green">On</Badge> : <Badge tone="grey">Off</Badge>}</Td>
+                <Td>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingPromo({ promo, pkg })}>
+                    Edit
                   </Button>
                 </Td>
               </tr>
@@ -185,13 +238,31 @@ export default function PricingPage() {
           }}
         />
       ) : null}
-      {addingHh && types.data ? (
+      {(addingHh || editingHh) && types.data ? (
         <HappyHourDialog
           types={activeTypes}
-          onClose={() => setAddingHh(false)}
+          existing={editingHh}
+          onClose={() => {
+            setAddingHh(false);
+            setEditingHh(null);
+          }}
           onSaved={() => {
             setAddingHh(false);
+            setEditingHh(null);
             hhs.reload();
+          }}
+        />
+      ) : null}
+      {editingPromo ? (
+        <PackagePriceDialog
+          promo={editingPromo.promo}
+          packageName={editingPromo.pkg.name}
+          listPriceCents={editingPromo.pkg.price_cents}
+          siblings={packagePromos.map((x) => x.promo).filter((p) => p.id !== editingPromo.promo.id && p.name === editingPromo.promo.name)}
+          onClose={() => setEditingPromo(null)}
+          onSaved={() => {
+            setEditingPromo(null);
+            packages.reload();
           }}
         />
       ) : null}
@@ -328,20 +399,32 @@ function BandDialog({ types, onClose, onSaved }: { types: ResourceType[]; onClos
   );
 }
 
-function HappyHourDialog({ types, onClose, onSaved }: { types: ResourceType[]; onClose: () => void; onSaved: () => void }) {
+/** Add a happy hour, or change one (`existing`, D117). */
+function HappyHourDialog({
+  types,
+  existing = null,
+  onClose,
+  onSaved,
+}: {
+  types: ResourceType[];
+  existing?: HappyHourRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const { api } = usePos();
   const action = useAction();
-  const [name, setName] = useState("");
-  const [all, setAll] = useState(true);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [start, setStart] = useState("10:00");
-  const [end, setEnd] = useState("15:00");
-  const [discount, setDiscount] = useState(bpToInput(1000));
+  const [name, setName] = useState(existing?.name ?? "");
+  const [all, setAll] = useState(existing ? existing.resource_type_ids === null : true);
+  const [selected, setSelected] = useState<string[]>(existing?.resource_type_ids ?? []);
+  const [days, setDays] = useState<number[]>(existing?.days_of_week ?? [1, 2, 3, 4, 5]);
+  const [start, setStart] = useState(existing?.start_time.slice(0, 5) ?? "10:00");
+  const [end, setEnd] = useState(existing?.end_time.slice(0, 5) ?? "15:00");
+  const [discount, setDiscount] = useState(bpToInput(existing?.discount_bp ?? 1000));
   const bp = parsePercent(discount);
+  const label = existing ? "Save happy hour" : "Add happy hour";
 
   return (
-    <Modal title="Add happy hour" onClose={onClose}>
+    <Modal title={existing ? existing.name : "Add happy hour"} onClose={onClose}>
       <div className="space-y-4">
         <Field label="Name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunday morning" />
@@ -387,14 +470,13 @@ function HappyHourDialog({ types, onClose, onSaved }: { types: ResourceType[]; o
           disabled={action.busy || !name.trim() || bp === null || days.length === 0 || (!all && selected.length === 0)}
           onClick={() =>
             void action.run(async () => {
-              await api("/admin/happy-hours", {
-                body: { name: name.trim(), resourceTypeIds: all ? null : selected, daysOfWeek: days, startTime: start, endTime: end, discountBp: bp },
-              });
+              const body = { name: name.trim(), resourceTypeIds: all ? null : selected, daysOfWeek: days, startTime: start, endTime: end, discountBp: bp };
+              await (existing ? api(`/admin/happy-hours/${existing.id}`, { method: "PATCH", body }) : api("/admin/happy-hours", { body }));
               onSaved();
             })
           }
         >
-          Add happy hour
+          {label}
         </Button>
       </div>
     </Modal>
